@@ -7,21 +7,23 @@ import 'package:flutter/foundation.dart';
 import '../models/player.dart';
 import '../models/player_growth.dart';
 import '../models/player_position.dart';
+import '../models/player_position_fit_columns.dart';
 import '../utils/file_download.dart';
 
 class CsvService {
   static final _csv = Csv(lineDelimiter: '\n');
+
   static List<String> get headers => [
         'id',
         'name',
         'fake_name',
         'position',
-        ...List.generate(Player.positionFitCount, (index) => 'pos_${index + 1}'),
         'rank',
         'age_stage',
         'height',
         'weight',
         'nationality',
+        ...playerPositionFitCsvColumns,
         ...List.generate(
           Player.growthPeriodCount,
           (index) => [
@@ -112,12 +114,13 @@ class CsvService {
       player.name,
       player.fakeName ?? '',
       player.position.code,
-      for (var i = 1; i <= Player.positionFitCount; i++) player.positionFit[i] ?? 0,
       player.rank ?? '',
       player.ageStage ?? '',
       player.height ?? '',
       player.weight ?? '',
       player.nationality ?? '',
+      for (var i = 0; i < playerPositionFitCsvColumns.length; i++)
+        player.positionFit[i + 1] ?? 0,
       for (var i = 0; i < Player.growthPeriodCount; i++) ...[
         player.growthType[i].speed,
         player.growthType[i].power,
@@ -158,8 +161,15 @@ class CsvService {
     }
 
     final positionFit = Player.defaultPositionFit();
+    for (var i = 0; i < playerPositionFitCsvColumns.length; i++) {
+      final column = playerPositionFitCsvColumns[i];
+      positionFit[i + 1] = readStat(column);
+    }
     for (var i = 1; i <= Player.positionFitCount; i++) {
-      positionFit[i] = readStat('pos_$i');
+      final legacyKey = 'pos_$i';
+      if (headerIndex.containsKey(legacyKey)) {
+        positionFit[i] = readStat(legacyKey);
+      }
     }
 
     final growthType = <PlayerGrowth>[];
