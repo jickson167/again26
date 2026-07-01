@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Create build env
+      - name: Create web env.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -44,7 +44,8 @@ jobs:
           fi
           python3 - <<'PY'
           import json, os
-          with open("env.json", "w", encoding="utf-8") as f:
+          with open("web/env.js", "w", encoding="utf-8") as f:
+              f.write("window.AGAIN26_CONFIG = ")
               json.dump(
                   {
                       "SUPABASE_URL": os.environ["SUPABASE_URL"],
@@ -52,16 +53,15 @@ jobs:
                   },
                   f,
               )
+              f.write(";\n")
           PY
 
       - name: Build web
         run: |
-          flutter build web --release \
-            --base-href="/again26/" \
-            --dart-define-from-file=env.json
+          flutter build web --release --base-href="/again26/"
 
-      - name: Verify Supabase config embedded
-        run: grep -q "supabase.co" build/web/main.dart.js
+      - name: Verify Supabase config in env.js
+        run: grep -q "supabase.co" build/web/env.js
 
       - name: Add SPA fallback for GitHub Pages
         run: cp build/web/index.html build/web/404.html
