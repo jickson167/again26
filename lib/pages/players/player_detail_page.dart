@@ -126,10 +126,15 @@ class _PlayerDetailBody extends StatelessWidget {
                           [
                             player.position.label,
                             if (player.rank != null) '랭크 ${player.rank}',
-                            if (player.ageStage != null) player.ageStage,
+                            if (player.ageStage != null) '${player.ageStage}세',
                             if (player.nationality != null) player.nationality,
                           ].whereType<String>().join(' · '),
                         ),
+                        if (player.peakAge != null)
+                          Text(
+                            '전성기 나이 참고: ${player.peakAge}세',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                       ],
                     ),
                   ),
@@ -143,6 +148,9 @@ class _PlayerDetailBody extends StatelessWidget {
                   children: [
                     if (player.height != null) Text('키: ${player.height} cm'),
                     if (player.weight != null) Text('몸무게: ${player.weight} kg'),
+                    if (player.ageStage != null) Text('현재나이: ${player.ageStage}세'),
+                    if (player.peakAge != null)
+                      Text('전성기 나이 (참고): ${player.peakAge}세'),
                     if (player.createdAt != null)
                       Text('등록: ${dateFormat.format(player.createdAt!.toLocal())}'),
                     if (player.updatedAt != null)
@@ -201,15 +209,34 @@ class _PlayerDetailBody extends StatelessWidget {
                       DataColumn(label: Text('스피드')),
                       DataColumn(label: Text('파워')),
                       DataColumn(label: Text('기술')),
+                      DataColumn(label: Text('평균')),
                     ],
                     rows: [
                       for (var i = 0; i < Player.growthPeriodCount; i++)
                         DataRow(
+                          color: WidgetStateProperty.resolveWith((states) {
+                            final growth = player.growthType[i];
+                            final avg = (growth.speed + growth.power + growth.technique) / 3;
+                            final peakAvg = player.growthType
+                                .map((g) => (g.speed + g.power + g.technique) / 3)
+                                .reduce((a, b) => a > b ? a : b);
+                            if (avg >= peakAvg - 0.001) {
+                              return Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.35);
+                            }
+                            return null;
+                          }),
                           cells: [
                             DataCell(Text('${i + 1}기')),
                             DataCell(Text('${player.growthType[i].speed}')),
                             DataCell(Text('${player.growthType[i].power}')),
                             DataCell(Text('${player.growthType[i].technique}')),
+                            DataCell(Text(
+                              ((player.growthType[i].speed +
+                                      player.growthType[i].power +
+                                      player.growthType[i].technique) /
+                                  3)
+                                  .toStringAsFixed(1),
+                            )),
                           ],
                         ),
                     ],

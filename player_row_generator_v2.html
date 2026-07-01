@@ -46,7 +46,15 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <option>fw</option><option>mf</option><option>df</option><option>gk</option>
 </select></div>
 <div><label>랭크 1~5</label><select id="rank"><option>3</option><option>1</option><option>2</option><option>4</option><option>5</option></select></div>
-<div><label>전성기 실제나이 age_stage</label><input id="peakAge" type="number" min="16" max="40" value="27"/></div>
+<div><label>현재나이 (게임 표시)</label><input id="currentAge" type="number" min="16" max="45" value="25"/></div>
+<div><label>전성기 패턴</label>
+<select id="peakPattern">
+<option value="early">전반기형 (1~2기)</option>
+<option value="mid" selected>중반기형 (3~5기)</option>
+<option value="late">후반기형 (6~7기)</option>
+</select></div>
+<div><label>전성기 기수 (비우면 패턴 기본)</label><input id="peakStage" type="number" min="1" max="7" placeholder="예: 4"/></div>
+<div><label>전성기 나이 (참고, 자동)</label><input id="peakAge" type="number" readonly/></div>
 <div><label>키</label><input id="height" value="180"/></div>
 <div><label>몸무게</label><input id="weight" value="75"/></div>
 <div><label>국적</label><input id="nation" value="대한민국"/></div>
@@ -61,6 +69,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
 </div>
 <div class="note">
 <b>ID 규칙:</b> 새 선수 → 다음 번호 (0001, 0002 …). 같은 이름 → 기존 ID 수정. ID 직접 입력 → 해당 ID upsert.<br/>
+<b>나이:</b> <code>current_age</code>=현재나이(게임 표시), <code>peak_age</code>=전성기 나이(참고·자동). 현재기(1~10)는 유저 영입 후 저장 데이터에서 관리.<br/>
+<b>성장:</b> 패턴별 전성기(1~2 / 3~5 / 6~7기), 8~10기 공통 하락, 10기≈1·1·1.<br/>
 <b>초상:</b> <code>web/player_images/0001.png</code> 파일을 넣으면 앱/배포 사이트에서 자동 표시.<br/>
 <b>DB:</b> 생성 버튼 클릭 시 Supabase <code>players</code> 테이블에 insert/update.
 </div>
@@ -93,28 +103,34 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="generator_config.js"></script>
 <script>
-const headers = ["id","name","fake_name","position","rank","age_stage","height","weight","nationality","pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st",
+const headers = ["id","name","fake_name","position","rank","current_age","peak_age","height","weight","nationality","pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st",
 ...Array.from({length:10},(_,i)=>[`growth_${i+1}_speed`,`growth_${i+1}_power`,`growth_${i+1}_technique`]).flat(),
 "speed","power","technique","pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization","portrait_url"];
 
 const POS_KEYS = ["pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st"];
 
+const PEAK_PATTERNS = {
+  early: { label: "전반기형", stages: [1, 2], defaultPeak: 2 },
+  mid: { label: "중반기형", stages: [3, 4, 5], defaultPeak: 4 },
+  late: { label: "후반기형", stages: [6, 7], defaultPeak: 6 },
+};
+
 const presets = {
-"손흥민":["손흥만","LW/ST","fw",5,27,183,78,9,8,9,"9,8,5",9,7,4],
-"이강인":["이강이","AM/RW","mf",5,25,174,72,7,6,10,"7,9,8",6,8,4],
-"김민재":["김민제","CB","df",5,27,190,88,7,9,7,"4,3,2",8,6,8],
-"황희찬":["황희잔","LW/ST","fw",4,27,177,77,9,8,8,"5,4,3",6,6,5],
-"조규성":["조규승","ST","fw",4,27,188,82,7,9,7,"7,4,2",7,6,6],
-"조현우":["조현후","GK","gk",4,29,189,75,7,7,6,"6,5,3",8,7,6],
-"황인범":["황인봄","CM/DM","mf",4,27,177,70,7,7,9,"5,7,6",7,8,7],
-"이재성":["이재승","CM/AM","mf",4,25,180,70,7,7,8,"5,6,5",8,8,8],
-"백승호":["백승후","DM/CM","mf",3,27,182,72,7,7,8,"5,7,5",6,7,7],
-"배준호":["배준우","AM/LW","mf",3,29,180,70,8,6,8,"5,6,5",4,6,5],
-"김승규":["김승구","GK","gk",3,25,187,84,6,7,7,"5,4,3",7,7,6],
-"송범근":["송범근","GK","gk",2,29,196,90,5,8,5,"4,3,2",5,6,6],
-"김문환":["김문완","RB","df",3,27,173,64,8,6,7,"3,4,5",5,6,6],
-"설영우":["설영후","LB/RB","df",3,27,180,72,8,7,7,"4,5,5",5,6,7],
-"오현규":["오현구","ST","fw",3,29,185,83,7,8,7,"6,3,2",5,5,6]
+"손흥민":["손흥만","LW/ST","fw",5,32,"mid",5,183,78,9,8,9,"9,8,5",9,7,4],
+"이강인":["이강이","AM/RW","mf",5,23,"early",2,174,72,7,6,10,"7,9,8",6,8,4],
+"김민재":["김민제","CB","df",5,28,"late",7,190,88,7,9,7,"4,3,2",8,6,8],
+"황희찬":["황희잔","LW/ST","fw",4,28,"mid",4,177,77,9,8,8,"5,4,3",6,6,5],
+"조규성":["조규승","ST","fw",4,28,"mid",5,188,82,7,9,7,"7,4,2",7,6,6],
+"조현우":["조현후","GK","gk",4,32,"late",7,189,75,7,7,6,"6,5,3",8,7,6],
+"황인범":["황인봄","CM/DM","mf",4,28,"mid",5,177,70,7,7,9,"5,7,6",7,8,7],
+"이재성":["이재승","CM/AM","mf",4,26,"mid",4,180,70,7,7,8,"5,6,5",8,8,8],
+"백승호":["백승후","DM/CM","mf",3,27,"mid",4,182,72,7,7,8,"5,7,5",6,7,7],
+"배준호":["배준우","AM/LW","mf",3,31,"mid",5,180,70,8,6,8,"5,6,5",4,6,5],
+"김승규":["김승구","GK","gk",3,28,"mid",4,187,84,6,7,7,"5,4,3",7,7,6],
+"송범근":["송범근","GK","gk",2,28,"late",6,196,90,5,8,5,"4,3,2",5,6,6],
+"김문환":["김문완","RB","df",3,27,"mid",4,173,64,8,6,7,"3,4,5",5,6,6],
+"설영우":["설영후","LB/RB","df",3,28,"mid",5,180,72,8,7,7,"4,5,5",5,6,7],
+"오현규":["오현구","ST","fw",3,29,"mid",5,185,83,7,8,7,"6,3,2",5,5,6]
 };
 
 let supabase = null;
@@ -163,28 +179,70 @@ function posScores(position){
  if(p.includes("ST")||p.includes("CF")){set(11,7);set(9,5);set(10,5);set(6,4)}
  return s;
 }
-function peakAgeToStage(peakAge){
-  return clamp(Math.round((peakAge - 14) / 2), 1, 10);
+function resolvePeakStage(pattern, explicit){
+  const p = PEAK_PATTERNS[pattern] || PEAK_PATTERNS.mid;
+  if(explicit != null && explicit !== ""){
+    const n = clamp(explicit, 1, 10);
+    if(p.stages.includes(n)) return n;
+    return p.stages.reduce((a,b)=>Math.abs(b-n)<Math.abs(a-n)?b:a);
+  }
+  return p.defaultPeak;
 }
-function growth(speed,power,tech,peakAge){
-  const peak = peakAgeToStage(peakAge);
- let arr=[];
- for(let stage=1; stage<=10; stage++){
-  let dist=Math.abs(stage-peak);
-  let mult=Math.max(0.35,1-dist*0.12);
-  if(stage>=peak+3) mult -= (stage-(peak+2))*0.04;
-  arr.push(
-    clamp(Math.round(speed*mult),0,10),
-    clamp(Math.round(power*mult),0,10),
-    clamp(Math.round(tech*mult),0,10)
-  );
- }
- return arr;
+function growthMultiplier(stage, peakStage){
+  if(stage === 10) return 0.1;
+  if(stage === 9) return 0.22;
+  if(stage === 8) return 0.42;
+  if(stage < peakStage){
+    const span = Math.max(peakStage - 1, 1);
+    return 0.48 + ((stage - 1) / span) * 0.52;
+  }
+  if(stage === peakStage) return 1;
+  const stepsTo8 = 8 - stage;
+  const stepsFromPeak = Math.max(8 - peakStage, 1);
+  const dropPerStep = (1 - 0.42) / stepsFromPeak;
+  return Math.max(0.42, 1 - (stage - peakStage) * dropPerStep);
 }
-function growthTypeJson(speed,power,tech,peakAge){
-  const flat = growth(speed,power,tech,peakAge);
+function statAtStage(base, stage, peakStage){
+  if(stage === 10) return Math.max(1, Math.round(base * 0.1));
+  const mult = growthMultiplier(stage, peakStage);
+  return clamp(Math.round(base * mult), 0, 10);
+}
+function growth(speed, power, tech, peakStage){
   const arr = [];
-  for(let i=0;i<10;i++){
+  for(let stage = 1; stage <= 10; stage++){
+    arr.push(
+      statAtStage(speed, stage, peakStage),
+      statAtStage(power, stage, peakStage),
+      statAtStage(tech, stage, peakStage)
+    );
+  }
+  return arr;
+}
+function findPeakStageFromGrowth(flat){
+  let best = 1, bestAvg = -1;
+  for(let i = 0; i < 10; i++){
+    const avg = (flat[i*3] + flat[i*3+1] + flat[i*3+2]) / 3;
+    if(avg > bestAvg){ bestAvg = avg; best = i + 1; }
+  }
+  return best;
+}
+function estimatedCareerStage(age){
+  return clamp(Math.round((age - 16) / 2), 1, 10);
+}
+function peakAgeReference(currentAge, peakStage){
+  const est = estimatedCareerStage(currentAge);
+  return clamp(currentAge - (est - peakStage), 16, 45);
+}
+function updatePeakAgePreview(){
+  const currentAge = clamp(document.getElementById("currentAge").value, 16, 45);
+  const pattern = document.getElementById("peakPattern").value;
+  const peakStage = resolvePeakStage(pattern, document.getElementById("peakStage").value);
+  document.getElementById("peakAge").value = peakAgeReference(currentAge, peakStage);
+}
+function growthTypeJson(speed, power, tech, peakStage){
+  const flat = growth(speed, power, tech, peakStage);
+  const arr = [];
+  for(let i = 0; i < 10; i++){
     arr.push({speed:flat[i*3], power:flat[i*3+1], technique:flat[i*3+2]});
   }
   return arr;
@@ -253,19 +311,26 @@ function fillPreset(){
  document.getElementById("position").value=p[1];
  document.getElementById("simple_position").value=p[2];
  document.getElementById("rank").value=p[3];
- document.getElementById("peakAge").value=p[4];
- document.getElementById("height").value=p[5];
- document.getElementById("weight").value=p[6];
- document.getElementById("speed").value=p[7];
- document.getElementById("power").value=p[8];
- document.getElementById("tech").value=p[9];
- document.getElementById("setpiece").value=p[10];
- document.getElementById("leadership").value=p[11];
- document.getElementById("intel").value=p[12];
- document.getElementById("org").value=p[13];
+ document.getElementById("currentAge").value=p[4];
+ document.getElementById("peakPattern").value=p[5];
+ document.getElementById("peakStage").value=p[6];
+ document.getElementById("height").value=p[7];
+ document.getElementById("weight").value=p[8];
+ document.getElementById("speed").value=p[9];
+ document.getElementById("power").value=p[10];
+ document.getElementById("tech").value=p[11];
+ document.getElementById("setpiece").value=p[12];
+ document.getElementById("leadership").value=p[13];
+ document.getElementById("intel").value=p[14];
+ document.getElementById("org").value=p[15];
+ updatePeakAgePreview();
 }
 document.getElementById("position").addEventListener("change", ()=>{
  document.getElementById("simple_position").value = simpleFromPosition(document.getElementById("position").value);
+});
+["currentAge","peakPattern","peakStage"].forEach(id=>{
+ document.getElementById(id).addEventListener("input", updatePeakAgePreview);
+ document.getElementById(id).addEventListener("change", updatePeakAgePreview);
 });
 function collectForm(){
  const name=document.getElementById("name").value.trim();
@@ -275,7 +340,10 @@ function collectForm(){
  const position=document.getElementById("position").value;
  const simple=document.getElementById("simple_position").value;
  const rank=clamp(document.getElementById("rank").value,1,5);
- const peakAge=clamp(document.getElementById("peakAge").value,16,40);
+ const currentAge=clamp(document.getElementById("currentAge").value,16,45);
+ const peakPattern=document.getElementById("peakPattern").value;
+ const peakStageInput=document.getElementById("peakStage").value.trim();
+ const peakStage=resolvePeakStage(peakPattern, peakStageInput === "" ? null : peakStageInput);
  const height=clamp(document.getElementById("height").value,150,220);
  const weight=clamp(document.getElementById("weight").value,45,120);
  const nation=document.getElementById("nation").value.trim()||"대한민국";
@@ -289,11 +357,14 @@ function collectForm(){
  const id = resolvePlayerId(name, document.getElementById("playerId").value);
  const portrait=document.getElementById("portrait").value.trim() || portraitUrlFor(id);
  const pos12 = posScores(position);
- const growthFlat = growth(speed,power,tech,peakAge);
- return { id, name, fake, position, simple, rank, peakAge, height, weight, nation, speed, power, tech, sp, leadership, intel, org, portrait, pos12, growthFlat };
+ const growthFlat = growth(speed,power,tech,peakStage);
+ const actualPeakStage = findPeakStageFromGrowth(growthFlat);
+ const peakAge = peakAgeReference(currentAge, actualPeakStage);
+ document.getElementById("peakAge").value = peakAge;
+ return { id, name, fake, position, simple, rank, currentAge, peakAge, peakStage: actualPeakStage, height, weight, nation, speed, power, tech, sp, leadership, intel, org, portrait, pos12, growthFlat };
 }
 function buildCsvRow(d){
- return [d.id,d.name,d.fake,d.simple,d.rank,d.peakAge,d.height,d.weight,d.nation,...d.pos12,...d.growthFlat,d.speed,d.power,d.tech,d.sp[0]??5,d.sp[1]??5,d.sp[2]??5,d.leadership,d.intel,d.org,d.portrait];
+ return [d.id,d.name,d.fake,d.simple,d.rank,d.currentAge,d.peakAge,d.height,d.weight,d.nation,...d.pos12,...d.growthFlat,d.speed,d.power,d.tech,d.sp[0]??5,d.sp[1]??5,d.sp[2]??5,d.leadership,d.intel,d.org,d.portrait];
 }
 function buildDbPayload(d){
  return {
@@ -303,11 +374,12 @@ function buildDbPayload(d){
    position: d.simple,
    position_fit: positionFitJson(d.pos12),
    rank: d.rank,
-   age_stage: String(d.peakAge),
+   age_stage: String(d.currentAge),
+   peak_age: d.peakAge,
    height: d.height,
    weight: d.weight,
    nationality: d.nation,
-   growth_type: growthTypeJson(d.speed,d.power,d.tech,d.peakAge),
+   growth_type: growthTypeJson(d.speed,d.power,d.tech,d.peakStage),
    speed: d.speed,
    power: d.power,
    technique: d.tech,
@@ -344,6 +416,7 @@ async function generate(){
 function copyOut(){navigator.clipboard.writeText(document.getElementById("out").value); alert("복사됨");}
 document.getElementById("header").value=headers.join(",");
 document.getElementById("presets").innerHTML=Object.keys(presets).map(n=>`<span class="badge" onclick="document.getElementById('name').value='${n}';fillPreset();">${n}</span>`).join("");
+updatePeakAgePreview();
 if(initSupabase()) loadPlayers();
 </script>
 </body>

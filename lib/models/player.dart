@@ -10,6 +10,7 @@ class Player {
     required this.positionFit,
     this.rank,
     this.ageStage,
+    this.peakAge,
     this.height,
     this.weight,
     this.nationality,
@@ -35,6 +36,7 @@ class Player {
   final Map<int, int> positionFit;
   final int? rank;
   final String? ageStage;
+  final int? peakAge;
   final int? height;
   final int? weight;
   final String? nationality;
@@ -83,6 +85,7 @@ class Player {
       positionFit: _parsePositionFit(json['position_fit']),
       rank: json['rank'] as int?,
       ageStage: json['age_stage'] as String?,
+      peakAge: json['peak_age'] as int?,
       height: json['height'] as int?,
       weight: json['weight'] as int?,
       nationality: json['nationality'] as String?,
@@ -112,6 +115,7 @@ class Player {
       'position_fit': positionFit.map((key, value) => MapEntry('$key', value)),
       'rank': rank,
       'age_stage': ageStage,
+      'peak_age': peakAge,
       'height': height,
       'weight': weight,
       'nationality': nationality,
@@ -137,6 +141,7 @@ class Player {
     Map<int, int>? positionFit,
     int? rank,
     String? ageStage,
+    int? peakAge,
     int? height,
     int? weight,
     String? nationality,
@@ -162,6 +167,7 @@ class Player {
       positionFit: positionFit ?? this.positionFit,
       rank: rank ?? this.rank,
       ageStage: ageStage ?? this.ageStage,
+      peakAge: peakAge ?? this.peakAge,
       height: height ?? this.height,
       weight: weight ?? this.weight,
       nationality: nationality ?? this.nationality,

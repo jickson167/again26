@@ -29,6 +29,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   final _fakeNameController = TextEditingController();
   final _rankController = TextEditingController();
   final _ageStageController = TextEditingController();
+  final _peakAgeController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
   final _nationalityController = TextEditingController();
@@ -65,6 +66,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _fakeNameController.dispose();
     _rankController.dispose();
     _ageStageController.dispose();
+    _peakAgeController.dispose();
     _heightController.dispose();
     _weightController.dispose();
     _nationalityController.dispose();
@@ -110,6 +112,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _fakeNameController.text = player.fakeName ?? '';
     _rankController.text = player.rank?.toString() ?? '';
     _ageStageController.text = player.ageStage ?? '';
+    _peakAgeController.text = player.peakAge?.toString() ?? '';
     _heightController.text = player.height?.toString() ?? '';
     _weightController.text = player.weight?.toString() ?? '';
     _nationalityController.text = player.nationality ?? '';
@@ -141,6 +144,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       ageStage: _ageStageController.text.trim().isEmpty
           ? null
           : _ageStageController.text.trim(),
+      peakAge: int.tryParse(_peakAgeController.text.trim()),
       height: int.tryParse(_heightController.text.trim()),
       weight: int.tryParse(_weightController.text.trim()),
       nationality: _nationalityController.text.trim().isEmpty
@@ -286,10 +290,10 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
                                     children: [
                                       Expanded(
                                         child: TextFormField(
-                                          controller: _rankController,
+                                          controller: _ageStageController,
                                           keyboardType: TextInputType.number,
                                           decoration: const InputDecoration(
-                                            labelText: '랭크',
+                                            labelText: '현재나이',
                                             border: OutlineInputBorder(),
                                           ),
                                         ),
@@ -297,9 +301,21 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: TextFormField(
-                                          controller: _ageStageController,
+                                          controller: _peakAgeController,
+                                          keyboardType: TextInputType.number,
                                           decoration: const InputDecoration(
-                                            labelText: 'age_stage',
+                                            labelText: '전성기 나이 (참고)',
+                                            border: OutlineInputBorder(),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _rankController,
+                                          keyboardType: TextInputType.number,
+                                          decoration: const InputDecoration(
+                                            labelText: '랭크',
                                             border: OutlineInputBorder(),
                                           ),
                                         ),

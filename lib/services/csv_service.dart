@@ -19,7 +19,8 @@ class CsvService {
         'fake_name',
         'position',
         'rank',
-        'age_stage',
+        'current_age',
+        'peak_age',
         'height',
         'weight',
         'nationality',
@@ -116,6 +117,7 @@ class CsvService {
       player.position.code,
       player.rank ?? '',
       player.ageStage ?? '',
+      player.peakAge ?? '',
       player.height ?? '',
       player.weight ?? '',
       player.nationality ?? '',
@@ -190,7 +192,8 @@ class CsvService {
       position: PlayerPosition.fromCode(readString('position', defaultValue: 'mf')),
       positionFit: positionFit,
       rank: readInt('rank'),
-      ageStage: readString('age_stage').isEmpty ? null : readString('age_stage'),
+      ageStage: _readCurrentAge(readString, headerIndex),
+      peakAge: readInt('peak_age'),
       height: readInt('height'),
       weight: readInt('weight'),
       nationality:
@@ -208,5 +211,17 @@ class CsvService {
       portraitUrl:
           readString('portrait_url').isEmpty ? null : readString('portrait_url'),
     );
+  }
+
+  static String? _readCurrentAge(
+    String Function(String key, {String defaultValue}) readString,
+    Map<String, int> headerIndex,
+  ) {
+    if (headerIndex.containsKey('current_age')) {
+      final value = readString('current_age');
+      return value.isEmpty ? null : value;
+    }
+    final legacy = readString('age_stage');
+    return legacy.isEmpty ? null : legacy;
   }
 }
