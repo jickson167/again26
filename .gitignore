@@ -46,6 +46,3 @@ app.*.map.json
 
 # Local Supabase credentials for web build
 env.json
-
-# Local generator Supabase config (copy from generator_config.example.js)
-generator_config.js
