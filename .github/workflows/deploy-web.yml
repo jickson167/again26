@@ -33,12 +33,35 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create build env
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing Supabase secrets. Set SUPABASE_URL and SUPABASE_ANON_KEY in repository secrets."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os
+          with open("env.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  {
+                      "SUPABASE_URL": os.environ["SUPABASE_URL"],
+                      "SUPABASE_ANON_KEY": os.environ["SUPABASE_ANON_KEY"],
+                  },
+                  f,
+              )
+          PY
+
       - name: Build web
         run: |
           flutter build web --release \
             --base-href="/again26/" \
-            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+            --dart-define-from-file=env.json
+
+      - name: Verify Supabase config embedded
+        run: grep -q "supabase.co" build/web/main.dart.js
 
       - name: Add SPA fallback for GitHub Pages
         run: cp build/web/index.html build/web/404.html
