@@ -14,33 +14,39 @@ p{color:#a7b0c0;line-height:1.5}
 label{font-size:12px;color:#cbd5e1}
 input,select,textarea{width:100%;box-sizing:border-box;background:#0b1220;color:#e5e7eb;border:1px solid #475569;border-radius:8px;padding:10px;margin-top:5px}
 textarea{height:120px;font-family:Consolas,monospace}
-button{background:#2563eb;color:white;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin-right:8px}
+button{background:#2563eb;color:white;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin-right:8px;margin-top:4px}
 button.secondary{background:#374151}
+button:disabled{opacity:.5;cursor:not-allowed}
 .badge{display:inline-block;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 10px;margin:2px;color:#cbd5e1;cursor:pointer}
 .small{font-size:12px;color:#94a3b8}
 .note{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:10px;margin-top:10px;color:#cbd5e1;font-size:13px}
+.status{padding:10px;border-radius:8px;margin-top:10px;font-size:13px}
+.status.ok{background:#064e3b;color:#a7f3d0}
+.status.err{background:#7f1d1d;color:#fecaca}
+.status.info{background:#1e3a5f;color:#bfdbfe}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <div class="wrap">
 <h1>축구 매니저 선수 CSV 한줄 생성기 v2</h1>
-<p>이름을 넣고 생성하면 스프레드시트에 붙여넣을 CSV 한 줄을 만든다. <b>age_stage는 현재 기수가 아니라, 가장 폼이 좋은 전성기 기수</b>다.</p>
+<p>생성 시 CSV 한 줄을 만들고 Supabase DB에 자동 저장한다. <b>id</b>는 <code>0001</code> 형식, <b>portrait_url</b>은 <code>player_images/{id}.png</code> 를 자동 설정한다.</p>
 
 <div class="card">
 <div class="grid">
+<div><label>선수 ID (비우면 자동)</label><input id="playerId" placeholder="예: 0001"/></div>
 <div><label>실명</label><input id="name" placeholder="예: 손흥민"/></div>
 <div><label>가명</label><input id="fake" placeholder="비워두면 자동 생성"/></div>
 <div><label>상세 포지션</label>
 <select id="position">
 <option>LW/ST</option><option>ST</option><option>RW/LW</option><option>AM/RW</option><option>CM/DM</option><option>CM</option><option>DM/CM</option><option>CB</option><option>LB</option><option>RB</option><option>GK</option>
 </select></div>
-<div><label>심플 포지션</label>
+<div><label>심플 포지션 (DB position)</label>
 <select id="simple_position">
 <option>fw</option><option>mf</option><option>df</option><option>gk</option>
 </select></div>
 <div><label>랭크 1~5</label><select id="rank"><option>3</option><option>1</option><option>2</option><option>4</option><option>5</option></select></div>
-<div><label>전성기 기수 age_stage 1~10</label><select id="age"><option>5</option><option>4</option><option>6</option><option>3</option><option>7</option><option>2</option><option>8</option><option>1</option><option>9</option><option>10</option></select></div>
+<div><label>전성기 실제나이 age_stage</label><input id="peakAge" type="number" min="16" max="40" value="27"/></div>
 <div><label>키</label><input id="height" value="180"/></div>
 <div><label>몸무게</label><input id="weight" value="75"/></div>
 <div><label>국적</label><input id="nation" value="대한민국"/></div>
@@ -51,15 +57,19 @@ button.secondary{background:#374151}
 <div><label>리더십 0~10</label><input id="leadership" value="5"/></div>
 <div><label>지성↔감각 0~10</label><input id="intel" value="5"/></div>
 <div><label>개인↔조직 0~10</label><input id="org" value="5"/></div>
-<div><label>portrait_url</label><input id="portrait" placeholder="비워도 됨"/></div>
+<div><label>portrait_url (비우면 자동)</label><input id="portrait" placeholder="player_images/0001.png 자동"/></div>
 </div>
 <div class="note">
-0~10 기준: 스피드/파워/기술은 최고 능력치 기준. 지성↔감각은 0=지성형, 10=감각형. 개인↔조직은 0=개인형, 10=조직형.
+<b>ID 규칙:</b> 새 선수 → 다음 번호 (0001, 0002 …). 같은 이름 → 기존 ID 수정. ID 직접 입력 → 해당 ID upsert.<br/>
+<b>초상:</b> <code>web/player_images/0001.png</code> 파일을 넣으면 앱/배포 사이트에서 자동 표시.<br/>
+<b>DB:</b> 생성 버튼 클릭 시 Supabase <code>players</code> 테이블에 insert/update.
 </div>
 <br/>
-<button onclick="generate()">CSV 한 줄 생성</button>
-<button class="secondary" onclick="copyOut()">복사</button>
+<button id="btnGenerate" onclick="generate()">CSV 생성 + DB 저장</button>
+<button class="secondary" onclick="copyOut()">CSV 복사</button>
 <button class="secondary" onclick="fillPreset()">이름으로 프리셋 찾기</button>
+<button class="secondary" onclick="loadPlayers()">DB 목록 새로고침</button>
+<div id="status" class="status info">DB 연결 중...</div>
 </div>
 
 <div class="card">
@@ -70,36 +80,63 @@ button.secondary{background:#374151}
 </div>
 
 <div class="card">
+<div>DB 등록 선수 (<span id="playerCount">0</span>명, ID 순)</div>
+<div id="dbList" class="small" style="margin-top:8px;line-height:1.8"></div>
+</div>
+
+<div class="card">
 <div>프리셋 선수</div>
 <div id="presets"></div>
 </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="generator_config.js"></script>
 <script>
-const headers = ["id","name","fake_name","position","simple_position","pos_1","pos_2","pos_3","pos_4","pos_5","pos_6","pos_7","pos_8","pos_9","pos_10","pos_11","pos_12","pos_13","rank","age_stage","height","weight","nationality",
+const headers = ["id","name","fake_name","position","rank","age_stage","height","weight","nationality","pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st",
 ...Array.from({length:10},(_,i)=>[`growth_${i+1}_speed`,`growth_${i+1}_power`,`growth_${i+1}_technique`]).flat(),
 "speed","power","technique","pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization","portrait_url"];
 
-// [fake, detail_position, simple_position, rank, peak_stage, height, weight, speed10, power10, tech10, setpiece, leadership10, intel10, org10]
+const POS_KEYS = ["pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st"];
+
 const presets = {
-"손흥민":["손흥만","LW/ST","fw",5,5,183,78,9,8,9,"9,8,5",9,7,4],
-"이강인":["이강이","AM/RW","mf",5,5,174,72,7,6,10,"7,9,8",6,8,4],
-"김민재":["김민제","CB","df",5,5,190,88,7,9,7,"4,3,2",8,6,8],
-"황희찬":["황희잔","LW/ST","fw",4,5,177,77,9,8,8,"5,4,3",6,6,5],
-"조규성":["조규승","ST","fw",4,5,188,82,7,9,7,"7,4,2",7,6,6],
-"조현우":["조현후","GK","gk",4,5,189,75,7,7,6,"6,5,3",8,7,6],
-"황인범":["황인봄","CM/DM","mf",4,5,177,70,7,7,9,"5,7,6",7,8,7],
-"이재성":["이재승","CM/AM","mf",4,4,180,70,7,7,8,"5,6,5",8,8,8],
-"백승호":["백승후","DM/CM","mf",3,5,182,72,7,7,8,"5,7,5",6,7,7],
-"배준호":["배준우","AM/LW","mf",3,6,180,70,8,6,8,"5,6,5",4,6,5],
-"김승규":["김승구","GK","gk",3,4,187,84,6,7,7,"5,4,3",7,7,6],
-"송범근":["송범근","GK","gk",2,6,196,90,5,8,5,"4,3,2",5,6,6],
-"김문환":["김문완","RB","df",3,5,173,64,8,6,7,"3,4,5",5,6,6],
-"설영우":["설영후","LB/RB","df",3,5,180,72,8,7,7,"4,5,5",5,6,7],
-"오현규":["오현구","ST","fw",3,6,185,83,7,8,7,"6,3,2",5,5,6]
+"손흥민":["손흥만","LW/ST","fw",5,27,183,78,9,8,9,"9,8,5",9,7,4],
+"이강인":["이강이","AM/RW","mf",5,25,174,72,7,6,10,"7,9,8",6,8,4],
+"김민재":["김민제","CB","df",5,27,190,88,7,9,7,"4,3,2",8,6,8],
+"황희찬":["황희잔","LW/ST","fw",4,27,177,77,9,8,8,"5,4,3",6,6,5],
+"조규성":["조규승","ST","fw",4,27,188,82,7,9,7,"7,4,2",7,6,6],
+"조현우":["조현후","GK","gk",4,29,189,75,7,7,6,"6,5,3",8,7,6],
+"황인범":["황인봄","CM/DM","mf",4,27,177,70,7,7,9,"5,7,6",7,8,7],
+"이재성":["이재승","CM/AM","mf",4,25,180,70,7,7,8,"5,6,5",8,8,8],
+"백승호":["백승후","DM/CM","mf",3,27,182,72,7,7,8,"5,7,5",6,7,7],
+"배준호":["배준우","AM/LW","mf",3,29,180,70,8,6,8,"5,6,5",4,6,5],
+"김승규":["김승구","GK","gk",3,25,187,84,6,7,7,"5,4,3",7,7,6],
+"송범근":["송범근","GK","gk",2,29,196,90,5,8,5,"4,3,2",5,6,6],
+"김문환":["김문완","RB","df",3,27,173,64,8,6,7,"3,4,5",5,6,6],
+"설영우":["설영후","LB/RB","df",3,27,180,72,8,7,7,"4,5,5",5,6,7],
+"오현규":["오현구","ST","fw",3,29,185,83,7,8,7,"6,3,2",5,5,6]
 };
 
+let supabase = null;
+let playersById = new Map();
+let playersByName = new Map();
+let nextNumericId = 1;
+
+function cfg(){ return window.AGAIN26_CONFIG || {}; }
+function portraitBase(){ return (cfg().PORTRAIT_BASE_URL || "https://jickson167.github.io/again26/player_images").replace(/\/$/,""); }
+function portraitUrlFor(id){ return `${portraitBase()}/${id}.png`; }
+
 function clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
+function padId(n){ return String(n).padStart(4,"0"); }
+function parseNumericId(id){
+  const n = parseInt(String(id||"").replace(/\D/g,""), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+function setStatus(msg, type="info"){
+  const el = document.getElementById("status");
+  el.className = `status ${type}`;
+  el.textContent = msg;
+}
 function fakeName(name){
  if(presets[name]) return presets[name][0];
  if(name.length>=3) return name.slice(0,-1)+"만";
@@ -113,21 +150,24 @@ function simpleFromPosition(position){
  return "fw";
 }
 function posScores(position){
- let s=Array(13).fill(1); const set=(i,v)=>s[i-1]=Math.max(s[i-1],v); const p=position.toUpperCase();
- if(p.includes("GK")) set(13,7);
- if(p.includes("CB")){[10,11,12].forEach(i=>set(i,6)); set(8,4); set(7,3); set(9,3)}
- if(p.includes("LB")){set(10,7);set(7,6);set(4,4);set(11,4)}
- if(p.includes("RB")){set(12,7);set(9,6);set(6,4);set(11,4)}
- if(p.includes("DM")){set(8,7);set(5,5);set(11,4);set(7,4);set(9,4)}
- if(p.includes("CM")){set(5,7);set(8,6);set(4,5);set(6,5)}
- if(p.includes("AM")){set(5,7);set(2,5);set(4,5);set(6,5)}
- if(p.includes("LW")){set(1,7);set(4,6);set(2,5);set(10,3)}
- if(p.includes("RW")){set(3,7);set(6,6);set(2,5);set(12,3)}
- if(p.includes("ST")||p.includes("CF")){set(2,7);set(1,5);set(3,5);set(5,4)}
+ let s=Array(12).fill(1); const set=(i,v)=>s[i]=Math.max(s[i],v); const p=position.toUpperCase();
+ if(p.includes("GK")) set(0,7);
+ if(p.includes("CB")){set(2,6);set(7,4);set(6,3);set(8,3)}
+ if(p.includes("LB")){set(1,7);set(6,6);set(3,4)}
+ if(p.includes("RB")){set(3,7);set(8,6);set(5,4)}
+ if(p.includes("DM")){set(5,7);set(4,5);set(7,4)}
+ if(p.includes("CM")){set(6,7);set(5,6);set(2,5);set(4,5)}
+ if(p.includes("AM")){set(7,7);set(10,5);set(2,5);set(4,5)}
+ if(p.includes("LW")){set(9,7);set(2,6);set(10,5)}
+ if(p.includes("RW")){set(10,7);set(4,6);set(10,5)}
+ if(p.includes("ST")||p.includes("CF")){set(11,7);set(9,5);set(10,5);set(6,4)}
  return s;
 }
-function growth(speed,power,tech,peakStage){
- const peak = clamp(peakStage,1,10);
+function peakAgeToStage(peakAge){
+  return clamp(Math.round((peakAge - 14) / 2), 1, 10);
+}
+function growth(speed,power,tech,peakAge){
+  const peak = peakAgeToStage(peakAge);
  let arr=[];
  for(let stage=1; stage<=10; stage++){
   let dist=Math.abs(stage-peak);
@@ -141,10 +181,69 @@ function growth(speed,power,tech,peakStage){
  }
  return arr;
 }
+function growthTypeJson(speed,power,tech,peakAge){
+  const flat = growth(speed,power,tech,peakAge);
+  const arr = [];
+  for(let i=0;i<10;i++){
+    arr.push({speed:flat[i*3], power:flat[i*3+1], technique:flat[i*3+2]});
+  }
+  return arr;
+}
+function positionFitJson(pos12){
+  const fit = {};
+  for(let i=0;i<pos12.length;i++) fit[String(i+1)] = pos12[i];
+  return fit;
+}
 function csvEscape(v){
  v = String(v ?? "");
  if(/[,"\n]/.test(v)) return `"${v.replaceAll('"','""')}"`;
  return v;
+}
+function initSupabase(){
+  const c = cfg();
+  if(!c.SUPABASE_URL || !c.SUPABASE_ANON_KEY){
+    setStatus("generator_config.js 가 없습니다. generator_config.example.js 를 복사해 키를 넣으세요.", "err");
+    document.getElementById("btnGenerate").disabled = true;
+    return false;
+  }
+  supabase = window.supabase.createClient(c.SUPABASE_URL, c.SUPABASE_ANON_KEY);
+  return true;
+}
+async function loadPlayers(){
+  if(!supabase && !initSupabase()) return;
+  try{
+    const { data, error } = await supabase.from("players").select("id,name").order("id", { ascending: true });
+    if(error) throw error;
+    playersById = new Map();
+    playersByName = new Map();
+    let maxId = 0;
+    (data||[]).forEach(p=>{
+      playersById.set(p.id, p);
+      playersByName.set(p.name, p);
+      maxId = Math.max(maxId, parseNumericId(p.id));
+    });
+    nextNumericId = maxId + 1;
+    document.getElementById("playerCount").textContent = String(data?.length || 0);
+    document.getElementById("dbList").innerHTML = (data||[]).map(p=>`<span class="badge" onclick="pickPlayer('${p.id}','${p.name.replace(/'/g,"\\'")}')">${p.id} ${p.name}</span>`).join("") || "등록된 선수 없음";
+    if(!document.getElementById("playerId").value.trim()){
+      document.getElementById("playerId").placeholder = `다음: ${padId(nextNumericId)}`;
+    }
+    setStatus(`DB ${data?.length||0}명 로드됨. 다음 ID: ${padId(nextNumericId)}`, "ok");
+  }catch(e){
+    setStatus(`DB 로드 실패: ${e.message}`, "err");
+  }
+}
+function pickPlayer(id, name){
+  document.getElementById("playerId").value = id;
+  document.getElementById("name").value = name;
+  if(presets[name]) fillPreset();
+}
+function resolvePlayerId(name, manualId){
+  const manual = manualId.trim();
+  if(manual) return padId(parseNumericId(manual) || manual);
+  const existing = playersByName.get(name);
+  if(existing) return existing.id;
+  return padId(nextNumericId);
 }
 function fillPreset(){
  const name=document.getElementById("name").value.trim();
@@ -154,7 +253,7 @@ function fillPreset(){
  document.getElementById("position").value=p[1];
  document.getElementById("simple_position").value=p[2];
  document.getElementById("rank").value=p[3];
- document.getElementById("age").value=p[4];
+ document.getElementById("peakAge").value=p[4];
  document.getElementById("height").value=p[5];
  document.getElementById("weight").value=p[6];
  document.getElementById("speed").value=p[7];
@@ -168,15 +267,15 @@ function fillPreset(){
 document.getElementById("position").addEventListener("change", ()=>{
  document.getElementById("simple_position").value = simpleFromPosition(document.getElementById("position").value);
 });
-function generate(){
+function collectForm(){
  const name=document.getElementById("name").value.trim();
- if(!name) return alert("이름 입력");
+ if(!name) throw new Error("이름 입력");
  if(presets[name] && !document.getElementById("fake").value.trim()) fillPreset();
  const fake=document.getElementById("fake").value.trim() || fakeName(name);
  const position=document.getElementById("position").value;
  const simple=document.getElementById("simple_position").value;
  const rank=clamp(document.getElementById("rank").value,1,5);
- const age=clamp(document.getElementById("age").value,1,10);
+ const peakAge=clamp(document.getElementById("peakAge").value,16,40);
  const height=clamp(document.getElementById("height").value,150,220);
  const weight=clamp(document.getElementById("weight").value,45,120);
  const nation=document.getElementById("nation").value.trim()||"대한민국";
@@ -187,13 +286,65 @@ function generate(){
  const leadership=clamp(document.getElementById("leadership").value,0,10);
  const intel=clamp(document.getElementById("intel").value,0,10);
  const org=clamp(document.getElementById("org").value,0,10);
- const portrait=document.getElementById("portrait").value.trim();
- const row=[Date.now(),name,fake,position,simple,...posScores(position),rank,age,height,weight,nation,...growth(speed,power,tech,age),speed,power,tech,sp[0]??5,sp[1]??5,sp[2]??5,leadership,intel,org,portrait];
- document.getElementById("out").value=row.map(csvEscape).join(",");
+ const id = resolvePlayerId(name, document.getElementById("playerId").value);
+ const portrait=document.getElementById("portrait").value.trim() || portraitUrlFor(id);
+ const pos12 = posScores(position);
+ const growthFlat = growth(speed,power,tech,peakAge);
+ return { id, name, fake, position, simple, rank, peakAge, height, weight, nation, speed, power, tech, sp, leadership, intel, org, portrait, pos12, growthFlat };
+}
+function buildCsvRow(d){
+ return [d.id,d.name,d.fake,d.simple,d.rank,d.peakAge,d.height,d.weight,d.nation,...d.pos12,...d.growthFlat,d.speed,d.power,d.tech,d.sp[0]??5,d.sp[1]??5,d.sp[2]??5,d.leadership,d.intel,d.org,d.portrait];
+}
+function buildDbPayload(d){
+ return {
+   id: d.id,
+   name: d.name,
+   fake_name: d.fake,
+   position: d.simple,
+   position_fit: positionFitJson(d.pos12),
+   rank: d.rank,
+   age_stage: String(d.peakAge),
+   height: d.height,
+   weight: d.weight,
+   nationality: d.nation,
+   growth_type: growthTypeJson(d.speed,d.power,d.tech,d.peakAge),
+   speed: d.speed,
+   power: d.power,
+   technique: d.tech,
+   pk_ability: d.sp[0]??5,
+   fk_ability: d.sp[1]??5,
+   ck_ability: d.sp[2]??5,
+   leadership: d.leadership,
+   intelligence_sense: d.intel,
+   individual_organization: d.org,
+   portrait_url: d.portrait,
+ };
+}
+async function generate(){
+ try{
+   if(!supabase && !initSupabase()) return;
+   const d = collectForm();
+   const isUpdate = playersById.has(d.id) || playersByName.has(d.name);
+   document.getElementById("playerId").value = d.id;
+   document.getElementById("portrait").value = d.portrait;
+   document.getElementById("out").value = buildCsvRow(d).map(csvEscape).join(",");
+   const payload = buildDbPayload(d);
+   const { error } = await supabase.from("players").upsert(payload, { onConflict: "id" });
+   if(error) throw error;
+   setStatus(`${isUpdate ? "수정" : "추가"} 완료: [${d.id}] ${d.name}`, "ok");
+   await loadPlayers();
+   if(!playersByName.has(d.name) || playersByName.get(d.name)?.id === d.id){
+     document.getElementById("playerId").value = "";
+     document.getElementById("playerId").placeholder = `다음: ${padId(nextNumericId)}`;
+   }
+ }catch(e){
+   setStatus(`실패: ${e.message}`, "err");
+ }
 }
 function copyOut(){navigator.clipboard.writeText(document.getElementById("out").value); alert("복사됨");}
 document.getElementById("header").value=headers.join(",");
-document.getElementById("presets").innerHTML=Object.keys(presets).map(n=>`<span class="badge" onclick="document.getElementById('name').value='${n}';fillPreset();generate();">${n}</span>`).join("");
+document.getElementById("presets").innerHTML=Object.keys(presets).map(n=>`<span class="badge" onclick="document.getElementById('name').value='${n}';fillPreset();">${n}</span>`).join("");
+if(initSupabase()) loadPlayers();
 </script>
 </body>
 </html>

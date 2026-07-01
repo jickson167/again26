@@ -20,7 +20,7 @@ class PlayerService {
       query = query.eq('position', position.code);
     }
 
-    final rows = await query.order('rank', ascending: true).order('name');
+    final rows = await query.order('id', ascending: true);
     return (rows as List)
         .map((row) => Player.fromJson(Map<String, dynamic>.from(row)))
         .toList();
