@@ -89,6 +89,21 @@ supabase/
   templates/       CSV 샘플
 ```
 
+## 배포 (GitHub Pages)
+
+`main` 브랜치 push 시 자동 배포됩니다.
+
+- **홈**: https://jickson167.github.io/again26/
+- **선수 목록**: https://jickson167.github.io/again26/players
+- **관리자**: https://jickson167.github.io/again26/admin
+
+GitHub Actions secrets (Repository → Settings → Secrets):
+
+| Secret | 값 |
+|--------|-----|
+| `SUPABASE_URL` | `https://YOUR_PROJECT.supabase.co` |
+| `SUPABASE_ANON_KEY` | Publishable key |
+
 ## 보안 참고
 
 MVP에서는 anon 키로 CRUD가 가능하도록 RLS 정책을 열어두었습니다. 운영 환경에서는 Supabase Auth와 관리자 전용 정책으로 교체하세요.
