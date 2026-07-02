@@ -1,25 +1,8 @@
-/// 포메이션 이름(예: 4-1-4-1) → 13칸 슬롯 중 선수가 서는 위치
+import 'dart:ui';
+
+/// 포메이션 이름(예: 4-2-3-1) 파싱 — 숫자는 골키퍼 제외 필드 10명
 class FormationShape {
   FormationShape._();
-
-  /// 포메이션별 고정 슬롯 (GK 13 포함, 총 11명)
-  static const _templates = {
-    '4-4-2': [10, 11, 12, 9, 4, 5, 6, 8, 1, 3, 13],
-    '4-3-3': [10, 11, 12, 9, 4, 8, 6, 1, 2, 3, 13],
-    '4-2-3-1': [10, 11, 12, 9, 8, 7, 4, 5, 6, 2, 13],
-    '3-4-1-2': [10, 11, 12, 7, 4, 6, 9, 5, 1, 3, 13],
-    '3-5-2': [10, 11, 12, 7, 4, 5, 6, 9, 1, 3, 13],
-    '3-4-3': [10, 11, 12, 7, 4, 6, 9, 1, 2, 3, 13],
-    '4-1-4-1': [10, 11, 12, 9, 8, 4, 5, 6, 7, 2, 13],
-    '4-5-1': [10, 11, 12, 9, 4, 5, 8, 6, 7, 2, 13],
-    '4-3-1-2': [10, 11, 12, 9, 4, 8, 6, 5, 2, 3, 13],
-    '4-1-2-1-2': [10, 11, 12, 9, 8, 4, 6, 5, 1, 3, 13],
-    '5-3-2': [7, 10, 11, 12, 9, 4, 8, 6, 1, 3, 13],
-    '5-4-1': [7, 10, 11, 12, 9, 4, 5, 6, 8, 2, 13],
-    '3-2-4-1': [10, 11, 12, 8, 7, 4, 5, 6, 3, 2, 13],
-    '4-2-2-2': [10, 11, 12, 9, 8, 5, 4, 6, 2, 3, 13],
-    '4-2-4': [10, 11, 12, 9, 8, 5, 1, 2, 3, 6, 13],
-  };
 
   static String? normalizeName(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -34,69 +17,39 @@ class FormationShape {
     return normalized.split('-').map(int.parse).toList();
   }
 
-  /// GK(13) 포함, 포메이션에 해당하는 슬롯만 반환
-  static Set<int> occupiedSlots(String formationName) {
-    final normalized = normalizeName(formationName);
-    if (normalized != null && _templates.containsKey(normalized)) {
-      return _templates[normalized]!.toSet();
-    }
-    return _fallbackSlots(parseLineCounts(formationName));
+  static int outfieldCount(String formationName) {
+    return parseLineCounts(formationName).fold<int>(0, (sum, count) => sum + count);
   }
 
-  static Set<int> _fallbackSlots(List<int> lines) {
+  /// 수비선(첫 숫자)부터 공격선(마지막)까지 각 줄의 좌표 (GK 제외)
+  static List<Offset> lineDotOffsets(String formationName, Size size) {
+    final lines = parseLineCounts(formationName);
     if (lines.isEmpty) {
-      return {13};
+      return [];
     }
 
-    final slots = <int>{13};
-    final pools = switch (lines.length) {
-      3 => [
-          const [10, 11, 12],
-          const [7, 4, 5, 6, 9],
-          const [1, 3],
-        ],
-      4 => [
-          const [10, 11, 12, 9],
-          const [8],
-          const [4, 5, 6, 7],
-          const [2],
-        ],
-      5 => [
-          const [10, 11, 12],
-          const [7, 9],
-          const [4, 5, 6],
-          const [8],
-          const [2],
-        ],
-      _ => [
-          const [10, 11, 12],
-          const [7, 8, 9],
-          const [4, 5, 6],
-          const [1, 2, 3],
-        ],
-    };
+    const sidePad = 10.0;
+    const topPad = 12.0;
+    const bottomPad = 12.0;
+    final usableWidth = size.width - sidePad * 2;
+    final usableHeight = size.height - topPad - bottomPad;
+    final rowCount = lines.length;
 
-    for (var i = 0; i < lines.length && i < pools.length; i++) {
-      _addDistinct(slots, lines[i], pools[i]);
+    final positions = <Offset>[];
+    for (var row = 0; row < rowCount; row++) {
+      final players = lines[row];
+      if (players <= 0) {
+        continue;
+      }
+      // row 0 = 수비(아래), 마지막 row = 공격(위)
+      final y = topPad + usableHeight * (1.0 - (row + 0.5) / rowCount);
+      for (var col = 0; col < players; col++) {
+        final x = sidePad + usableWidth * (col + 1) / (players + 1);
+        positions.add(Offset(x, y));
+      }
     }
-    return slots;
-  }
-
-  static void _addDistinct(Set<int> slots, int count, List<int> pool) {
-    if (count <= 0) {
-      return;
-    }
-    if (count >= pool.length) {
-      slots.addAll(pool);
-      return;
-    }
-    if (count == 1) {
-      slots.add(pool[pool.length ~/ 2]);
-      return;
-    }
-    for (var i = 0; i < count; i++) {
-      final idx = (i * (pool.length - 1) / (count - 1)).round();
-      slots.add(pool[idx]);
-    }
+    return positions;
   }
 }
+
+// Offset is from dart:ui - need import in formation_shape or use a record

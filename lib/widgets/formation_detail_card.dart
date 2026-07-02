@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/formation.dart';
 import '../models/key_position.dart';
 import '../utils/formation_display.dart';
-import '../utils/formation_shape.dart';
 import '../utils/formation_slot_layout.dart';
 import 'formation_pitch_diagram.dart';
 import 'game_stat_bar.dart';
@@ -300,7 +299,6 @@ class _HeaderKeyPositionRow extends StatelessWidget {
             keySlots: {slot},
             width: 52,
             height: 62,
-            highlightSlots: FormationShape.occupiedSlots(formationName),
           ),
           const SizedBox(width: 8),
           Expanded(

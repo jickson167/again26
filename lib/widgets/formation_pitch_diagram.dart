@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../utils/formation_shape.dart';
 import '../utils/formation_slot_layout.dart';
 
-/// 포메이션 미니맵 — 이름에 맞는 슬롯 배치 + 키포지션 slot 별표
+/// 포메이션 미니맵 — 줄별 10명 배치 + 키포지션 slot 별표 (GK 점 없음)
 class FormationPitchDiagram extends StatelessWidget {
   const FormationPitchDiagram({
     super.key,
@@ -13,16 +13,16 @@ class FormationPitchDiagram extends StatelessWidget {
     required this.keySlots,
     this.width = 120,
     this.height = 150,
-    this.highlightSlots,
+    this.showFormationDots = true,
   });
 
   final String formationName;
   final Set<int> keySlots;
+
+  /// GK(13) 키포지션 별표는 제외하고 필드 10명만 표시
+  final bool showFormationDots;
   final double width;
   final double height;
-
-  /// 지정 시 해당 슬롯만 강조 (키포지션 미니맵용)
-  final Set<int>? highlightSlots;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class FormationPitchDiagram extends StatelessWidget {
         painter: _FormationPitchPainter(
           formationName: formationName,
           keySlots: keySlots,
-          highlightOnly: highlightSlots,
+          showFormationDots: showFormationDots,
         ),
         size: Size(width, height),
       ),
@@ -45,12 +45,12 @@ class _FormationPitchPainter extends CustomPainter {
   _FormationPitchPainter({
     required this.formationName,
     required this.keySlots,
-    this.highlightOnly,
+    required this.showFormationDots,
   });
 
   final String formationName;
   final Set<int> keySlots;
-  final Set<int>? highlightOnly;
+  final bool showFormationDots;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -75,35 +75,52 @@ class _FormationPitchPainter extends CustomPainter {
       linePaint,
     );
     canvas.drawLine(
-      Offset(6, size.height * 0.55),
-      Offset(size.width - 6, size.height * 0.55),
+      Offset(6, size.height * 0.58),
+      Offset(size.width - 6, size.height * 0.58),
       linePaint,
     );
 
-    final occupied = highlightOnly ?? FormationShape.occupiedSlots(formationName);
-
-    for (final slot in occupied) {
-      final center = FormationSlotLayout.slotOffset(slot, size: size);
-      final isKey = keySlots.contains(slot);
-
-      if (highlightOnly != null && !highlightOnly!.contains(slot) && !isKey) {
-        continue;
-      }
-
-      canvas.drawCircle(center, 4, Paint()..color = Colors.blue.shade400);
-      canvas.drawCircle(
-        center,
-        4,
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.25)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
-      );
-
-      if (isKey) {
-        _drawStar(canvas, center);
+    if (showFormationDots) {
+      for (final center in FormationShape.lineDotOffsets(formationName, size)) {
+        if (_isNearKeyStar(center, size)) {
+          continue;
+        }
+        _drawBlueDot(canvas, center);
       }
     }
+
+    for (final slot in keySlots) {
+      final center = FormationSlotLayout.slotOffset(slot, size: size);
+      if (slot != 13) {
+        _drawBlueDot(canvas, center);
+      }
+      _drawStar(canvas, center);
+    }
+  }
+
+  bool _isNearKeyStar(Offset dot, Size size) {
+    for (final slot in keySlots) {
+      if (slot == 13) {
+        continue;
+      }
+      final star = FormationSlotLayout.slotOffset(slot, size: size);
+      if ((dot - star).distance < 10) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  void _drawBlueDot(Canvas canvas, Offset center) {
+    canvas.drawCircle(center, 4, Paint()..color = Colors.blue.shade400);
+    canvas.drawCircle(
+      center,
+      4,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
   }
 
   void _drawStar(Canvas canvas, Offset center) {
@@ -136,6 +153,6 @@ class _FormationPitchPainter extends CustomPainter {
   bool shouldRepaint(covariant _FormationPitchPainter oldDelegate) {
     return oldDelegate.formationName != formationName ||
         oldDelegate.keySlots != keySlots ||
-        oldDelegate.highlightOnly != highlightOnly;
+        oldDelegate.showFormationDots != showFormationDots;
   }
 }
