@@ -200,7 +200,6 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                     GameStatBar(label: '파워', value: player.power, color: Colors.red),
                     GameStatBar(label: '슈팅', value: player.shooting, color: Colors.deepOrange),
                     GameStatBar(label: '패스', value: player.passing, color: Colors.teal),
-                    GameStatBar(label: '수비', value: player.defense, color: Colors.indigo),
                     GameStatBar(label: '활동량', value: player.stamina, color: Colors.brown),
                     if (player.position == PlayerPosition.gk || player.goalkeeper > 0)
                       GameStatBar(label: 'GK', value: player.goalkeeper, color: Colors.purple),

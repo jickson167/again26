@@ -1,61 +1,956 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>선수 CSV 한줄 생성기 v3</title>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>선수 CSV 생성기 v3</title>
 <style>
 body{font-family:Arial,"Noto Sans KR",sans-serif;background:#111827;color:#e5e7eb;margin:0;padding:24px}
-.wrap{max-width:1200px;margin:auto}.card{background:#1f2937;border:1px solid #374151;border-radius:14px;padding:18px;margin:14px 0}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}label{font-size:12px;color:#cbd5e1}
+.wrap{max-width:1200px;margin:auto}
+.card{background:#1f2937;border:1px solid #374151;border-radius:14px;padding:18px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+label{font-size:12px;color:#cbd5e1;display:block}
 input,select,textarea{width:100%;box-sizing:border-box;background:#0b1220;color:#e5e7eb;border:1px solid #475569;border-radius:8px;padding:10px;margin-top:5px}
-textarea{height:110px;font-family:Consolas,monospace}button{background:#2563eb;color:white;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin-right:8px}
-button.secondary{background:#374151}.badge{display:inline-block;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 10px;margin:2px;color:#cbd5e1;cursor:pointer}
-.rec{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.recitem{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:10px}
-.bar{height:8px;background:#334155;border-radius:999px;overflow:hidden;margin-top:6px}.fill{height:100%;background:#22c55e}.small{font-size:12px;color:#94a3b8}
-@media(max-width:900px){.grid,.rec{grid-template-columns:repeat(2,1fr)}}
-</style></head><body><div class="wrap">
-<h1>축구 매니저 선수 CSV 한줄 생성기 v3</h1>
-<p>v3: 추천 키포지션 TOP5 자동 계산. 요구능력 수치 없이 키포지션 궁합으로 전략성을 만든다.</p>
-<div class="card"><div class="grid">
-<div><label>실명</label><input id="name" placeholder="예: 손흥민"></div><div><label>가명</label><input id="fake" placeholder="비워두면 자동 생성"></div>
-<div><label>상세 포지션</label><select id="position"><option>LW/ST</option><option>ST</option><option>RW/LW</option><option>AM/RW</option><option>CM/DM</option><option>CM</option><option>DM/CM</option><option>CB</option><option>LB</option><option>RB</option><option>GK</option></select></div>
-<div><label>심플 포지션</label><select id="simple_position"><option>fw</option><option>mf</option><option>df</option><option>gk</option></select></div>
-<div><label>랭크 1~5</label><select id="rank"><option>3</option><option>1</option><option>2</option><option>4</option><option>5</option></select></div>
-<div><label>전성기 기수</label><select id="age"><option>5</option><option>4</option><option>6</option><option>3</option><option>7</option><option>2</option><option>8</option><option>1</option><option>9</option><option>10</option></select></div>
-<div><label>키</label><input id="height" value="180"></div><div><label>몸무게</label><input id="weight" value="75"></div>
-<div><label>스피드 0~10</label><input id="speed" value="7"></div><div><label>파워 0~10</label><input id="power" value="7"></div><div><label>기술 0~10</label><input id="tech" value="7"></div><div><label>슈팅 0~10</label><input id="shooting" value="6"></div>
-<div><label>패스 0~10</label><input id="passing" value="6"></div><div><label>수비 0~10</label><input id="defense" value="5"></div><div><label>활동량 0~10</label><input id="stamina" value="6"></div><div><label>GK 0~10</label><input id="goalkeeper" value="0"></div>
-<div><label>PK/FK/CK 0~10</label><input id="setpiece" value="5,5,5"></div><div><label>리더십 0~10</label><input id="leadership" value="5"></div><div><label>지성↔감각 0~10</label><input id="intel" value="5"></div><div><label>개인↔조직 0~10</label><input id="org" value="5"></div>
-<div><label>국적</label><input id="nation" value="대한민국"></div><div><label>portrait_url</label><input id="portrait"></div>
-</div><br><button onclick="generate()">CSV 한 줄 생성</button><button class="secondary" onclick="copyOut()">복사</button><button class="secondary" onclick="fillPreset()">프리셋 찾기</button></div>
-<div class="card"><h3>추천 키포지션 TOP 5</h3><div id="recommend" class="rec"></div></div>
-<div class="card"><div class="small">헤더</div><textarea id="header" readonly></textarea><div class="small">CSV 한 줄</div><textarea id="out" readonly></textarea></div>
-<div class="card"><div>프리셋 선수</div><div id="presets"></div></div>
+input[readonly]{opacity:.85;cursor:default}
+textarea{font-family:Consolas,monospace}
+button{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin-right:8px;margin-top:4px}
+button.secondary{background:#374151}
+button:disabled{opacity:.5;cursor:not-allowed}
+.small{font-size:12px;color:#94a3b8}
+.note{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:10px;margin-top:10px;color:#cbd5e1;font-size:13px;line-height:1.6}
+.status{padding:10px;border-radius:8px;margin-top:10px;font-size:13px}
+.status.ok{background:#064e3b;color:#a7f3d0}.status.err{background:#7f1d1d;color:#fecaca}.status.info{background:#1e3a5f;color:#bfdbfe}
+.rec{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.recitem{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:10px}
+.bar{height:8px;background:#334155;border-radius:999px;overflow:hidden;margin-top:6px}.fill{height:100%;background:#22c55e}
+.viz-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.grid,.rec,.viz-row{grid-template-columns:1fr}}
+.pitch-wrap{position:relative;border-radius:12px;overflow:hidden;border:1px solid #334155}
+.pitch-bg{width:100%;display:block;aspect-ratio:68/105;background:linear-gradient(180deg,#2d6a4f 0%,#40916c 40%,#52b788 100%)}
+.pitch-grid{position:absolute;inset:0;display:grid;grid-template-rows:repeat(4,1fr);grid-template-columns:repeat(3,1fr);gap:2px;padding:8px}
+.sy-cell{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);border-radius:4px;border:1px solid rgba(255,255,255,.15)}
+.sy-cell.t4{background:rgba(234,88,12,.92)}.sy-cell.t3{background:rgba(234,88,12,.62)}.sy-cell.t2{background:rgba(234,88,12,.32)}.sy-cell.t1{background:rgba(234,88,12,.12)}
+.sy-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#cbd5e1}
+.sy-legend span{display:inline-flex;align-items:center;gap:4px}
+.sy-legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.growth-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.growth-table th,.growth-table td{border:1px solid #334155;padding:6px;text-align:center}
+.growth-table th{background:#0b1220;color:#94a3b8}
+#growthChart{width:100%;height:220px;background:#0b1220;border:1px solid #334155;border-radius:10px;display:block}
+.growth-style-box{background:#0b1220;border:2px solid #3b82f6;border-radius:12px;padding:14px 16px;line-height:1.7;font-size:14px}
+.growth-style-box .tag{display:inline-block;background:#1e3a5f;color:#93c5fd;border-radius:999px;padding:4px 12px;font-weight:700;margin-right:8px;font-size:15px}
+.growth-style-box .sub{color:#94a3b8;font-size:13px;margin-top:6px}
+.prompt-box{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:12px;font-size:12px;white-space:pre-wrap;line-height:1.5;max-height:320px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>축구 매니저 선수 CSV 생성기 v3</h1>
+<p>ChatGPT CSV 붙여넣기 → 폼 → DB 저장. <b>1기=1년</b>, 1기 나이=데뷔(age), N기 나이=age+(N−1). 전성기 기수=peak_age−age+1.</p>
+
+<div class="card">
+  <h3 style="margin-top:0">ChatGPT용 프롬프트 (복사)</h3>
+  <div id="chatgptPrompt" class="prompt-box"></div>
+  <button class="secondary" onclick="copyPrompt()">프롬프트 복사</button>
+  <button class="secondary" onclick="copyHeader()">헤더만 복사</button>
 </div>
+
+<div class="card">
+  <div class="small">CSV 붙여넣기 (헤더+한 줄, 또는 한 줄만)</div>
+  <textarea id="csvPaste" rows="4" placeholder="ChatGPT가 만든 CSV를 붙여넣으세요"></textarea>
+  <br>
+  <button onclick="applyCsvPaste()">CSV 적용</button>
+  <button id="btnDb" class="secondary" onclick="saveToDb()">DB 저장</button>
+  <button class="secondary" onclick="copyOut()">CSV 복사</button>
+  <button class="secondary" onclick="loadPlayers()">DB 목록 새로고침</button>
+  <div id="status" class="status info">CSV 붙여넣기 후 [CSV 적용]</div>
+</div>
+
+<div class="card"><div class="grid">
+  <div><label>선수 ID (DB 자동 · CSV 무시)</label><input id="playerId" readonly placeholder="0001"></div>
+  <div><label>실명</label><input id="playerName"></div>
+  <div><label>가명</label><input id="fake"></div>
+  <div><label>상세 포지션</label><input id="position" placeholder="LW/ST"></div>
+  <div><label>심플 포지션 (fw/mf/df/gk)</label><select id="simple_position"><option>fw</option><option>mf</option><option selected>df</option><option>gk</option></select></div>
+  <div><label>랭크 1~5</label><input id="rank" type="number" min="1" max="5"></div>
+  <div><label>데뷔 나이 (1기 · 이름 알리기 시작)</label><input id="age" type="number" min="16" max="40" placeholder="예: 20"></div>
+  <div><label>전성기 나이</label><input id="peakAge" type="number" min="18" max="45" placeholder="예: 28"></div>
+  <div><label>성장 스타일 (전성기 패턴)</label>
+    <select id="peakPattern">
+      <option value="early">전반기형 — 1~2기 전성 (이강인·손흥민型 유망주)</option>
+      <option value="mid" selected>중반기형 — 3~5기 전성 (일반)</option>
+      <option value="late">후반기형 — 6~7기 전성 (김민재·GK型)</option>
+    </select>
+  </div>
+  <div><label>전성기 기수 (자동 · peak_age−age+1)</label><input id="peakStageHint" readonly placeholder="예: 6기"></div>
+  <div><label>키</label><input id="height" type="number"></div>
+  <div><label>몸무게</label><input id="weight" type="number"></div>
+  <div><label>스피드 0~10 (1기·영입)</label><input id="speed" type="number" min="0" max="10"></div>
+  <div><label>파워 0~10 (1기·영입)</label><input id="power" type="number" min="0" max="10"></div>
+  <div><label>기술 0~10 (1기·영입)</label><input id="tech" type="number" min="0" max="10"></div>
+  <div><label>슈팅 0~10</label><input id="shooting" type="number" min="0" max="10"></div>
+  <div><label>패스 0~10</label><input id="passing" type="number" min="0" max="10"></div>
+  <div><label>활동량 0~10</label><input id="stamina" type="number" min="0" max="10"></div>
+  <div><label>PK/FK/CK</label><input id="setpiece" placeholder="5,5,5"></div>
+  <div><label>리더십</label><input id="leadership" type="number" min="0" max="10"></div>
+  <div><label>지성↔감각</label><input id="intel" type="number" min="0" max="10"></div>
+  <div><label>개인↔조직</label><input id="org" type="number" min="0" max="10"></div>
+  <div><label>국적</label><input id="nation"></div>
+  <div><label>코멘트</label><input id="comment"></div>
+  <div><label>portrait_url</label><input id="portrait" placeholder="비우면 자동"></div>
+</div></div>
+
+<div class="card">
+  <h3 style="margin-top:0">성장 스타일</h3>
+  <div id="growthStyle" class="growth-style-box">
+    <span class="tag">—</span>
+    <span class="sub">데뷔 나이·전성기 나이 입력 또는 CSV 적용 후 표시됩니다.</span>
+  </div>
+</div>
+
+<div class="card viz-row">
+  <div>
+    <h3 style="margin-top:0">포지션 시너지 (12칸)</h3>
+    <div class="pitch-wrap">
+      <div class="pitch-bg"></div>
+      <div id="synergyGrid" class="pitch-grid"></div>
+    </div>
+    <div class="sy-legend">
+      <span><i style="background:rgba(234,88,12,.92)"></i>적절 8~10</span>
+      <span><i style="background:rgba(234,88,12,.62)"></i>보통 6~7</span>
+      <span><i style="background:rgba(234,88,12,.32)"></i>낮음 4~5</span>
+      <span><i style="background:rgba(234,88,12,.12)"></i>매우낮음 1~3</span>
+    </div>
+  </div>
+  <div>
+    <h3 style="margin-top:0">기수별 능력치 (1~10기)</h3>
+    <canvas id="growthChart"></canvas>
+    <table class="growth-table" id="growthTable"></table>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">추천 키포지션 TOP 5</h3>
+  <div id="recommend" class="rec"></div>
+</div>
+
+<div class="card">
+  <div class="small">헤더</div>
+  <textarea id="header" rows="2" readonly></textarea>
+  <div class="small">CSV 한 줄 (수정 가능)</div>
+  <textarea id="out" rows="3"></textarea>
+</div>
+
+<div class="card">
+  <div>DB 등록 선수 (<span id="playerCount">0</span>명)</div>
+  <div id="dbList" class="small" style="margin-top:8px;line-height:1.8"></div>
+</div>
+</div>
+
+<script src="generator_config.js"></script>
+<script src="key_positions_v2.js"></script>
 <script>
-const keyPositions=[{"id": "kp_poacher", "name": "포처", "simple": "fw", "main": "shooting", "sub": "speed", "mental": "sense", "team": "individual", "desc": "수비 뒷공간을 파고드는 마무리형 공격수"}, {"id": "kp_target_forward", "name": "타겟 포워드", "simple": "fw", "main": "power", "sub": "shooting", "mental": "sense", "team": "organization", "desc": "몸싸움과 제공권으로 공격의 기준점이 되는 공격수"}, {"id": "kp_false_nine", "name": "펄스 나인", "simple": "fw", "main": "technique", "sub": "passing", "mental": "intelligence", "team": "organization", "desc": "전방에서 내려와 패스와 연계로 공간을 만드는 공격수"}, {"id": "kp_wing_forward_l", "name": "왼쪽 윙포워드", "simple": "fw", "main": "speed", "sub": "technique", "mental": "sense", "team": "individual", "desc": "측면 돌파와 컷인 슈팅에 강한 공격수"}, {"id": "kp_wing_forward_r", "name": "오른쪽 윙포워드", "simple": "fw", "main": "speed", "sub": "technique", "mental": "sense", "team": "individual", "desc": "오른쪽 측면에서 돌파와 찬스메이킹을 담당"}, {"id": "kp_playmaker", "name": "플레이메이커", "simple": "mf", "main": "technique", "sub": "passing", "mental": "intelligence", "team": "organization", "desc": "중앙에서 패스와 템포를 조율하는 미드필더"}, {"id": "kp_trequartista", "name": "트레콰르티스타", "simple": "mf", "main": "technique", "sub": "shooting", "mental": "sense", "team": "individual", "desc": "공격수와 미드필더 사이에서 결정적 장면을 만드는 선수"}, {"id": "kp_box_to_box", "name": "박스 투 박스", "simple": "mf", "main": "stamina", "sub": "power", "mental": "intelligence", "team": "organization", "desc": "공수 양면을 왕복하며 압박과 전개를 담당"}, {"id": "kp_anchor", "name": "앵커맨", "simple": "mf", "main": "defense", "sub": "power", "mental": "intelligence", "team": "organization", "desc": "수비라인 앞에서 위험 지역을 차단하는 미드필더"}, {"id": "kp_wingback_l", "name": "왼쪽 윙백", "simple": "df", "main": "stamina", "sub": "speed", "mental": "intelligence", "team": "organization", "desc": "측면 전진과 수비 복귀를 모두 수행"}, {"id": "kp_wingback_r", "name": "오른쪽 윙백", "simple": "df", "main": "stamina", "sub": "speed", "mental": "intelligence", "team": "organization", "desc": "오른쪽 측면 왕복과 크로스를 담당"}, {"id": "kp_center_back", "name": "센터백", "simple": "df", "main": "defense", "sub": "power", "mental": "intelligence", "team": "organization", "desc": "수비의 중심에서 라인을 지휘하고 경합을 이김"}, {"id": "kp_sweeper", "name": "스위퍼", "simple": "df", "main": "defense", "sub": "technique", "mental": "intelligence", "team": "organization", "desc": "수비 뒷공간을 커버하고 빌드업에 관여"}, {"id": "kp_ball_playing_cb", "name": "빌드업 센터백", "simple": "df", "main": "defense", "sub": "passing", "mental": "intelligence", "team": "organization", "desc": "후방에서 정확한 패스로 공격을 시작"}, {"id": "kp_sweeper_keeper", "name": "스위퍼 키퍼", "simple": "gk", "main": "goalkeeper", "sub": "passing", "mental": "intelligence", "team": "organization", "desc": "골문 수비와 후방 빌드업을 함께 담당"}, {"id": "kp_shot_stopper", "name": "슈팅 스토퍼", "simple": "gk", "main": "goalkeeper", "sub": "power", "mental": "sense", "team": "individual", "desc": "반사신경과 선방 능력에 특화된 골키퍼"}];
-const headers=["id","name","fake_name","position","simple_position","pos_1","pos_2","pos_3","pos_4","pos_5","pos_6","pos_7","pos_8","pos_9","pos_10","pos_11","pos_12","pos_13","rank","age_stage","height","weight","nationality",
-...Array.from({length:10},(_,i)=>[`growth_${i+1}_speed`,`growth_${i+1}_power`,`growth_${i+1}_technique`]).flat(),
-"speed","power","technique","shooting","passing","defense","stamina","goalkeeper","pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization","recommend_key_positions","portrait_url"];
-const presets={
-"손흥민":["손흥만","LW/ST","fw",5,5,183,78,9,8,9,9,7,4,8,0,"9,8,5",9,7,4],
-"이강인":["이강이","AM/RW","mf",5,5,174,72,7,6,10,7,10,4,7,0,"7,9,8",6,8,4],
-"김민재":["김민제","CB","df",5,5,190,88,7,9,7,4,6,10,8,0,"4,3,2",8,6,8],
-"황희찬":["황희잔","LW/ST","fw",4,5,177,77,9,8,8,8,6,4,8,0,"5,4,3",6,6,5],
-"조규성":["조규승","ST","fw",4,5,188,82,7,9,7,8,5,5,7,0,"7,4,2",7,6,6],
-"조현우":["조현후","GK","gk",4,5,189,75,7,7,6,2,5,3,5,9,"6,5,3",8,7,6],
-"황인범":["황인봄","CM/DM","mf",4,5,177,70,7,7,9,6,9,7,9,0,"5,7,6",7,8,7]
+const keyPositions = window.KEY_POSITIONS_V2;
+const POS_KEYS = ["pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st"];
+const POS_LABELS = ["GK","LB","CB","RB","LWB","CDM","CM","CAM","RWB","LW","RW","ST"];
+const GRID_MAP = [[9,11,10],[4,7,8],[1,5,3],[2,0,6]];
+const GROWTH_COLS = Array.from({length:10},(_,i)=>[`growth_${i+1}_speed`,`growth_${i+1}_power`,`growth_${i+1}_technique`]).flat();
+const INPUT_HEADERS = [
+  "name","fake_name","position","rank","age","peak_age","height","weight","nationality",
+  ...POS_KEYS, ...GROWTH_COLS,
+  "speed","power","technique","shooting","passing","stamina",
+  "pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization",
+  "detail_position","comment","recommend_key_positions","portrait_url"
+];
+const EXPORT_HEADERS = ["id", ...INPUT_HEADERS];
+
+let playersById = new Map();
+let playersByName = new Map();
+let nextNumericId = 1;
+let dbReady = false;
+let parsedPos12 = Array(12).fill(1);
+let parsedGrowth = null;
+let parsedRecs = "";
+let parsedPeakAge = null;
+
+function $(id){ return document.getElementById(id); }
+function cfg(){ return window.AGAIN26_CONFIG || {}; }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, Number(v)||0)); }
+function padId(n){ return String(n).padStart(4,"0"); }
+function parseNumericId(id){ const n=parseInt(String(id||"").replace(/\D/g,""),10); return Number.isFinite(n)?n:0; }
+function setStatus(msg,type="info"){ const el=$("status"); el.className=`status ${type}`; el.textContent=msg; }
+function portraitBase(){ return (cfg().PORTRAIT_BASE_URL||"https://jickson167.github.io/again26/player_images").replace(/\/$/,""); }
+function portraitUrlFor(id){ return `${portraitBase()}/${id}.png`; }
+function esc(v){ v=String(v??""); return /[,\"\n]/.test(v)?'"'+v.replaceAll('"','""')+'"':v; }
+function simpleFromPosition(p){
+  p=String(p||"").toUpperCase();
+  if(p.includes("GK")) return "gk";
+  if(p.includes("CB")||p.includes("LB")||p.includes("RB")||p.includes("WB")) return "df";
+  if(p.includes("CM")||p.includes("DM")||p.includes("AM")) return "mf";
+  return "fw";
+}
+function readDebutAge(){ return clamp($("age").value,16,45)||20; }
+function readPeakAge(){ return clamp($("peakAge").value,16,50)||readDebutAge()+8; }
+function peakStageFromAges(debutAge,peakAge){ return clamp(peakAge-debutAge+1,1,10); }
+function stageToAge(debutAge,stage){ return debutAge+stage-1; }
+function findPeakStageFromMatrix(matrix){
+  let best=1,bestAvg=-1;
+  for(let i=0;i<matrix.length;i++){
+    const avg=(matrix[i][0]+matrix[i][1]+matrix[i][2])/3;
+    if(avg>bestAvg){ bestAvg=avg; best=i+1; }
+  }
+  return best;
+}
+const GROWTH_STYLES={
+  early:{label:"전반기형",range:"1~2기",stages:[1,2],defaultPeak:2,desc:"일찍 전성 → 8~10기 빠른 하락"},
+  mid:{label:"중반기형",range:"3~5기",stages:[3,4,5],defaultPeak:4,desc:"2~4기 유지 후 성장 (가장 흔함)"},
+  late:{label:"후반기형",range:"6~7기",stages:[6,7],defaultPeak:6,desc:"늦게 전성 → 유지 길지만 10기는 1"},
 };
-function clamp(v,min,max){return Math.max(min,Math.min(max,Number(v)||0))}
-function fakeName(n){return presets[n]?.[0] || (n.length>=3?n.slice(0,-1)+"만":n+"군")}
-function simpleFromPosition(p){p=p.toUpperCase();if(p.includes("GK"))return"gk";if(p.includes("CB")||p.includes("LB")||p.includes("RB"))return"df";if(p.includes("CM")||p.includes("DM")||p.includes("AM"))return"mf";return"fw"}
-function posScores(position){let s=Array(13).fill(1);const set=(i,v)=>s[i-1]=Math.max(s[i-1],v);const p=position.toUpperCase();if(p.includes("GK"))set(13,7);if(p.includes("CB")){[10,11,12].forEach(i=>set(i,6));set(8,4);set(7,3);set(9,3)}if(p.includes("LB")){set(10,7);set(7,6);set(4,4);set(11,4)}if(p.includes("RB")){set(12,7);set(9,6);set(6,4);set(11,4)}if(p.includes("DM")){set(8,7);set(5,5);set(11,4);set(7,4);set(9,4)}if(p.includes("CM")){set(5,7);set(8,6);set(4,5);set(6,5)}if(p.includes("AM")){set(5,7);set(2,5);set(4,5);set(6,5)}if(p.includes("LW")){set(1,7);set(4,6);set(2,5);set(10,3)}if(p.includes("RW")){set(3,7);set(6,6);set(2,5);set(12,3)}if(p.includes("ST")||p.includes("CF")){set(2,7);set(1,5);set(3,5);set(5,4)}return s}
-function getStats(){return {speed:clamp(speed.value,0,10),power:clamp(power.value,0,10),technique:clamp(tech.value,0,10),shooting:clamp(shooting.value,0,10),passing:clamp(passing.value,0,10),defense:clamp(defense.value,0,10),stamina:clamp(stamina.value,0,10),goalkeeper:clamp(goalkeeper.value,0,10),intel:clamp(intel.value,0,10),org:clamp(org.value,0,10),simple:simple_position.value}}
-function scoreKP(k, st){let main=st[k.main]??0, sub=st[k.sub]??0;let pos=(k.simple===st.simple)?10:((k.simple==="mf"&&st.simple==="fw")||(k.simple==="fw"&&st.simple==="mf")||(k.simple==="df"&&st.simple==="mf")?6:2);let mental=k.mental==="intelligence"?(10-st.intel):st.intel;let team=k.team==="organization"?st.org:(10-st.org);let score=main*0.42+sub*0.23+pos*0.22+mental*0.07+team*0.06;return Math.round(score*10)}
-function recommendKPs(){let st=getStats();return keyPositions.map(k=>({...k,score:scoreKP(k,st)})).sort((a,b)=>b.score-a.score).slice(0,5)}
-function renderRecs(){let r=recommendKPs();recommend.innerHTML=r.map(x=>`<div class="recitem"><b>${x.name}</b> <span class="small">${x.simple}</span><br><span class="small">${x.desc}</span><div class="bar"><div class="fill" style="width:${x.score}%"></div></div><b>${x.score}%</b></div>`).join("")}
-function growth(s,p,t,peak){let arr=[];peak=clamp(peak,1,10);for(let stage=1;stage<=10;stage++){let dist=Math.abs(stage-peak);let mult=Math.max(0.35,1-dist*0.12);if(stage>=peak+3)mult-=(stage-(peak+2))*0.04;arr.push(clamp(Math.round(s*mult),0,10),clamp(Math.round(p*mult),0,10),clamp(Math.round(t*mult),0,10));}return arr}
-function esc(v){v=String(v??"");return /[,\"\n]/.test(v)?'"'+v.replaceAll('"','""')+'"':v}
-function fillPreset(){const n=name.value.trim();if(!presets[n])return alert("프리셋 없음");const p=presets[n];fake.value=p[0];position.value=p[1];simple_position.value=p[2];rank.value=p[3];age.value=p[4];height.value=p[5];weight.value=p[6];speed.value=p[7];power.value=p[8];tech.value=p[9];shooting.value=p[10];passing.value=p[11];defense.value=p[12];stamina.value=p[13];goalkeeper.value=p[14];setpiece.value=p[15];leadership.value=p[16];intel.value=p[17];org.value=p[18];renderRecs()}
-function generate(){const n=name.value.trim();if(!n)return alert("이름 입력");if(presets[n]&&!fake.value.trim())fillPreset();let sp=setpiece.value.split(",").map(x=>clamp(x.trim(),0,10));let recs=recommendKPs().map(x=>x.id+":"+x.score).join("|");let row=[Date.now(),n,fake.value.trim()||fakeName(n),position.value,simple_position.value,...posScores(position.value),clamp(rank.value,1,5),clamp(age.value,1,10),clamp(height.value,150,220),clamp(weight.value,45,120),nation.value||"대한민국",...growth(clamp(speed.value,0,10),clamp(power.value,0,10),clamp(tech.value,0,10),clamp(age.value,1,10)),clamp(speed.value,0,10),clamp(power.value,0,10),clamp(tech.value,0,10),clamp(shooting.value,0,10),clamp(passing.value,0,10),clamp(defense.value,0,10),clamp(stamina.value,0,10),clamp(goalkeeper.value,0,10),sp[0]??5,sp[1]??5,sp[2]??5,clamp(leadership.value,0,10),clamp(intel.value,0,10),clamp(org.value,0,10),recs,portrait.value.trim()];out.value=row.map(esc).join(",");renderRecs()}
-function copyOut(){navigator.clipboard.writeText(out.value);alert("복사됨")}
-document.querySelectorAll("input,select").forEach(e=>e.addEventListener("input",renderRecs));position.addEventListener("change",()=>{simple_position.value=simpleFromPosition(position.value);renderRecs()});
-header.value=headers.join(",");presets.innerHTML=Object.keys(presets).map(n=>`<span class="badge" onclick="name.value='${n}';fillPreset();generate();">${n}</span>`).join("");renderRecs();
-</script></body></html>
+const PEAK_PATTERNS=GROWTH_STYLES;
+function patternFromPeakStage(peakStage){
+  const p=clamp(peakStage,1,10);
+  if(p<=2) return "early";
+  if(p<=5) return "mid";
+  return "late";
+}
+function detectGrowthStyle(peakStage){
+  const key=patternFromPeakStage(peakStage);
+  return {...GROWTH_STYLES[key],peakStage:clamp(peakStage,1,10),key};
+}
+function syncPeakPatternSelect(peakStage){
+  const sel=$("peakPattern");
+  if(sel) sel.value=patternFromPeakStage(peakStage);
+  const hint=$("peakStageHint");
+  if(hint) hint.value=peakStage?`${peakStage}기`:"";
+}
+function applyPeakPatternToPeakAge(){
+  const pattern=$("peakPattern")?.value||"mid";
+  const meta=PEAK_PATTERNS[pattern]||PEAK_PATTERNS.mid;
+  const debut=readDebutAge();
+  $("peakAge").value=stageToAge(debut,meta.defaultPeak);
+}
+function maxStatRise(rank){ return clamp(rank,1,5)>=5?3:2; }
+function rankBaseFloor(rank){ return [3,4,5,6,7][clamp(rank,1,5)-1]; }
+function rankBaseCeil(rank){ return [6,7,8,9,10][clamp(rank,1,5)-1]; }
+function peakHoldEndStage(rank){ return [5,6,6,7,8][clamp(rank,1,5)-1]; }
+function enforceRankBaseStats(baseStats,rank){
+  const r=clamp(rank,1,5);
+  const floor=rankBaseFloor(r);
+  const ceil=rankBaseCeil(r);
+  return baseStats.map(v=>clamp(Math.max(clamp(v,0,10),floor),0,ceil));
+}
+function readBaseStats(){
+  const rank=clamp($("rank").value,1,5);
+  return enforceRankBaseStats([
+    clamp($("speed").value,0,10),
+    clamp($("power").value,0,10),
+    clamp($("tech").value,0,10),
+  ],rank);
+}
+function inferPeakStat(base,csvPeak,rank){
+  const rise=Math.min(maxStatRise(rank),Math.max(0,(csvPeak??base)-base));
+  return clamp(base+rise,base,10);
+}
+function fillGrowthLeg(m,statIdx,startIdx,endIdx,fromVal,toVal){
+  let cur=fromVal;
+  m[startIdx][statIdx]=cur;
+  for(let i=startIdx+1;i<=endIdx;i++){
+    if(cur>=toVal){ m[i][statIdx]=toVal; cur=toVal; continue; }
+    cur=Math.min(toVal,cur+1);
+    m[i][statIdx]=cur;
+  }
+  m[endIdx][statIdx]=toVal;
+}
+function applyPostPeakDecline(m,statIdx,holdEndStage){
+  const holdIdx=clamp(holdEndStage,1,10)-1;
+  let cur=m[holdIdx][statIdx];
+  for(let i=holdIdx+1;i<9;i++){
+    if(cur<=1){ m[i][statIdx]=1; cur=1; continue; }
+    cur=Math.max(1,cur-1);
+    m[i][statIdx]=Math.min(cur,m[i-1][statIdx]);
+  }
+  m[9][statIdx]=1;
+}
+function rebuildGrowthCurve(baseStats,peakStage,rank,rawHint){
+  const base=enforceRankBaseStats(baseStats,rank);
+  const peak=clamp(peakStage,1,10);
+  const holdEnd=Math.max(peak,peakHoldEndStage(rank));
+  const m=Array.from({length:10},()=>[0,0,0]);
+  for(let s=0;s<3;s++){
+    const b=base[s];
+    const hintPeak=rawHint?rawHint[peak-1][s]:null;
+    const peakVal=inferPeakStat(b,hintPeak??b+maxStatRise(rank),rank);
+    if(peak>=5){
+      for(let i=0;i<4;i++) m[i][s]=b;
+      if(peak>4) fillGrowthLeg(m,s,4,peak-1,b,peakVal);
+      else m[peak-1][s]=peakVal;
+    }else{
+      fillGrowthLeg(m,s,0,peak-1,b,peakVal);
+      for(let i=peak;i<4;i++) m[i][s]=peakVal;
+    }
+    for(let i=Math.max(0,peak-1);i<=Math.min(holdEnd-1,9);i++) m[i][s]=peakVal;
+    applyPostPeakDecline(m,s,holdEnd);
+    m[0][s]=b;
+    if(peak>=5){ for(let i=1;i<4;i++) m[i][s]=b; }
+  }
+  return m;
+}
+function growthMatrixChanged(before,after){
+  for(let i=0;i<10;i++){
+    for(let s=0;s<3;s++){
+      if(before[i][s]!==after[i][s]) return true;
+    }
+  }
+  return false;
+}
+function renderGrowthStyle(peakStage){
+  const el=$("growthStyle");
+  if(!el) return;
+  const st=detectGrowthStyle(peakStage);
+  syncPeakPatternSelect(peakStage);
+  const rank=clamp($("rank").value,1,5)||3;
+  const rise=maxStatRise(rank);
+  const hold=Math.max(peakStage||1,peakHoldEndStage(rank));
+  const debut=readDebutAge();
+  const peakAge=readPeakAge();
+  if(!$("age").value&&!$("peakAge").value){
+    el.innerHTML=`<span class="tag">미설정</span><span class="sub">데뷔 나이·전성기 나이를 입력하거나 CSV를 적용하세요.</span>`;
+    return;
+  }
+  el.innerHTML=
+    `<span class="tag">${st.label}</span>`+
+    `<span class="tag" style="background:#422006;color:#fdba74;border:1px solid #ea580c">${st.peakStage}기 전성 (${peakAge}세)</span>`+
+    `<span class="tag" style="background:#14532d;color:#86efac;border:1px solid #22c55e">랭크 ${rank}</span>`+
+    `<div class="sub" style="margin-top:10px">`+
+    `📌 ${st.desc}<br>`+
+    `· 1기(영입) speed/power/technique: <b>${rankBaseFloor(rank)}~${rankBaseCeil(rank)}</b> (지금 폼: ${readBaseStats().join("/")})<br>`+
+    `· 2~4기: 1기와 동일 유지 · 5기~${st.peakStage}기: 최대 +${rise} 성장<br>`+
+    `· ${st.peakStage}~${hold}기: 전성기 수치 유지 · 이후 하락 · 10기=1<br>`+
+    `· 나이: ${debut}세(1기) → ${peakAge}세(전성) · 패턴 ${st.range}</div>`;
+}
+function synergyTier(v){
+  v=clamp(v,1,10);
+  if(v>=8) return 4;
+  if(v>=6) return 3;
+  if(v>=4) return 2;
+  return 1;
+}
+
+const CHATGPT_PROMPT = `당신은 축구 매니저 게임 "Again26" 선수 CSV 생성기입니다.
+
+=== 출력 형식 (가장 중요) ===
+1) 설명·인사·마크다운·코드블록 절대 금지
+2) CSV 데이터 **딱 1줄**만 출력 (헤더 줄 없음)
+3) 컬럼 개수 **정확히 ${INPUT_HEADERS.length}개** — growth만 30개, 빠지면 뒤 컬럼 전부 밀림
+
+=== 선수 ===
+이름: {PLAYER_NAME}
+권장 성장 스타일: {GROWTH_PATTERN_HINT}
+
+=== [A] 기본 정보 ===
+name=실명, fake_name=패러디 가명(실명과 다르게)
+position=fw|mf|df|gk 중 하나
+detail_position=LW/ST, ST, CB, GK 등 (kp_ 문자열 ❌)
+rank=1~5 (5=월드클래스 손흥민·김민재급)
+age=데뷔 나이(1기) — 실제 현재 나이 ❌, 보통 19~22
+peak_age=전성기 나이 — age+(전성기기수-1)=peak_age 필수
+height, weight, nationality
+
+=== [B] 1기 능력치 (영입·뽑기 직후) ===
+★ speed, power, technique = **1기 능력** (전성기 능력 아님!)
+★ growth_1_speed, growth_1_power, growth_1_technique 과 **반드시 동일**
+
+랭크별 1기 speed/power/technique 허용 범위:
+  rank1 → 3~6 | rank2 → 4~7 | rank3 → 5~8 | rank4 → 6~9 | rank5 → 7~10
+  손흥민(rank5) 예: speed=8, power=7, technique=8 (1기에 5~6 ❌)
+
+shooting, passing, stamina = **전성기 수준** (FW는 shooting↑, CM은 passing↑)
+
+=== [C] growth 30개 (growth_1_speed … growth_10_technique) ===
+곡선 규칙 — 어기면 게임 깨짐:
+1) growth_1~3 = 1기 (speed/power/technique와 같음)
+2) growth 2~4기(2~4번째 triple) = 1기와 **완전 동일** (유지기간)
+3) 5기~전성기: 기수당 스탯 +1 이하, 1기→전성기 총 +2 (rank5만 +3)
+   ❌ 5→10 같은 극단 상승 금지
+4) 전성기 기수 = peak_age - age + 1 에서 growth 최고치
+5) 전성기 이후 유지: rank1→5기 / rank2~3→6기 / rank4→7기 / rank5→8기
+6) 그 다음 하락, **회복 금지**, 10기 speed/power/technique = 1,1,1
+
+성장 스타일 (전성기 기수 위치):
+  전반기형=1~2기 / 중반기형=3~5기 / 후반기형=6~7기
+
+=== [D] 시너지·기타 ===
+pos_gk~pos_st: 1~10 (12개)
+pk_ability, fk_ability, ck_ability, leadership: 0~10
+intelligence_sense: 0=지성, 10=감각
+individual_organization: 0=개인, 10=조직
+comment=한줄 (쉼표 있으면 따옴표)
+recommend_key_positions=kp_id:점수|… 5개 (예: kp_poacher:92|kp_target_forward:88|…)
+portrait_url=비워도 됨
+
+=== [E] 손흥민 예시 (rank5, age21, peak28 → 전성8기, 중반기형) ===
+1기 speed/power/tech ≈ 8/7/8 → growth 2~4기도 8/7/8 → 5~8기 서서히 9/8/9 → 8기까지 유지 → 9~10기 하락 → 10기 1/1/1
+
+=== CSV 컬럼 순서 (id 없음) ===
+${INPUT_HEADERS.join(",")}
+
+=== 최종 체크 (출력 전 스스로 확인) ===
+☐ 컬럼 ${INPUT_HEADERS.length}개 맞음
+☐ growth 30개 (10기×3)
+☐ growth_1 = speed = power/tech 컬럼과 일치
+☐ rank5면 1기 능력 7 이상
+☐ age+(전성기기수-1)=peak_age
+☐ detail_position에 kp_ 없음
+☐ recommend_key_positions는 맨 뒤쪽 별도 컬럼`;
+
+function buildPrompt(){
+  const name=$("playerName").value.trim()||"손흥민";
+  const pattern=$("peakPattern")?.value||"mid";
+  const meta=PEAK_PATTERNS[pattern]||PEAK_PATTERNS.mid;
+  const hint=`${meta.label} (${meta.range}에 전성기, 기본 ${meta.defaultPeak}기)`;
+  return CHATGPT_PROMPT.replace("{PLAYER_NAME}",name).replace("{GROWTH_PATTERN_HINT}",hint);
+}
+
+function dbSettings(){
+  const c=cfg();
+  return { url:String(c.SUPABASE_URL||"").replace(/\/$/,""), key:String(c.SUPABASE_ANON_KEY||"") };
+}
+function dbHeaders(extra={}){ const {key}=dbSettings(); return {apikey:key,Authorization:`Bearer ${key}`,...extra}; }
+async function dbRequest(path,options={}){
+  const {url,key}=dbSettings();
+  if(!url||!key) throw new Error("generator_config.js Supabase 설정 없음");
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),15000);
+  try{
+    const res=await fetch(`${url}/rest/v1/${path}`,{method:options.method||"GET",headers:dbHeaders(options.headers||{}),body:options.body,signal:controller.signal});
+    if(!res.ok){ let msg=await res.text(); try{msg=JSON.parse(msg).message||msg;}catch(_){} throw new Error(msg||`HTTP ${res.status}`); }
+    if(res.status===204) return null;
+    const ct=res.headers.get("content-type")||"";
+    return ct.includes("application/json")?res.json():null;
+  }finally{ clearTimeout(timer); }
+}
+function initDb(){
+  const {url,key}=dbSettings();
+  if(!url||!key){ setStatus("Supabase 설정 없음 — CSV 적용만 가능","err"); $("btnDb").disabled=true; return false; }
+  dbReady=true; $("btnDb").disabled=false; return true;
+}
+
+function parseCsvLine(line){
+  const out=[]; let cur=""; let q=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(q){ if(c==='"'&&line[i+1]==='"'){cur+='"';i++;} else if(c==='"') q=false; else cur+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ out.push(cur); cur=""; }
+    else cur+=c;
+  }
+  out.push(cur);
+  return out.map(s=>s.trim());
+}
+
+const STAT_KEYS=["speed","power","technique","shooting","passing","stamina","pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization"];
+const TAIL_KEYS=["detail_position","comment","recommend_key_positions","portrait_url"];
+
+function isRecommendKeyPositions(s){
+  const t=String(s||"").trim();
+  return /^kp_[\w]+:\d+/i.test(t)||(t.includes("kp_")&&t.includes("|"));
+}
+function isDetailPositionValue(s){
+  const t=String(s||"").trim();
+  if(!t||isRecommendKeyPositions(t)) return false;
+  return /^[A-Z]{1,4}(\/[A-Z]{1,4}){0,2}$/i.test(t);
+}
+function parseTailFields(tail){
+  const out={detail_position:"",comment:"",recommend_key_positions:"",portrait_url:""};
+  const rest=[...tail];
+  if(rest.length&&(/^https?:\/\//i.test(rest[rest.length-1])||rest.length>3)) out.portrait_url=rest.pop()||"";
+  for(let i=rest.length-1;i>=0;i--){
+    const c=rest[i];
+    if(!out.recommend_key_positions&&isRecommendKeyPositions(c)){ out.recommend_key_positions=c; rest.splice(i,1); }
+  }
+  for(let i=rest.length-1;i>=0;i--){
+    const c=rest[i];
+    if(!out.detail_position&&isDetailPositionValue(c)){ out.detail_position=c; rest.splice(i,1); }
+  }
+  for(let i=rest.length-1;i>=0;i--){
+    const c=rest[i];
+    if(!out.comment&&c&&c.length>=2&&!/^\d+$/.test(c)&&!/^[A-Z]{1,4}(\/[A-Z]{1,4}){0,2}$/i.test(c)){
+      out.comment=c; rest.splice(i,1);
+    }
+  }
+  return out;
+}
+function structuredParsePlayerRow(cells){
+  let i=0;
+  const map={};
+  const take=()=>cells[i++]??"";
+  map.name=take(); map.fake_name=take(); map.position=take(); map.rank=take();
+  map.age=take(); map.peak_age=take(); map.height=take(); map.weight=take(); map.nationality=take();
+  POS_KEYS.forEach(k=>{ map[k]=take(); });
+  const tailCount=TAIL_KEYS.length;
+  const growthCount=Math.max(0,cells.length-i-tailCount-STAT_KEYS.length);
+  GROWTH_COLS.forEach((k,idx)=>{ map[k]=cells[i+idx]??""; });
+  i+=growthCount;
+  STAT_KEYS.forEach(k=>{ map[k]=take(); });
+  Object.assign(map,parseTailFields(cells.slice(i)));
+  map._parseMeta={mode:"structured",expected:INPUT_HEADERS.length,actual:cells.length,growthCount};
+  return map;
+}
+function repairMisalignedMap(map,cells){
+  if(isRecommendKeyPositions(map.detail_position)){
+    if(!map.recommend_key_positions) map.recommend_key_positions=map.detail_position;
+    map.detail_position="";
+  }
+  if(map.comment&&isRecommendKeyPositions(map.comment)){
+    if(!map.recommend_key_positions) map.recommend_key_positions=map.comment;
+    map.comment="";
+  }
+  if(map.individual_organization&&!/^\d+$/.test(String(map.individual_organization))){
+    map.individual_organization="";
+  }
+  if(map.intelligence_sense&&!/^\d+$/.test(String(map.intelligence_sense))){
+    map.intelligence_sense="";
+  }
+  const tail=parseTailFields(cells.slice(-6));
+  if(!map.detail_position&&tail.detail_position) map.detail_position=tail.detail_position;
+  if(!map.comment&&tail.comment) map.comment=tail.comment;
+  if(!map.recommend_key_positions&&tail.recommend_key_positions) map.recommend_key_positions=tail.recommend_key_positions;
+  if(!map.portrait_url&&tail.portrait_url) map.portrait_url=tail.portrait_url;
+  if(!map.intelligence_sense||!map.individual_organization){
+    const nums=[];
+    for(let j=cells.length-1;j>=0&&nums.length<5;j--){
+      const v=cells[j];
+      if(/^\d+$/.test(v)&&Number(v)<=10) nums.unshift(v);
+    }
+    if(nums.length>=3){
+      if(!map.leadership||!/^\d+$/.test(String(map.leadership))) map.leadership=nums[nums.length-3];
+      if(!map.intelligence_sense) map.intelligence_sense=nums[nums.length-2];
+      if(!map.individual_organization) map.individual_organization=nums[nums.length-1];
+    }
+  }
+  return map;
+}
+function parseCsvPaste(text){
+  const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length) throw new Error("CSV 비어 있음");
+  let headerLine,dataLine;
+  if(lines.length===1){
+    const cells=parseCsvLine(lines[0]);
+    if(cells[0]==="id"||cells.includes("name")) throw new Error("헤더+데이터 2줄 필요 (또는 헤더 없이 값만 1줄)");
+    dataLine=cells;
+    headerLine=INPUT_HEADERS;
+  }else{
+    headerLine=parseCsvLine(lines[0]);
+    dataLine=parseCsvLine(lines[lines.length-1]);
+  }
+  let map;
+  if(dataLine.length===headerLine.length){
+    map={};
+    headerLine.forEach((h,i)=>{ map[h]=dataLine[i]??""; });
+    map=repairMisalignedMap(map,dataLine);
+    map._parseMeta={mode:"exact",expected:headerLine.length,actual:dataLine.length,growthCount:GROWTH_COLS.length};
+  }else{
+    map=structuredParsePlayerRow(dataLine);
+    map=repairMisalignedMap(map,dataLine);
+  }
+  return map;
+}
+
+function readStat(m,key,d=0){ return clamp(m[key]??m[key.replace("age","current_age")]??d,0,10); }
+
+function applyCsvMap(m){
+  const name=m.name||"";
+  if(!name) throw new Error("name 없음");
+  $("playerName").value=name;
+  $("fake").value=m.fake_name||"";
+  const simple=(m.position||"mf").toLowerCase();
+  $("simple_position").value=["fw","mf","df","gk"].includes(simple)?simple:"mf";
+  let detailPos=m.detail_position||m.position_detail||"";
+  if(isRecommendKeyPositions(detailPos)) detailPos="";
+  if(!isDetailPositionValue(detailPos)){
+    detailPos={fw:"ST",mf:"CM",df:"CB",gk:"GK"}[simple]||"CM";
+  }
+  $("position").value=detailPos;
+  $("rank").value=m.rank||"";
+  $("age").value=m.age||m.debut_age||"";
+  $("peakAge").value=m.peak_age||"";
+  $("height").value=m.height||"";
+  $("weight").value=m.weight||"";
+  $("nation").value=m.nationality||"";
+  const hasG1=m.growth_1_speed!==undefined&&m.growth_1_speed!=="";
+  const rank=clamp(m.rank||$("rank").value,1,5);
+  const base1=enforceRankBaseStats([
+    clamp(hasG1?m.growth_1_speed:m.speed,0,10),
+    clamp(hasG1?m.growth_1_power:m.power,0,10),
+    clamp(hasG1?m.growth_1_technique:(m.technique??m.tech),0,10),
+  ],rank);
+  $("speed").value=base1[0]||"";
+  $("power").value=base1[1]||"";
+  $("tech").value=base1[2]||"";
+  $("shooting").value=m.shooting||"";
+  $("passing").value=m.passing||"";
+  $("stamina").value=m.stamina||"";
+  $("setpiece").value=[m.pk_ability,m.fk_ability,m.ck_ability].filter(x=>x!==undefined&&x!=="").join(",")||"5,5,5";
+  $("leadership").value=m.leadership||"";
+  $("intel").value=m.intelligence_sense||"";
+  $("org").value=m.individual_organization||"";
+  $("comment").value=m.comment||"";
+  parsedRecs=m.recommend_key_positions||"";
+  parsedPeakAge=m.peak_age?Number(m.peak_age):null;
+  parsedPos12=POS_KEYS.map(k=>clamp(m[k]??1,1,10));
+  parsedGrowth=GROWTH_COLS.map(k=>m[k]!==undefined&&m[k]!==""?clamp(m[k],0,10):null);
+
+  $("portrait").value=m.portrait_url||"";
+
+  const peakSt=peakStageFromAges(clamp(m.age||readDebutAge(),16,45),clamp(m.peak_age||readPeakAge(),16,50));
+  const rawGrowth=[];
+  for(let i=0;i<10;i++){
+    rawGrowth.push([
+      parsedGrowth[i*3]??base1[0],
+      parsedGrowth[i*3+1]??base1[1],
+      parsedGrowth[i*3+2]??base1[2],
+    ]);
+  }
+  const fixedGrowth=rebuildGrowthCurve(base1,peakSt,rank,rawGrowth);
+  parsedGrowth=fixedGrowth.flat();
+  if(growthMatrixChanged(rawGrowth,fixedGrowth)) m._growthNormalized=true;
+
+  refreshVisuals();
+  syncOutFromForm();
+  syncPeakPatternSelect(peakSt);
+}
+
+function isExistingPlayer(name){ return playersByName.has(String(name||"").trim()); }
+
+function resolvePlayerId(playerName){
+  const name=String(playerName||"").trim();
+  const existing=playersByName.get(name);
+  if(existing) return padId(parseNumericId(existing.id)||existing.id);
+  return padId(nextNumericId);
+}
+
+function applyCsvPaste(){
+  try{
+    const m=parseCsvPaste($("csvPaste").value);
+    applyCsvMap(m);
+    const name=m.name;
+    const id=resolvePlayerId(name);
+    const debutAge=readDebutAge();
+    const peakAge=readPeakAge();
+    const peakSt=peakStageFromAges(debutAge,peakAge);
+    const growthPeak=findPeakStageFromMatrix(getGrowthMatrix());
+    const mode=isExistingPlayer(name)?"기존 DB 수정 예정":"신규 DB 추가 예정";
+    let msg=`CSV 적용: [${id}] ${name} (${mode}) · 전성기 ${peakSt}기=${peakAge}세`;
+    if(growthPeak!==peakSt) msg+=` ⚠ growth peak ${growthPeak}기`;
+    const meta=m._parseMeta;
+    if(meta&&meta.actual!==meta.expected){
+      msg+=` ⚠ 컬럼 ${meta.actual}/${meta.expected} (growth ${meta.growthCount}/30) — 끝 필드 자동 보정`;
+    }
+    if(m._growthNormalized) msg+=` ⚠ growth/1기 능력 랭크 규칙 자동 보정`;
+    setStatus(msg,"ok");
+  }catch(e){ setStatus(`CSV 적용 실패: ${e.message}`,"err"); }
+}
+
+function getStats(){
+  const simple=$("simple_position").value;
+  const tech=clamp($("tech").value,0,10), power=clamp($("power").value,0,10), speed=clamp($("speed").value,0,10);
+  const stamina=clamp($("stamina").value,0,10);
+  const shooting=clamp($("shooting").value,0,10), passing=clamp($("passing").value,0,10);
+  return {
+    speed, power, technique:tech, stamina, shooting, passing,
+    defense:power,
+    goalkeeper: simple==="gk"?Math.max(power,tech):0,
+    intel:clamp($("intel").value,0,10), org:clamp($("org").value,0,10), simple
+  };
+}
+function scoreKP(k,st){
+  const main=st[k.main]??0, sub=st[k.sub]??0;
+  const pos=(k.simple===st.simple)?10:((k.simple==="mf"&&st.simple==="fw")||(k.simple==="fw"&&st.simple==="mf")||(k.simple==="df"&&st.simple==="mf")?6:2);
+  const mental=k.mental==="intelligence"?(10-st.intel):st.intel;
+  const team=k.team==="organization"?st.org:(10-st.org);
+  return Math.round((main*0.42+sub*0.23+pos*0.22+mental*0.07+team*0.06)*10);
+}
+function recommendKPs(){ return keyPositions.map(k=>({...k,score:scoreKP(k,getStats())})).sort((a,b)=>b.score-a.score).slice(0,5); }
+
+function renderRecs(){
+  let items=[];
+  if(parsedRecs){
+    const ids=parsedRecs.split("|").map(x=>x.split(":")[0].trim()).filter(Boolean);
+    items=ids.map(id=>{
+      const kp=keyPositions.find(k=>k.id===id);
+      const part=parsedRecs.split("|").find(p=>p.startsWith(id+":"));
+      const score=part?parseInt(part.split(":")[1],10):0;
+      return kp?{...kp,score}:null;
+    }).filter(Boolean);
+    while(items.length<5){ const r=recommendKPs().find(x=>!items.some(i=>i.id===x.id)); if(!r) break; items.push(r); }
+  }else{
+    items=recommendKPs();
+  }
+  $("recommend").innerHTML=items.slice(0,5).map(x=>`<div class="recitem"><b>${x.name}</b> <span class="small">${x.id}</span><br><span class="small">${x.desc}</span><div class="bar"><div class="fill" style="width:${x.score}%"></div></div><b>${x.score}%</b></div>`).join("");
+}
+
+function renderSynergyGrid(){
+  const grid=$("synergyGrid");
+  grid.innerHTML="";
+  GRID_MAP.forEach(row=>{
+    row.forEach(idx=>{
+      const v=parsedPos12[idx]??1;
+      const t=synergyTier(v);
+      const el=document.createElement("div");
+      el.className=`sy-cell t${t}`;
+      el.title=`${POS_LABELS[idx]} (${POS_KEYS[idx]})`;
+      el.textContent=v;
+      grid.appendChild(el);
+    });
+  });
+}
+
+function getGrowthMatrix(){
+  const base=readBaseStats();
+  const peak=peakStageFromAges(readDebutAge(),readPeakAge());
+  const rank=clamp($("rank").value,1,5);
+  let rawHint=null;
+  if(parsedGrowth&&parsedGrowth.some(v=>v!==null)){
+    rawHint=[];
+    for(let i=0;i<10;i++){
+      rawHint.push([
+        parsedGrowth[i*3]??base[0],
+        parsedGrowth[i*3+1]??base[1],
+        parsedGrowth[i*3+2]??base[2],
+      ]);
+    }
+  }
+  return rebuildGrowthCurve(base,peak,rank,rawHint);
+}
+
+function renderGrowthTable(matrix){
+  const debutAge=readDebutAge();
+  const peak=peakStageFromAges(debutAge,readPeakAge());
+  let html="<tr><th>기수</th><th>나이</th><th>스피드</th><th>파워</th><th>기술</th></tr>";
+  matrix.forEach((r,i)=>{
+    const n=i+1;
+    const yr=stageToAge(debutAge,n);
+    let tag="";
+    if(n===1) tag=" 데뷔";
+    else if(n===peak) tag=" 전성기";
+    html+=`<tr><td>${n}기${tag}</td><td>${yr}세</td><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`;
+  });
+  $("growthTable").innerHTML=html;
+}
+
+function renderGrowthChart(matrix){
+  const canvas=$("growthChart");
+  const ctx=canvas.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.clientWidth||400, H=canvas.clientHeight||220;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  ctx.scale(dpr,dpr);
+  ctx.fillStyle="#0b1220"; ctx.fillRect(0,0,W,H);
+
+  const pad={l:36,r:12,t:28,b:48};
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  ctx.strokeStyle="#334155"; ctx.lineWidth=1;
+  for(let y=0;y<=10;y++){
+    const py=pad.t+ch-(y/10)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.l,py); ctx.lineTo(W-pad.r,py); ctx.stroke();
+    ctx.fillStyle="#64748b"; ctx.font="10px sans-serif"; ctx.fillText(String(y),4,py+4);
+  }
+  for(let i=0;i<10;i++){
+    const px=pad.l+(i/9)*cw;
+    const yr=stageToAge(readDebutAge(),i+1);
+    ctx.beginPath(); ctx.moveTo(px,pad.t); ctx.lineTo(px,H-pad.b); ctx.stroke();
+    ctx.fillStyle="#64748b"; ctx.font="9px sans-serif";
+    ctx.fillText(`${i+1}기`,px-8,H-pad.b+12);
+    ctx.fillText(`${yr}세`,px-10,H-pad.b+24);
+  }
+
+  const colors=["#3b82f6","#ef4444","#22c55e"];
+  const labels=["스피드","파워","기술"];
+  const series=[0,1,2].map(ci=>matrix.map(r=>r[ci]));
+  const debutAge=readDebutAge();
+  const expectedPeak=peakStageFromAges(debutAge,readPeakAge());
+  const actualPeak=findPeakStageFromMatrix(matrix);
+
+  series.forEach((data,si)=>{
+    ctx.strokeStyle=colors[si]; ctx.lineWidth=2; ctx.beginPath();
+    data.forEach((v,i)=>{
+      const x=pad.l+(i/9)*cw;
+      const y=pad.t+ch-(v/10)*ch;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    data.forEach((v,i)=>{
+      const x=pad.l+(i/9)*cw;
+      const y=pad.t+ch-(v/10)*ch;
+      ctx.fillStyle=colors[si]; ctx.fillRect(x-3,y-3,6,6);
+    });
+  });
+
+  ctx.font="11px sans-serif";
+  series.forEach((_,si)=>{
+    ctx.fillStyle=colors[si];
+    ctx.fillRect(pad.l+si*72,8,10,10);
+    ctx.fillStyle="#e5e7eb";
+    ctx.fillText(labels[si],pad.l+si*72+14,17);
+  });
+  const peakX=pad.l+((expectedPeak-1)/9)*cw;
+  ctx.strokeStyle="#fbbf24"; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(peakX,pad.t); ctx.lineTo(peakX,H-pad.b); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle="#fbbf24"; ctx.font="10px sans-serif";
+  ctx.fillText(`전성기 ${expectedPeak}기 (${readPeakAge()}세)`,Math.max(pad.l,peakX-40),H-pad.b+40);
+  if(actualPeak!==expectedPeak){
+    ctx.fillStyle="#f87171";
+    ctx.fillText(`growth peak ${actualPeak}기 — peak_age와 불일치`,Math.max(pad.l,peakX-40),H-pad.b+54);
+  }
+}
+
+function refreshVisuals(){
+  renderSynergyGrid();
+  const peak=peakStageFromAges(readDebutAge(),readPeakAge());
+  renderGrowthStyle(peak);
+  const matrix=getGrowthMatrix();
+  renderGrowthTable(matrix);
+  renderGrowthChart(matrix);
+  renderRecs();
+}
+
+function collectForm(){
+  const playerName=$("playerName").value.trim();
+  if(!playerName) throw new Error("이름 없음");
+  const sp=$("setpiece").value.split(",").map(x=>clamp(x.trim(),0,10));
+  const id=resolvePlayerId(playerName);
+  const portraitVal=$("portrait").value.trim()||portraitUrlFor(id);
+  const matrix=getGrowthMatrix();
+  const growthFlat=matrix.flat();
+  const recs=parsedRecs||recommendKPs().map(x=>x.id+":"+x.score).join("|");
+  const age=clamp($("age").value,16,40);
+  const peakAge=clamp($("peakAge").value,18,45)||parsedPeakAge||age+10;
+  return {
+    id, name:playerName, fake:$("fake").value.trim(), simple:$("simple_position").value,
+    position:$("position").value, rank:clamp($("rank").value,1,5), age, peakAge,
+    height:clamp($("height").value,150,220), weight:clamp($("weight").value,45,120),
+    nation:$("nation").value.trim()||"대한민국",
+    speed:clamp($("speed").value,0,10), power:clamp($("power").value,0,10), tech:clamp($("tech").value,0,10),
+    shooting:clamp($("shooting").value,0,10), passing:clamp($("passing").value,0,10),
+    stamina:clamp($("stamina").value,0,10),
+    sp, leadership:clamp($("leadership").value,0,10), intel:clamp($("intel").value,0,10), org:clamp($("org").value,0,10),
+    comment:$("comment").value.trim(), portrait:portraitVal,
+    pos12:[...parsedPos12], growthFlat, recs, matrix
+  };
+}
+
+function buildCsvRow(d){
+  return [
+    d.id,d.name,d.fake,d.simple,d.rank,d.age,d.peakAge,d.height,d.weight,d.nation,
+    ...d.pos12,...d.growthFlat,
+    d.speed,d.power,d.tech,d.shooting,d.passing,d.stamina,
+    d.sp[0]??5,d.sp[1]??5,d.sp[2]??5,d.leadership,d.intel,d.org,
+    d.position,d.comment,d.recs,d.portrait
+  ];
+}
+
+function positionFitJson(pos12){
+  const fit={};
+  for(let i=0;i<12;i++) fit[String(i+1)]=pos12[i];
+  if(pos12[0]!==undefined) fit["13"]=pos12[0];
+  return fit;
+}
+
+function growthTypeJson(matrix){
+  return matrix.map(r=>({speed:r[0],power:r[1],technique:r[2]}));
+}
+
+function buildDbPayload(d){
+  return {
+    id:d.id, name:d.name, fake_name:d.fake||null, position:d.simple,
+    detail_position:d.position, position_fit:positionFitJson(d.pos12),
+    rank:d.rank, age_stage:String(d.age), peak_age:d.peakAge,
+    height:d.height, weight:d.weight, nationality:d.nation,
+    growth_type:growthTypeJson(d.matrix),
+    speed:d.speed, power:d.power, technique:d.tech,
+    shooting:d.shooting, passing:d.passing,
+    defense:0, stamina:d.stamina, goalkeeper:0,
+    pk_ability:d.sp[0]??5, fk_ability:d.sp[1]??5, ck_ability:d.sp[2]??5,
+    leadership:d.leadership, intelligence_sense:d.intel, individual_organization:d.org,
+    comment:d.comment||null, recommend_key_positions:d.recs, portrait_url:d.portrait
+  };
+}
+
+function syncOutFromForm(){
+  try{
+    const d=collectForm();
+    $("playerId").value=d.id;
+    $("out").value=buildCsvRow(d).map(esc).join(",");
+  }catch(_){}
+}
+
+async function saveToDb(){
+  try{
+    if(!dbReady&&!initDb()) return;
+    const d=collectForm();
+    $("playerId").value=d.id;
+    $("fake").value=d.fake;
+    $("portrait").value=d.portrait;
+    $("out").value=buildCsvRow(d).map(esc).join(",");
+    const isUpdate=isExistingPlayer(d.name);
+    setStatus("DB 저장 중…","info");
+    await dbRequest("players?on_conflict=id",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify(buildDbPayload(d))
+    });
+    setStatus(`${isUpdate?"수정":"추가"} 완료: [${d.id}] ${d.name}`,"ok");
+    await loadPlayers();
+  }catch(e){ setStatus(`DB 저장 실패: ${e.message}`,"err"); }
+}
+
+async function loadPlayers(){
+  if(!dbReady&&!initDb()) return;
+  try{
+    const data=await dbRequest("players?select=id,name&order=id.asc");
+    playersById=new Map(); playersByName=new Map(); let maxId=0;
+    (data||[]).forEach(p=>{ playersById.set(p.id,p); playersByName.set(p.name,p); maxId=Math.max(maxId,parseNumericId(p.id)); });
+    nextNumericId=maxId+1;
+    $("playerCount").textContent=String(data?.length||0);
+    $("dbList").innerHTML=(data||[]).map(p=>`<span class="badge" style="display:inline-block;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 10px;margin:2px;cursor:pointer" onclick="pickFromDb('${p.id}','${p.name.replace(/'/g,"\\'")}')">${p.id} ${p.name}</span>`).join("")||"없음";
+    $("playerId").placeholder=`다음 신규: ${padId(nextNumericId)}`;
+  }catch(e){ setStatus(`DB 로드 실패: ${e.message}`,"err"); }
+}
+
+function pickFromDb(id,name){
+  $("playerName").value=name;
+  $("playerId").value=padId(parseNumericId(id)||id);
+  syncOutFromForm();
+}
+
+function copyOut(){ navigator.clipboard.writeText($("out").value); alert("복사됨"); }
+function copyPrompt(){ navigator.clipboard.writeText(buildPrompt()); alert("프롬프트 복사됨"); }
+function copyHeader(){ navigator.clipboard.writeText(INPUT_HEADERS.join(",")); alert("헤더 복사됨"); }
+
+document.querySelectorAll("#playerName,#fake,#position,#simple_position,#rank,#age,#peakAge,#height,#weight,#speed,#power,#tech,#shooting,#passing,#stamina,#setpiece,#leadership,#intel,#org,#nation,#comment,#portrait").forEach(el=>{
+  el.addEventListener("input",()=>{
+    parsedRecs="";
+    if(el.id==="rank"){
+      const b=readBaseStats();
+      $("speed").value=b[0]; $("power").value=b[1]; $("tech").value=b[2];
+    }
+    refreshVisuals(); syncOutFromForm();
+  });
+});
+$("peakPattern")?.addEventListener("change",()=>{
+  applyPeakPatternToPeakAge();
+  refreshVisuals();
+  syncOutFromForm();
+  $("chatgptPrompt").textContent=buildPrompt();
+});
+$("position").addEventListener("change",()=>{ $("simple_position").value=simpleFromPosition($("position").value); });
+
+$("header").value=EXPORT_HEADERS.join(",");
+$("chatgptPrompt").textContent=buildPrompt();
+$("playerName").addEventListener("input",()=>{ $("chatgptPrompt").textContent=buildPrompt(); });
+refreshVisuals();
+if(initDb()) loadPlayers();
+</script>
+</body>
+</html>
