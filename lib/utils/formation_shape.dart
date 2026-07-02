@@ -18,8 +18,8 @@ class FormationPitchLayout {
   /// 수비선 — GK 위·박스 상단 근처
   static const defYRatio = 0.785;
 
-  /// 좌우 여백 (끝에 붙지 않게, 간격은 넓게)
-  static const sideMargin = 0.11;
+  /// 인접 선수 간 고정 좌우 간격 (미니맵 가로 대비, 줄마다 동일)
+  static const dotGapRatio = 0.14;
 
   static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -78,7 +78,9 @@ class FormationPitchLayout {
     final rowDots = _rowDots(players, y, size);
 
     final slotX = FormationSlotLayout.normalizedOffset(slot).dx;
-    final targetX = size.width * (sideMargin + slotX * (1 - sideMargin * 2));
+    final gap = _dotGap(size);
+    final startX = (size.width - gap * (players - 1)) / 2;
+    final targetX = startX + gap * slotX * (players - 1);
 
     var best = rowDots.first;
     var bestDist = double.infinity;
@@ -101,18 +103,19 @@ class FormationPitchLayout {
     return (lineCount - 1 - fromAttack).clamp(0, lineCount - 1);
   }
 
+  static double _dotGap(Size size) => size.width * dotGapRatio;
+
   static List<Offset> _rowDots(int players, double y, Size size) {
     if (players == 1) {
       return [Offset(size.width / 2, y)];
     }
 
-    final left = size.width * sideMargin;
-    final right = size.width * (1 - sideMargin);
-    final span = right - left;
+    final gap = _dotGap(size);
+    final startX = (size.width - gap * (players - 1)) / 2;
 
     return [
       for (var col = 0; col < players; col++)
-        Offset(left + span * col / (players - 1), y),
+        Offset(startX + gap * col, y),
     ];
   }
 }
