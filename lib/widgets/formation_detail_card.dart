@@ -72,8 +72,8 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
   @override
   Widget build(BuildContext context) {
     final display = _display;
-    final keyIds = display.keyPositionIds;
-    final tactical = display.tacticalType;
+    final formation = widget.formation;
+    final keyEntries = formation.keyPositionEntries;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,7 +88,7 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
               border: Border.all(color: Colors.amber.shade700),
             ),
             child: const Text(
-              '데이터가 옛 CSV 버그로 깨져 있습니다. 포메이션 CSV를 다시 드래그해서 가져오세요.',
+              '데이터가 옛 CSV 형식으로 깨져 있습니다. formations_launch_15_v2.csv 를 다시 가져오세요.',
             ),
           ),
         _SectionHeader(
@@ -102,23 +102,35 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FormationPitchDiagram(lineCounts: display.lineCounts),
+                FormationPitchDiagram(
+                  keySlots: formation.keyPositionSlots.toSet(),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        tactical,
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      Text(
-                        display.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 36),
+                            child: Text(
+                              display.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          if (formation.formationType != null)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: _FormationTypeBadge(type: formation.formationType!),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 10),
                       const Text(
@@ -126,11 +138,11 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                       const SizedBox(height: 6),
-                      for (var i = 0; i < keyIds.length; i++)
+                      for (var i = 0; i < keyEntries.length; i++)
                         _HeaderKeyPositionRow(
                           index: i + 1,
-                          keyPosition: widget.keyPositionsById[keyIds[i]],
-                          fallbackId: keyIds[i],
+                          keyPosition: widget.keyPositionsById[keyEntries[i].id],
+                          fallbackId: keyEntries[i].id,
                         ),
                     ],
                   ),
@@ -144,18 +156,18 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
           child: Column(
             children: [
               GameStatBar(
-                label: '유형',
-                value: _tacticalValue(tactical),
+                label: '점유율',
+                value: formation.possession,
                 color: Colors.blue,
               ),
               GameStatBar(
                 label: '공격성',
-                value: _attackValue(tactical),
+                value: formation.attack,
                 color: Colors.green,
               ),
               GameStatBar(
                 label: '안정성',
-                value: _stabilityValue(tactical),
+                value: formation.stability,
                 color: Colors.red,
               ),
             ],
@@ -214,35 +226,41 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
       ],
     );
   }
+}
 
-  int _tacticalValue(String? type) {
-    if (type == null || type.isEmpty) {
-      return 5;
-    }
-    if (type.contains('공격') || type.contains('총공격')) {
-      return 8;
-    }
-    if (type.contains('수비') || type.contains('철벽') || type.contains('잠그')) {
-      return 3;
-    }
-    return 5;
-  }
+class _FormationTypeBadge extends StatelessWidget {
+  const _FormationTypeBadge({required this.type});
 
-  int _attackValue(String? type) {
-    if (type == null || type.isEmpty) {
-      return 5;
-    }
-    if (type.contains('공격') || type.contains('역습') || type.contains('총공격')) {
-      return 8;
-    }
-    if (type.contains('수비') || type.contains('안정') || type.contains('잠그')) {
-      return 3;
-    }
-    return 5;
-  }
+  final String type;
 
-  int _stabilityValue(String? type) {
-    return 10 - _attackValue(type);
+  @override
+  Widget build(BuildContext context) {
+    final letter = type.toUpperCase();
+    final color = switch (letter) {
+      'S' => Colors.orange.shade700,
+      'T' => Colors.blue.shade700,
+      'P' => Colors.red.shade700,
+      _ => Colors.grey.shade700,
+    };
+
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white70),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        letter,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
   }
 }
 

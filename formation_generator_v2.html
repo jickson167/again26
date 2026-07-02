@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>포메이션 생성기 v2</title>
+<style>
+body{font-family:Arial,"Noto Sans KR",sans-serif;background:#111827;color:#e5e7eb;padding:24px;margin:0}
+.wrap{max-width:1100px;margin:auto}.card{background:#1f2937;border:1px solid #374151;border-radius:14px;padding:16px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}label{font-size:12px;color:#cbd5e1}
+input,select,textarea{width:100%;box-sizing:border-box;background:#0b1220;color:#e5e7eb;border:1px solid #475569;border-radius:8px;padding:9px;margin-top:4px}
+textarea{height:120px;font-family:Consolas,monospace}button{background:#2563eb;color:white;border:0;border-radius:10px;padding:11px 15px;font-weight:bold;margin-right:8px}
+table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #374151;padding:8px;text-align:left}.small{font-size:12px;color:#94a3b8}
+</style></head><body><div class="wrap">
+<h1>포메이션 생성기 v2</h1>
+<p>유형은 제거하고 <b>점유율(possession)</b>, 공격성, 안정성을 사용한다. 키포지션은 역할 ID와 별표 위치(slot)를 함께 저장한다.</p>
+<div class="card"><div class="grid">
+<div><label>ID</label><input id="formation_id" value="fm_new"></div>
+<div><label>포메이션명</label><input id="name" value="4-3-3"></div>
+<div><label>타입 S/T/P</label><select id="formation_type"><option>S</option><option>T</option><option>P</option></select></div>
+<div><label>점유율 0~10</label><input id="possession" value="6"></div>
+<div><label>공격성 0~10</label><input id="attack" value="7"></div>
+<div><label>안정성 0~10</label><input id="stability" value="5"></div>
+<div><label>키포지션1</label><select id="key_pos_1"></select></div>
+<div><label>키포지션1 위치</label><select id="key_pos_1_slot"></select></div>
+<div><label>키포지션2</label><select id="key_pos_2"></select></div>
+<div><label>키포지션2 위치</label><select id="key_pos_2_slot"></select></div>
+<div><label>키포지션3</label><select id="key_pos_3"></select></div>
+<div><label>키포지션3 위치</label><select id="key_pos_3_slot"></select></div>
+</div>
+<label>코멘트</label><textarea id="comment">전술 설명</textarea><br><button onclick="gen()">CSV 한 줄 생성</button><button onclick="copyOut()">복사</button></div>
+<div class="card"><textarea id="out" readonly></textarea></div>
+<div class="card"><h3>slot 위치표</h3><p class="small">1 LF/LW, 2 CF/ST, 3 RF/RW, 4 LM/LW, 5 AM/CM, 6 RM/RW, 7 LWB/LM, 8 DM/CM, 9 RWB/RM, 10 LB/LCB, 11 CB, 12 RB/RCB, 13 GK</p></div>
+</div>
+<script>
+const kp = {"kp_poacher": "포처", "kp_target_forward": "타겟 포워드", "kp_false_nine": "펄스 나인", "kp_wing_forward_l": "왼쪽 윙포워드", "kp_wing_forward_r": "오른쪽 윙포워드", "kp_playmaker": "플레이메이커", "kp_trequartista": "트레콰르티스타", "kp_box_to_box": "박스 투 박스", "kp_anchor": "앵커맨", "kp_wingback_l": "왼쪽 윙백", "kp_wingback_r": "오른쪽 윙백", "kp_center_back": "센터백", "kp_sweeper": "스위퍼", "kp_ball_playing_cb": "빌드업 센터백", "kp_sweeper_keeper": "스위퍼 키퍼", "kp_shot_stopper": "슈팅 스토퍼"};
+const slots = {"1": "1 LF/LW", "2": "2 CF/ST", "3": "3 RF/RW", "4": "4 LM/LW", "5": "5 AM/CM", "6": "6 RM/RW", "7": "7 LWB/LM", "8": "8 DM/CM", "9": "9 RWB/RM", "10": "10 LB/LCB", "11": "11 CB", "12": "12 RB/RCB", "13": "13 GK"};
+function fillSelect(el, data){el.innerHTML = Object.entries(data).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}
+[key_pos_1,key_pos_2,key_pos_3].forEach(e=>fillSelect(e,kp));
+[key_pos_1_slot,key_pos_2_slot,key_pos_3_slot].forEach(e=>fillSelect(e,slots));
+function esc(v){v=String(v??'');return /[,"\n]/.test(v)?'"'+v.replaceAll('"','""')+'"':v}
+function gen(){
+ const row=[formation_id.value,name.value,formation_type.value,possession.value,attack.value,stability.value,key_pos_1.value,key_pos_1_slot.value,key_pos_2.value,key_pos_2_slot.value,key_pos_3.value,key_pos_3_slot.value,comment.value];
+ out.value=row.map(esc).join(',');
+}
+function copyOut(){navigator.clipboard.writeText(out.value);alert('복사됨')}
+</script></body></html>

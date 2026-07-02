@@ -7,22 +7,20 @@ class FormationDisplay {
   final Formation formation;
 
   String get name => _extractFormationName();
-  String get tacticalType => _extractTacticalType();
   String get comment => _extractComment();
-  List<String> get keyPositionIds => _extractKeyPositionIds();
+  List<String> get keyPositionIds => formation.keyPositionIds;
+
+  bool get needsReimport => isCorruptRecord(formation);
 
   /// 옛 CSV 버그로 한 줄 전체가 필드에 들어간 row
   static bool isCorruptRecord(Formation formation) {
     return _looksCorruptValue(formation.id) ||
         _looksCorruptValue(formation.name) ||
-        _looksCorruptValue(formation.tacticalType ?? '') ||
         _looksCorruptValue(formation.keyPos1 ?? '') ||
         _looksCorruptValue(formation.keyPos2 ?? '') ||
         _looksCorruptValue(formation.keyPos3 ?? '') ||
         _looksCorruptValue(formation.comment ?? '');
   }
-
-  bool get needsReimport => isCorruptRecord(formation);
 
   static bool _looksCorruptValue(String value) {
     if (value.isEmpty) {
@@ -50,25 +48,6 @@ class FormationDisplay {
     return '포메이션';
   }
 
-  String _extractTacticalType() {
-    final raw = formation.tacticalType?.trim() ?? '';
-    if (raw.isNotEmpty && !_looksCorrupt(raw) && !raw.startsWith('kp_')) {
-      return raw;
-    }
-    for (final part in _splitParts('${formation.name},${formation.tacticalType},${formation.comment}')) {
-      if (part.contains('kp_') || part.startsWith('fm_')) {
-        continue;
-      }
-      if (RegExp(r'^\d+(?:-\d+)+$').hasMatch(part)) {
-        continue;
-      }
-      if (RegExp(r'[가-힣]').hasMatch(part) && part.length <= 12) {
-        return part;
-      }
-    }
-    return raw.isEmpty ? '전술' : raw;
-  }
-
   String _extractComment() {
     final raw = formation.comment?.trim() ?? '';
     if (raw.isNotEmpty && !_looksCorrupt(raw) && !raw.contains('kp_')) {
@@ -88,37 +67,6 @@ class FormationDisplay {
     return '';
   }
 
-  List<String> _extractKeyPositionIds() {
-    final fromFields = formation.keyPositionIds;
-    if (fromFields.length == 3 &&
-        fromFields.every((id) => !id.contains(',') && !id.contains('['))) {
-      return fromFields;
-    }
-
-    final ids = <String>[];
-    for (final raw in [
-      formation.keyPos1,
-      formation.keyPos2,
-      formation.keyPos3,
-      formation.name,
-      formation.comment,
-    ]) {
-      if (raw == null || raw.isEmpty) {
-        continue;
-      }
-      for (final match in RegExp(r'kp_[a-z0-9_]+').allMatches(raw)) {
-        final id = match.group(0)!;
-        if (!ids.contains(id)) {
-          ids.add(id);
-        }
-      }
-      if (ids.length >= 3) {
-        break;
-      }
-    }
-    return ids.take(3).toList();
-  }
-
   bool _looksCorrupt(String value) {
     return _looksCorruptValue(value);
   }
@@ -132,14 +80,5 @@ class FormationDisplay {
         .map((part) => part.trim())
         .where((part) => part.isNotEmpty)
         .toList();
-  }
-
-  /// "3-2-4-1" → [3, 2, 4, 1] (수비선→공격선)
-  List<int> get lineCounts {
-    final match = RegExp(r'\d+(?:-\d+)+').firstMatch(name);
-    if (match == null) {
-      return [4, 4, 2];
-    }
-    return match.group(0)!.split('-').map(int.parse).toList();
   }
 }

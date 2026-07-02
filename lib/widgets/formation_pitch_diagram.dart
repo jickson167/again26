@@ -1,15 +1,19 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-/// 포메이션 이름(예: 3-2-4-1)에 맞춰 경기장 + 파란 점 표시
+import '../utils/formation_slot_layout.dart';
+
+/// 13칸 슬롯 미니맵 + 키포지션 slot 별표
 class FormationPitchDiagram extends StatelessWidget {
   const FormationPitchDiagram({
     super.key,
-    required this.lineCounts,
+    required this.keySlots,
     this.width = 120,
-    this.height = 140,
+    this.height = 150,
   });
 
-  final List<int> lineCounts;
+  final Set<int> keySlots;
   final double width;
   final double height;
 
@@ -19,7 +23,7 @@ class FormationPitchDiagram extends StatelessWidget {
       width: width,
       height: height,
       child: CustomPaint(
-        painter: _FormationPitchPainter(lineCounts: lineCounts),
+        painter: _FormationPitchPainter(keySlots: keySlots),
         size: Size(width, height),
       ),
     );
@@ -27,9 +31,9 @@ class FormationPitchDiagram extends StatelessWidget {
 }
 
 class _FormationPitchPainter extends CustomPainter {
-  _FormationPitchPainter({required this.lineCounts});
+  _FormationPitchPainter({required this.keySlots});
 
-  final List<int> lineCounts;
+  final Set<int> keySlots;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -37,10 +41,7 @@ class _FormationPitchPainter extends CustomPainter {
       Rect.fromLTWH(0, 0, size.width, size.height),
       const Radius.circular(6),
     );
-    canvas.drawRRect(
-      fieldRect,
-      Paint()..color = const Color(0xFF14532D),
-    );
+    canvas.drawRRect(fieldRect, Paint()..color = const Color(0xFF14532D));
     canvas.drawRRect(
       fieldRect,
       Paint()
@@ -62,38 +63,56 @@ class _FormationPitchPainter extends CustomPainter {
       linePaint,
     );
 
-    final rows = lineCounts.isEmpty ? [4, 4, 2] : lineCounts;
-    const topPad = 14.0;
-    const bottomPad = 10.0;
-    final usableHeight = size.height - topPad - bottomPad;
-
-    for (var row = 0; row < rows.length; row++) {
-      final players = rows[row];
-      if (players <= 0) {
+    for (var slot = 1; slot <= 13; slot++) {
+      final center = FormationSlotLayout.slotOffset(slot, size: size);
+      final isKey = keySlots.contains(slot);
+      if (isKey) {
         continue;
       }
-      final y = topPad + usableHeight * (row + 0.5) / rows.length;
-      for (var col = 0; col < players; col++) {
-        final x = size.width * (col + 1) / (players + 1);
-        canvas.drawCircle(
-          Offset(x, y),
-          5,
-          Paint()..color = Colors.blue.shade400,
-        );
-        canvas.drawCircle(
-          Offset(x, y),
-          5,
-          Paint()
-            ..color = Colors.white.withValues(alpha: 0.35)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
-        );
+      canvas.drawCircle(center, 4, Paint()..color = Colors.blue.shade400);
+      canvas.drawCircle(
+        center,
+        4,
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.25)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+
+    for (final slot in keySlots) {
+      _drawStar(canvas, FormationSlotLayout.slotOffset(slot, size: size));
+    }
+  }
+
+  void _drawStar(Canvas canvas, Offset center) {
+    const outerRadius = 7.0;
+    const innerRadius = 3.2;
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final radius = i.isEven ? outerRadius : innerRadius;
+      final angle = (math.pi / 2) + (i * math.pi / 5);
+      final point = Offset(
+        center.dx + radius * math.cos(angle),
+        center.dy - radius * math.sin(angle),
+      );
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
       }
     }
+    path.close();
+    canvas.drawCircle(
+      center,
+      outerRadius + 1.5,
+      Paint()..color = Colors.amber.shade800,
+    );
+    canvas.drawPath(path, Paint()..color = Colors.amber.shade200);
   }
 
   @override
   bool shouldRepaint(covariant _FormationPitchPainter oldDelegate) {
-    return oldDelegate.lineCounts != lineCounts;
+    return oldDelegate.keySlots != keySlots;
   }
 }

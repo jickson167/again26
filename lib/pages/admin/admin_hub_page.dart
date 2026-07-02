@@ -456,9 +456,16 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
                     final item = _items[index];
                     final display = FormationDisplay(item);
                     return ListTile(
-                      leading: CircleAvatar(child: Text(display.name.split('-').first)),
+                      leading: CircleAvatar(
+                        child: Text(
+                          item.formationType?.toUpperCase() ?? display.name.split('-').first,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
                       title: Text(display.name),
-                      subtitle: Text(display.tacticalType),
+                      subtitle: Text(
+                        '${item.formationType ?? '-'} · 점유 ${item.possession} · 공격 ${item.attack} · 안정 ${item.stability}',
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
