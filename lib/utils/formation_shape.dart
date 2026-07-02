@@ -19,7 +19,10 @@ class FormationPitchLayout {
   static const defYRatio = 0.785;
 
   /// 인접 선수 간 고정 좌우 간격 (미니맵 가로 대비, 모든 줄 동일)
-  static const dotGapRatio = 0.12;
+  static const dotGapRatio = 0.28;
+
+  /// 5명 줄 등에서 필드 밖으로 넘치지 않게 줄 전체 폭 상한
+  static const maxRowSpanRatio = 0.88;
 
   static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -100,13 +103,26 @@ class FormationPitchLayout {
 
   static double _dotGap(Size size) => size.width * dotGapRatio;
 
+  static double _rowGap(int players, Size size) {
+    if (players <= 1) {
+      return 0;
+    }
+    final preferred = _dotGap(size);
+    final maxSpan = size.width * maxRowSpanRatio;
+    final preferredSpan = preferred * (players - 1);
+    if (preferredSpan <= maxSpan) {
+      return preferred;
+    }
+    return maxSpan / (players - 1);
+  }
+
   /// 가운데 정렬 + 고정 간격 (양끝 stretch 없음)
   static List<Offset> _rowDots(int players, double y, Size size) {
     if (players == 1) {
       return [Offset(size.width / 2, y)];
     }
 
-    final gap = _dotGap(size);
+    final gap = _rowGap(players, size);
     final centerX = size.width / 2;
     final halfSpan = gap * (players - 1) / 2;
 
