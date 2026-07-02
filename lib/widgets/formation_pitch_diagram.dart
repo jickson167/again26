@@ -3,39 +3,39 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../utils/formation_shape.dart';
-import '../utils/formation_slot_layout.dart';
 
-/// 포메이션 미니맵 — 줄별 10명 배치 + 키포지션 slot 별표 (GK 점 없음)
+/// 정사각형 포메이션 미니맵 (GK 포함 11점 + 키포지션 별표)
 class FormationPitchDiagram extends StatelessWidget {
   const FormationPitchDiagram({
     super.key,
     required this.formationName,
     required this.keySlots,
-    this.width = 120,
-    this.height = 150,
-    this.showFormationDots = true,
+    this.size = 128,
+    this.showAllDots = true,
+    this.compact = false,
   });
 
   final String formationName;
   final Set<int> keySlots;
+  final double size;
+  final bool showAllDots;
 
-  /// GK(13) 키포지션 별표는 제외하고 필드 10명만 표시
-  final bool showFormationDots;
-  final double width;
-  final double height;
+  /// 키포지션 미니맵: 전체 포메이션 점을 옅게 + 해당 별만 강조
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width,
-      height: height,
+      width: size,
+      height: size,
       child: CustomPaint(
         painter: _FormationPitchPainter(
           formationName: formationName,
           keySlots: keySlots,
-          showFormationDots: showFormationDots,
+          showAllDots: showAllDots,
+          compact: compact,
         ),
-        size: Size(width, height),
+        size: Size(size, size),
       ),
     );
   }
@@ -45,87 +45,124 @@ class _FormationPitchPainter extends CustomPainter {
   _FormationPitchPainter({
     required this.formationName,
     required this.keySlots,
-    required this.showFormationDots,
+    required this.showAllDots,
+    required this.compact,
   });
 
   final String formationName;
   final Set<int> keySlots;
-  final bool showFormationDots;
+  final bool showAllDots;
+  final bool compact;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final fieldRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      const Radius.circular(6),
-    );
-    canvas.drawRRect(fieldRect, Paint()..color = const Color(0xFF14532D));
-    canvas.drawRRect(
-      fieldRect,
-      Paint()
-        ..color = Colors.white24
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
+    _drawPitch(canvas, size);
 
-    final linePaint = Paint()
-      ..color = Colors.white24
-      ..strokeWidth = 1;
-    canvas.drawRect(
-      Rect.fromLTWH(6, 6, size.width - 12, size.height - 12),
-      linePaint,
-    );
-    canvas.drawLine(
-      Offset(6, size.height * 0.58),
-      Offset(size.width - 6, size.height * 0.58),
-      linePaint,
-    );
+    final keyCenters = {
+      for (final slot in keySlots)
+        slot: FormationPitchLayout.keySlotOffset(slot, formationName, size),
+    };
 
-    if (showFormationDots) {
-      for (final center in FormationShape.lineDotOffsets(formationName, size)) {
-        if (_isNearKeyStar(center, size)) {
+    if (showAllDots) {
+      for (final center in FormationPitchLayout.allDotOffsets(formationName, size)) {
+        if (_isKeyCenter(center, keyCenters.values)) {
           continue;
         }
-        _drawBlueDot(canvas, center);
+        _drawDot(
+          canvas,
+          center,
+          fill: compact ? Colors.blue.shade400.withValues(alpha: 0.35) : Colors.blue.shade400,
+          radius: compact ? 3.0 : 4.5,
+        );
       }
     }
 
-    for (final slot in keySlots) {
-      final center = FormationSlotLayout.slotOffset(slot, size: size);
-      if (slot != 13) {
-        _drawBlueDot(canvas, center);
+    for (final entry in keyCenters.entries) {
+      if (entry.key != 13) {
+        _drawDot(canvas, entry.value, fill: Colors.blue.shade400, radius: compact ? 3.5 : 4.5);
       }
-      _drawStar(canvas, center);
+      _drawStar(canvas, entry.value, compact: compact);
     }
   }
 
-  bool _isNearKeyStar(Offset dot, Size size) {
-    for (final slot in keySlots) {
-      if (slot == 13) {
-        continue;
-      }
-      final star = FormationSlotLayout.slotOffset(slot, size: size);
-      if ((dot - star).distance < 10) {
+  void _drawPitch(Canvas canvas, Size size) {
+    final fieldRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(fieldRect, Paint()..color = const Color(0xFF166534));
+    canvas.drawRRect(
+      fieldRect,
+      Paint()
+        ..color = const Color(0xFF3B82F6).withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    final line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.28)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    final inset = size.width * 0.07;
+    canvas.drawRect(
+      Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2),
+      line,
+    );
+
+    final boxW = size.width * 0.44;
+    final boxH = size.height * 0.17;
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, size.height - inset - boxH / 2),
+        width: boxW,
+        height: boxH,
+      ),
+      line,
+    );
+
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, inset),
+        width: size.width * 0.34,
+        height: size.width * 0.34,
+      ),
+      0,
+      math.pi,
+      false,
+      line,
+    );
+  }
+
+  bool _isKeyCenter(Offset dot, Iterable<Offset> keys) {
+    for (final key in keys) {
+      if ((dot - key).distance < 8) {
         return true;
       }
     }
     return false;
   }
 
-  void _drawBlueDot(Canvas canvas, Offset center) {
-    canvas.drawCircle(center, 4, Paint()..color = Colors.blue.shade400);
+  void _drawDot(
+    Canvas canvas,
+    Offset center, {
+    required Color fill,
+    required double radius,
+  }) {
+    canvas.drawCircle(center, radius, Paint()..color = fill);
     canvas.drawCircle(
       center,
-      4,
+      radius,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.25)
+        ..color = Colors.white.withValues(alpha: 0.35)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
   }
 
-  void _drawStar(Canvas canvas, Offset center) {
-    const outerRadius = 7.0;
-    const innerRadius = 3.2;
+  void _drawStar(Canvas canvas, Offset center, {required bool compact}) {
+    final outerRadius = compact ? 5.5 : 7.0;
+    final innerRadius = compact ? 2.5 : 3.2;
     final path = Path();
     for (var i = 0; i < 10; i++) {
       final radius = i.isEven ? outerRadius : innerRadius;
@@ -143,8 +180,8 @@ class _FormationPitchPainter extends CustomPainter {
     path.close();
     canvas.drawCircle(
       center,
-      outerRadius + 1.5,
-      Paint()..color = Colors.amber.shade800.withValues(alpha: 0.92),
+      outerRadius + 1.2,
+      Paint()..color = Colors.amber.shade800.withValues(alpha: 0.95),
     );
     canvas.drawPath(path, Paint()..color = Colors.amber.shade200);
   }
@@ -153,6 +190,7 @@ class _FormationPitchPainter extends CustomPainter {
   bool shouldRepaint(covariant _FormationPitchPainter oldDelegate) {
     return oldDelegate.formationName != formationName ||
         oldDelegate.keySlots != keySlots ||
-        oldDelegate.showFormationDots != showFormationDots;
+        oldDelegate.showAllDots != showAllDots ||
+        oldDelegate.compact != compact;
   }
 }

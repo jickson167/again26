@@ -44,6 +44,10 @@ class FormationSlotLayout {
     return slotLabels[slot] ?? 'Slot $slot';
   }
 
+  static Offset normalizedOffset(int slot) {
+    return _normalizedOffsets[slot.clamp(1, 13)] ?? const Offset(0.5, 0.5);
+  }
+
   /// x, y in 0~1 relative coordinates
   static Offset slotOffset(int slot, {required Size size, double padding = 8}) {
     final normalized = _normalizedOffsets[slot.clamp(1, 13)] ?? const Offset(0.5, 0.5);

@@ -1,55 +1,124 @@
 import 'dart:ui';
 
-/// 포메이션 이름(예: 4-2-3-1) 파싱 — 숫자는 골키퍼 제외 필드 10명
-class FormationShape {
-  FormationShape._();
+import 'formation_slot_layout.dart';
 
-  static String? normalizeName(String formationName) {
+/// 정사각형 미니맵용 포메이션 좌표 (GK + 필드 10명 = 11점)
+class FormationPitchLayout {
+  FormationPitchLayout._();
+
+  static const _gkY = 0.905;
+  static const _topY = 0.13;
+
+  static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
-    return match?.group(0);
-  }
-
-  static List<int> parseLineCounts(String formationName) {
-    final normalized = normalizeName(formationName);
-    if (normalized == null) {
+    if (match == null) {
       return [4, 4, 2];
     }
-    return normalized.split('-').map(int.parse).toList();
+    return match.group(0)!.split('-').map(int.parse).toList();
   }
 
-  static int outfieldCount(String formationName) {
-    return parseLineCounts(formationName).fold<int>(0, (sum, count) => sum + count);
+  static int totalDots(String formationName) {
+    return parseLines(formationName).fold<int>(1, (sum, n) => sum + n);
   }
 
-  /// 수비선(첫 숫자)부터 공격선(마지막)까지 각 줄의 좌표 (GK 제외)
-  static List<Offset> lineDotOffsets(String formationName, Size size) {
-    final lines = parseLineCounts(formationName);
+  /// GK(맨 아래) + 수비→공격 순으로 11개 좌표
+  static List<Offset> allDotOffsets(String formationName, Size size) {
+    final lines = parseLines(formationName);
     if (lines.isEmpty) {
-      return [];
+      return [Offset(size.width / 2, size.height * _gkY)];
     }
 
-    const sidePad = 10.0;
-    const topPad = 12.0;
-    const bottomPad = 12.0;
-    final usableWidth = size.width - sidePad * 2;
-    final usableHeight = size.height - topPad - bottomPad;
-    final rowCount = lines.length;
+    final dots = <Offset>[Offset(size.width / 2, size.height * _gkY)];
+    final outfieldTop = size.height * _topY;
+    final outfieldBottom = size.height * (_gkY - 0.11);
 
-    final positions = <Offset>[];
-    for (var row = 0; row < rowCount; row++) {
+    for (var row = 0; row < lines.length; row++) {
       final players = lines[row];
       if (players <= 0) {
         continue;
       }
-      // row 0 = 수비(아래), 마지막 row = 공격(위)
-      final y = topPad + usableHeight * (1.0 - (row + 0.5) / rowCount);
-      for (var col = 0; col < players; col++) {
-        final x = sidePad + usableWidth * (col + 1) / (players + 1);
-        positions.add(Offset(x, y));
+      final y = outfieldBottom -
+          (row + 0.5) / lines.length * (outfieldBottom - outfieldTop);
+      dots.addAll(_rowDots(players, y, size));
+    }
+    return dots;
+  }
+
+  /// 키포지션 slot → 해당 줄에 맞춘 좌표 (별표용)
+  static Offset keySlotOffset(int slot, String formationName, Size size) {
+    if (slot == 13) {
+      return Offset(size.width / 2, size.height * _gkY);
+    }
+
+    final lines = parseLines(formationName);
+    if (lines.isEmpty) {
+      return FormationSlotLayout.slotOffset(slot, size: size);
+    }
+
+    final rowIndex = _rowIndexForSlot(slot, lines.length);
+    final players = lines[rowIndex];
+    final outfieldTop = size.height * _topY;
+    final outfieldBottom = size.height * (_gkY - 0.11);
+    final y = outfieldBottom -
+        (rowIndex + 0.5) / lines.length * (outfieldBottom - outfieldTop);
+
+    final slotX = FormationSlotLayout.normalizedOffset(slot).dx;
+    final rowDots = _rowDots(players, y, size);
+    var best = rowDots.first;
+    var bestDist = double.infinity;
+    final targetX = size.width * (0.06 + slotX * 0.88);
+    for (final dot in rowDots) {
+      final dist = (dot.dx - targetX).abs();
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = dot;
       }
     }
-    return positions;
+    return best;
+  }
+
+  static int _rowIndexForSlot(int slot, int lineCount) {
+    final slotY = FormationSlotLayout.normalizedOffset(slot).dy;
+    const defY = 0.68;
+    const fwdY = 0.08;
+    final t = ((slotY - fwdY) / (defY - fwdY)).clamp(0.0, 1.0);
+    final fromAttack = (t * (lineCount - 1)).round();
+    return (lineCount - 1 - fromAttack).clamp(0, lineCount - 1);
+  }
+
+  static List<Offset> _rowDots(int players, double y, Size size) {
+    final widthRatio = switch (players) {
+      1 => 0.0,
+      2 => 0.36,
+      3 => 0.56,
+      4 => 0.80,
+      5 => 0.92,
+      _ => 0.88,
+    };
+    final rowWidth = size.width * widthRatio;
+    final left = (size.width - rowWidth) / 2;
+    if (players == 1) {
+      return [Offset(size.width / 2, y)];
+    }
+    return [
+      for (var col = 0; col < players; col++)
+        Offset(
+          left + rowWidth * (col + 1) / (players + 1),
+          y,
+        ),
+    ];
   }
 }
 
-// Offset is from dart:ui - need import in formation_shape or use a record
+/// @deprecated FormationPitchLayout 사용
+class FormationShape {
+  FormationShape._();
+
+  static List<int> parseLineCounts(String formationName) {
+    return FormationPitchLayout.parseLines(formationName);
+  }
+
+  static int outfieldCount(String formationName) {
+    return parseLineCounts(formationName).fold<int>(0, (sum, n) => sum + n);
+  }
+}
