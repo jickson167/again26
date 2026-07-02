@@ -148,7 +148,7 @@ class CsvService {
       if (index == null || index >= row.length) {
         return defaultValue;
       }
-      return '$row[index]'.trim();
+      return '${row[index]}'.trim();
     }
 
     int? readInt(String key) {

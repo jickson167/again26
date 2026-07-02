@@ -20,17 +20,6 @@ class KeyPositionCsvService {
     'description',
   ];
 
-  static const _generatorHeaders = [
-    'id',
-    'name',
-    'simple',
-    'main',
-    'sub',
-    'mental',
-    'team',
-    'desc',
-  ];
-
   String exportKeyPositions(List<KeyPosition> items) {
     return _csv.encode([
       headers,
@@ -145,7 +134,7 @@ class KeyPositionCsvService {
       for (final key in keys) {
         final index = headerIndex[key];
         if (index != null && index < row.length) {
-          return '$row[index]'.trim();
+          return '${row[index]}'.trim();
         }
       }
       return '';
@@ -153,7 +142,7 @@ class KeyPositionCsvService {
 
     String readPositional(int index) {
       if (index >= 0 && index < row.length) {
-        return '$row[index]'.trim();
+        return '${row[index]}'.trim();
       }
       return '';
     }

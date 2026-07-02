@@ -82,7 +82,7 @@ class FormationCsvService {
       if (index == null || index >= row.length) {
         return '';
       }
-      return '$row[index]'.trim();
+      return '${row[index]}'.trim();
     }
 
     final id = read('formation_id', alt: 'id');
