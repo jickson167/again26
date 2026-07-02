@@ -3,32 +3,32 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
 import 'router/app_router.dart';
-import 'services/player_service.dart';
+import 'services/app_services.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  PlayerService? playerService;
+  AppServices? services;
 
   if (SupabaseConfig.isConfigured) {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       publishableKey: SupabaseConfig.anonKey,
     );
-    playerService = PlayerService(Supabase.instance.client);
+    services = AppServices(Supabase.instance.client);
   }
 
-  runApp(Again26App(playerService: playerService));
+  runApp(Again26App(services: services));
 }
 
 class Again26App extends StatelessWidget {
-  const Again26App({super.key, this.playerService});
+  const Again26App({super.key, this.services});
 
-  final PlayerService? playerService;
+  final AppServices? services;
 
   @override
   Widget build(BuildContext context) {
-    final router = createRouter(playerService: playerService);
+    final router = createRouter(services: services);
 
     return MaterialApp.router(
       title: 'Again26 - 축구 매니저',

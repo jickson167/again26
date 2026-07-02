@@ -11,6 +11,8 @@ class Player {
     this.rank,
     this.ageStage,
     this.peakAge,
+    this.detailPosition,
+    this.comment,
     this.height,
     this.weight,
     this.nationality,
@@ -18,12 +20,18 @@ class Player {
     required this.speed,
     required this.power,
     required this.technique,
+    this.shooting = 0,
+    this.passing = 0,
+    this.defense = 0,
+    this.stamina = 0,
+    this.goalkeeper = 0,
     required this.pkAbility,
     required this.fkAbility,
     required this.ckAbility,
     required this.leadership,
     required this.intelligenceSense,
-    required this.individualOrganization,
+    required     this.individualOrganization,
+    this.recommendKeyPositions,
     this.portraitUrl,
     this.createdAt,
     this.updatedAt,
@@ -37,6 +45,8 @@ class Player {
   final int? rank;
   final String? ageStage;
   final int? peakAge;
+  final String? detailPosition;
+  final String? comment;
   final int? height;
   final int? weight;
   final String? nationality;
@@ -44,12 +54,18 @@ class Player {
   final int speed;
   final int power;
   final int technique;
+  final int shooting;
+  final int passing;
+  final int defense;
+  final int stamina;
+  final int goalkeeper;
   final int pkAbility;
   final int fkAbility;
   final int ckAbility;
   final int leadership;
   final int intelligenceSense;
   final int individualOrganization;
+  final String? recommendKeyPositions;
   final String? portraitUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -86,6 +102,8 @@ class Player {
       rank: json['rank'] as int?,
       ageStage: json['age_stage'] as String?,
       peakAge: json['peak_age'] as int?,
+      detailPosition: json['detail_position'] as String?,
+      comment: json['comment'] as String?,
       height: json['height'] as int?,
       weight: json['weight'] as int?,
       nationality: json['nationality'] as String?,
@@ -93,6 +111,11 @@ class Player {
       speed: _clampStat(json['speed']),
       power: _clampStat(json['power']),
       technique: _clampStat(json['technique']),
+      shooting: _clampStat(json['shooting']),
+      passing: _clampStat(json['passing']),
+      defense: _clampStat(json['defense']),
+      stamina: _clampStat(json['stamina']),
+      goalkeeper: _clampStat(json['goalkeeper']),
       pkAbility: _clampStat(json['pk_ability']),
       fkAbility: _clampStat(json['fk_ability']),
       ckAbility: _clampStat(json['ck_ability']),
@@ -100,6 +123,7 @@ class Player {
       intelligenceSense: _clampStat(json['intelligence_sense'], defaultValue: 5),
       individualOrganization:
           _clampStat(json['individual_organization'], defaultValue: 5),
+      recommendKeyPositions: json['recommend_key_positions'] as String?,
       portraitUrl: json['portrait_url'] as String?,
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
@@ -116,6 +140,8 @@ class Player {
       'rank': rank,
       'age_stage': ageStage,
       'peak_age': peakAge,
+      'detail_position': detailPosition,
+      'comment': comment,
       'height': height,
       'weight': weight,
       'nationality': nationality,
@@ -123,12 +149,18 @@ class Player {
       'speed': speed,
       'power': power,
       'technique': technique,
+      'shooting': shooting,
+      'passing': passing,
+      'defense': defense,
+      'stamina': stamina,
+      'goalkeeper': goalkeeper,
       'pk_ability': pkAbility,
       'fk_ability': fkAbility,
       'ck_ability': ckAbility,
       'leadership': leadership,
       'intelligence_sense': intelligenceSense,
       'individual_organization': individualOrganization,
+      'recommend_key_positions': recommendKeyPositions,
       'portrait_url': portraitUrl,
     };
   }
@@ -142,6 +174,8 @@ class Player {
     int? rank,
     String? ageStage,
     int? peakAge,
+    String? detailPosition,
+    String? comment,
     int? height,
     int? weight,
     String? nationality,
@@ -149,12 +183,18 @@ class Player {
     int? speed,
     int? power,
     int? technique,
+    int? shooting,
+    int? passing,
+    int? defense,
+    int? stamina,
+    int? goalkeeper,
     int? pkAbility,
     int? fkAbility,
     int? ckAbility,
     int? leadership,
     int? intelligenceSense,
     int? individualOrganization,
+    String? recommendKeyPositions,
     String? portraitUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -168,6 +208,8 @@ class Player {
       rank: rank ?? this.rank,
       ageStage: ageStage ?? this.ageStage,
       peakAge: peakAge ?? this.peakAge,
+      detailPosition: detailPosition ?? this.detailPosition,
+      comment: comment ?? this.comment,
       height: height ?? this.height,
       weight: weight ?? this.weight,
       nationality: nationality ?? this.nationality,
@@ -175,6 +217,11 @@ class Player {
       speed: speed ?? this.speed,
       power: power ?? this.power,
       technique: technique ?? this.technique,
+      shooting: shooting ?? this.shooting,
+      passing: passing ?? this.passing,
+      defense: defense ?? this.defense,
+      stamina: stamina ?? this.stamina,
+      goalkeeper: goalkeeper ?? this.goalkeeper,
       pkAbility: pkAbility ?? this.pkAbility,
       fkAbility: fkAbility ?? this.fkAbility,
       ckAbility: ckAbility ?? this.ckAbility,
@@ -182,6 +229,8 @@ class Player {
       intelligenceSense: intelligenceSense ?? this.intelligenceSense,
       individualOrganization:
           individualOrganization ?? this.individualOrganization,
+      recommendKeyPositions:
+          recommendKeyPositions ?? this.recommendKeyPositions,
       portraitUrl: portraitUrl ?? this.portraitUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

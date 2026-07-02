@@ -1,0 +1,17 @@
+﻿key_position_id,name,simple_position,main_stat,sub_stat,mental_pref,team_pref,description
+kp_poacher,포처,fw,shooting,speed,sense,individual,수비 뒷공간을 파고드는 마무리형 공격수
+kp_target_forward,타겟 포워드,fw,power,shooting,sense,organization,몸싸움과 제공권으로 공격의 기준점이 되는 공격수
+kp_false_nine,펄스 나인,fw,technique,passing,intelligence,organization,전방에서 내려와 패스와 연계로 공간을 만드는 공격수
+kp_wing_forward_l,왼쪽 윙포워드,fw,speed,technique,sense,individual,측면 돌파와 컷인 슈팅에 강한 공격수
+kp_wing_forward_r,오른쪽 윙포워드,fw,speed,technique,sense,individual,오른쪽 측면에서 돌파와 찬스메이킹을 담당
+kp_playmaker,플레이메이커,mf,technique,passing,intelligence,organization,중앙에서 패스와 템포를 조율하는 미드필더
+kp_trequartista,트레콰르티스타,mf,technique,shooting,sense,individual,공격수와 미드필더 사이에서 결정적 장면을 만드는 선수
+kp_box_to_box,박스 투 박스,mf,stamina,power,intelligence,organization,공수 양면을 왕복하며 압박과 전개를 담당
+kp_anchor,앵커맨,mf,defense,power,intelligence,organization,수비라인 앞에서 위험 지역을 차단하는 미드필더
+kp_wingback_l,왼쪽 윙백,df,stamina,speed,intelligence,organization,측면 전진과 수비 복귀를 모두 수행
+kp_wingback_r,오른쪽 윙백,df,stamina,speed,intelligence,organization,오른쪽 측면 왕복과 크로스를 담당
+kp_center_back,센터백,df,defense,power,intelligence,organization,수비의 중심에서 라인을 지휘하고 경합을 이김
+kp_sweeper,스위퍼,df,defense,technique,intelligence,organization,수비 뒷공간을 커버하고 빌드업에 관여
+kp_ball_playing_cb,빌드업 센터백,df,defense,passing,intelligence,organization,후방에서 정확한 패스로 공격을 시작
+kp_sweeper_keeper,스위퍼 키퍼,gk,goalkeeper,passing,intelligence,organization,골문 수비와 후방 빌드업을 함께 담당
+kp_shot_stopper,슈팅 스토퍼,gk,goalkeeper,power,sense,individual,반사신경과 선방 능력에 특화된 골키퍼

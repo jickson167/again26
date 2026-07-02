@@ -42,6 +42,14 @@ class CsvService {
         'leadership',
         'intelligence_sense',
         'individual_organization',
+        'detail_position',
+        'comment',
+        'shooting',
+        'passing',
+        'defense',
+        'stamina',
+        'goalkeeper',
+        'recommend_key_positions',
         'portrait_url',
       ];
 
@@ -137,6 +145,14 @@ class CsvService {
       player.leadership,
       player.intelligenceSense,
       player.individualOrganization,
+      player.detailPosition ?? '',
+      player.comment ?? '',
+      player.shooting,
+      player.passing,
+      player.defense,
+      player.stamina,
+      player.goalkeeper,
+      player.recommendKeyPositions ?? '',
       player.portraitUrl ?? '',
     ];
   }
@@ -185,15 +201,22 @@ class CsvService {
       );
     }
 
+    final positionField = readString('position', defaultValue: 'mf');
+    final simplePosition = headerIndex.containsKey('simple_position')
+        ? readString('simple_position', defaultValue: positionField)
+        : positionField;
+
     return Player(
       id: readString('id'),
       name: readString('name'),
       fakeName: readString('fake_name').isEmpty ? null : readString('fake_name'),
-      position: PlayerPosition.fromCode(readString('position', defaultValue: 'mf')),
+      position: PlayerPosition.fromCode(simplePosition),
       positionFit: positionFit,
       rank: readInt('rank'),
       ageStage: _readCurrentAge(readString, headerIndex),
       peakAge: readInt('peak_age'),
+      detailPosition: _readDetailPosition(readString, headerIndex, positionField),
+      comment: readString('comment').isEmpty ? null : readString('comment'),
       height: readInt('height'),
       weight: readInt('weight'),
       nationality:
@@ -202,12 +225,20 @@ class CsvService {
       speed: readStat('speed'),
       power: readStat('power'),
       technique: readStat('technique'),
+      shooting: readStat('shooting'),
+      passing: readStat('passing'),
+      defense: readStat('defense'),
+      stamina: readStat('stamina'),
+      goalkeeper: readStat('goalkeeper'),
       pkAbility: readStat('pk_ability'),
       fkAbility: readStat('fk_ability'),
       ckAbility: readStat('ck_ability'),
       leadership: readStat('leadership'),
       intelligenceSense: readStat('intelligence_sense', defaultValue: 5),
       individualOrganization: readStat('individual_organization', defaultValue: 5),
+      recommendKeyPositions: readString('recommend_key_positions').isEmpty
+          ? null
+          : readString('recommend_key_positions'),
       portraitUrl:
           readString('portrait_url').isEmpty ? null : readString('portrait_url'),
     );
@@ -223,5 +254,26 @@ class CsvService {
     }
     final legacy = readString('age_stage');
     return legacy.isEmpty ? null : legacy;
+  }
+
+  static String? _readDetailPosition(
+    String Function(String key, {String defaultValue}) readString,
+    Map<String, int> headerIndex,
+    String positionField,
+  ) {
+    final explicit = readString('detail_position');
+    if (explicit.isNotEmpty) {
+      return explicit;
+    }
+    if (headerIndex.containsKey('simple_position')) {
+      final pos = readString('position');
+      if (pos.contains('/') || pos.length > 2) {
+        return pos;
+      }
+    }
+    if (positionField.contains('/')) {
+      return positionField;
+    }
+    return null;
   }
 }

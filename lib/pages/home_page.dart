@@ -32,7 +32,7 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '선수 마스터 데이터를 관리하고 조회할 수 있습니다.',
+                  '선수·포메이션·키포지션 마스터 데이터를 관리하고 조회할 수 있습니다.',
                   style: theme.textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
@@ -46,7 +46,7 @@ class HomePage extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: disabled ? null : () => context.go('/admin'),
                   icon: const Icon(Icons.admin_panel_settings),
-                  label: const Text('관리자 페이지'),
+                  label: const Text('매니저 데이터 관리'),
                 ),
               ],
             ),

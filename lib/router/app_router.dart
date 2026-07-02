@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../pages/admin/admin_hub_page.dart';
 import '../pages/admin/admin_player_form_page.dart';
-import '../pages/admin/admin_player_list_page.dart';
 import '../pages/home_page.dart';
 import '../pages/players/player_detail_page.dart';
 import '../pages/players/player_list_page.dart';
-import '../services/player_service.dart';
+import '../services/app_services.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-GoRouter createRouter({required PlayerService? playerService}) {
-  if (playerService == null) {
+GoRouter createRouter({required AppServices? services}) {
+  if (services == null) {
     return GoRouter(
       navigatorKey: rootNavigatorKey,
       initialLocation: '/',
@@ -34,14 +34,15 @@ GoRouter createRouter({required PlayerService? playerService}) {
       ),
       GoRoute(
         path: '/players',
-        builder: (context, state) => PlayerListPage(playerService: playerService),
+        builder: (context, state) =>
+            PlayerListPage(playerService: services.playerService),
         routes: [
           GoRoute(
             path: ':id',
             builder: (context, state) {
               final id = state.pathParameters['id']!;
               return PlayerDetailPage(
-                playerService: playerService,
+                services: services,
                 playerId: id,
               );
             },
@@ -50,12 +51,12 @@ GoRouter createRouter({required PlayerService? playerService}) {
       ),
       GoRoute(
         path: '/admin',
-        builder: (context, state) => AdminPlayerListPage(playerService: playerService),
+        builder: (context, state) => AdminHubPage(services: services),
         routes: [
           GoRoute(
             path: 'new',
             builder: (context, state) => AdminPlayerFormPage(
-              playerService: playerService,
+              playerService: services.playerService,
             ),
           ),
           GoRoute(
@@ -63,7 +64,7 @@ GoRouter createRouter({required PlayerService? playerService}) {
             builder: (context, state) {
               final id = state.pathParameters['id']!;
               return AdminPlayerFormPage(
-                playerService: playerService,
+                playerService: services.playerService,
                 playerId: id,
               );
             },

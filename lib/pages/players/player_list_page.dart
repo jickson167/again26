@@ -157,7 +157,11 @@ class _PlayerListPageState extends State<PlayerListPage> {
                                     if (player.rank != null) '랭크 ${player.rank}',
                                   ].join(' · '),
                                 ),
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: IconButton(
+                                  tooltip: '자세히 보기',
+                                  icon: const Icon(Icons.search),
+                                  onPressed: () => context.go('/players/${player.id}'),
+                                ),
                                 onTap: () => context.go('/players/${player.id}'),
                               );
                             },
