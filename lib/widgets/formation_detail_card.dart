@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/formation.dart';
 import '../models/key_position.dart';
+import '../utils/formation_display.dart';
+import 'formation_pitch_diagram.dart';
 import 'game_stat_bar.dart';
 
 class FormationDetailCard extends StatefulWidget {
@@ -26,17 +28,19 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
   late TextEditingController _commentController;
   bool _savingComment = false;
 
+  FormationDisplay get _display => FormationDisplay(widget.formation);
+
   @override
   void initState() {
     super.initState();
-    _commentController = TextEditingController(text: widget.formation.comment ?? '');
+    _commentController = TextEditingController(text: _display.comment);
   }
 
   @override
   void didUpdateWidget(covariant FormationDetailCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.formation.comment != widget.formation.comment) {
-      _commentController.text = widget.formation.comment ?? '';
+    if (oldWidget.formation != widget.formation) {
+      _commentController.text = _display.comment;
     }
   }
 
@@ -67,12 +71,26 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
 
   @override
   Widget build(BuildContext context) {
-    final formation = widget.formation;
-    final keyIds = formation.keyPositionIds;
+    final display = _display;
+    final keyIds = display.keyPositionIds;
+    final tactical = display.tacticalType;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (display.needsReimport)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade700),
+            ),
+            child: const Text(
+              '데이터가 옛 CSV 버그로 깨져 있습니다. 포메이션 CSV를 다시 드래그해서 가져오세요.',
+            ),
+          ),
         _SectionHeader(
           title: '포메이션 정보',
           child: Container(
@@ -84,44 +102,36 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: 120,
-                  height: 140,
-                  child: _FormationPitch(name: formation.name),
-                ),
+                FormationPitchDiagram(lineCounts: display.lineCounts),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (formation.tacticalType != null)
-                        Text(
-                          formation.tacticalType!,
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
                       Text(
-                        formation.name,
+                        tactical,
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                      Text(
+                        display.name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 24,
+                          fontSize: 26,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text('키 포지션', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        children: keyIds.map((id) {
-                          final kp = widget.keyPositionsById[id];
-                          return Chip(
-                            avatar: const Icon(Icons.star, color: Colors.amber, size: 16),
-                            label: Text(kp?.name ?? id),
-                            backgroundColor: Colors.white.withValues(alpha: 0.15),
-                            labelStyle: const TextStyle(color: Colors.white),
-                          );
-                        }).toList(),
+                      const SizedBox(height: 10),
+                      const Text(
+                        '키 포지션',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
+                      const SizedBox(height: 6),
+                      for (var i = 0; i < keyIds.length; i++)
+                        _HeaderKeyPositionRow(
+                          index: i + 1,
+                          keyPosition: widget.keyPositionsById[keyIds[i]],
+                          fallbackId: keyIds[i],
+                        ),
                     ],
                   ),
                 ),
@@ -135,17 +145,17 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
             children: [
               GameStatBar(
                 label: '유형',
-                value: _tacticalValue(formation.tacticalType),
+                value: _tacticalValue(tactical),
                 color: Colors.blue,
               ),
               GameStatBar(
                 label: '공격성',
-                value: _attackValue(formation.tacticalType),
+                value: _attackValue(tactical),
                 color: Colors.green,
               ),
               GameStatBar(
                 label: '안정성',
-                value: _stabilityValue(formation.tacticalType),
+                value: _stabilityValue(tactical),
                 color: Colors.red,
               ),
             ],
@@ -161,7 +171,7 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
                   controller: _commentController,
                   maxLines: 5,
                   decoration: const InputDecoration(
-                    hintText: '포메이션 코멘트',
+                    hintText: '포메이션 설명 (일반인도 읽을 수 있는 문장)',
                     border: OutlineInputBorder(),
                     filled: true,
                   ),
@@ -176,8 +186,8 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
                     border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: Text(
-                    formation.comment?.isNotEmpty == true
-                        ? formation.comment!
+                    display.comment.isNotEmpty
+                        ? display.comment
                         : '등록된 코멘트가 없습니다.',
                   ),
                 ),
@@ -201,25 +211,12 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
             ],
           ),
         ),
-        _SectionHeader(
-          title: '키 포지션',
-          child: Column(
-            children: [
-              for (var i = 0; i < keyIds.length; i++)
-                _KeyPositionTile(
-                  index: i + 1,
-                  keyPosition: widget.keyPositionsById[keyIds[i]],
-                  fallbackId: keyIds[i],
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
 
   int _tacticalValue(String? type) {
-    if (type == null) {
+    if (type == null || type.isEmpty) {
       return 5;
     }
     if (type.contains('공격') || type.contains('총공격')) {
@@ -232,7 +229,7 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
   }
 
   int _attackValue(String? type) {
-    if (type == null) {
+    if (type == null || type.isEmpty) {
       return 5;
     }
     if (type.contains('공격') || type.contains('역습') || type.contains('총공격')) {
@@ -249,8 +246,8 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
   }
 }
 
-class _KeyPositionTile extends StatelessWidget {
-  const _KeyPositionTile({
+class _HeaderKeyPositionRow extends StatelessWidget {
+  const _HeaderKeyPositionRow({
     required this.index,
     required this.keyPosition,
     required this.fallbackId,
@@ -262,38 +259,49 @@ class _KeyPositionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    final title = keyPosition?.name ?? _humanizeId(fallbackId);
+    final desc = keyPosition?.description ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: Colors.amber.shade700,
-            child: Text('$index', style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: Colors.amber.shade700,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$index',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  keyPosition?.name ?? fallbackId,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                if (keyPosition != null) ...[
-                  Text(
-                  '${keyPosition!.mainStat} / ${keyPosition!.subStat} · ${keyPosition!.simplePosition.label}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
                   ),
-                  const SizedBox(height: 4),
-                  Text(keyPosition!.description ?? ''),
-                ],
+                ),
+                if (desc.isNotEmpty)
+                  Text(
+                    desc,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
               ],
             ),
           ),
@@ -301,50 +309,9 @@ class _KeyPositionTile extends StatelessWidget {
       ),
     );
   }
-}
 
-class _FormationPitch extends StatelessWidget {
-  const _FormationPitch({required this.name});
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF14532D),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Stack(
-        children: [
-          Center(
-            child: Text(
-              name,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          ...List.generate(10, (i) {
-            return Positioned(
-              left: 20 + (i % 3) * 28.0,
-              top: 20 + (i ~/ 3) * 24.0,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
+  String _humanizeId(String id) {
+    return id.replaceAll('kp_', '').replaceAll('_', ' ');
   }
 }
 

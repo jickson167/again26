@@ -10,6 +10,7 @@ import '../../services/formation_csv_service.dart';
 import '../../services/key_position_csv_service.dart';
 import '../../widgets/csv_drop_import_zone.dart';
 import '../../widgets/common_widgets.dart';
+import '../../utils/formation_display.dart';
 import '../../widgets/formation_detail_card.dart';
 import '../../widgets/player_detail_card.dart';
 
@@ -381,6 +382,7 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
         }
         return;
       }
+      FormationCsvService.validateForDatabase(items);
       await widget.services.formationService.upsertMany(items);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -388,6 +390,12 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
         );
       }
       await _load();
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _importing = false);
@@ -432,10 +440,11 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = _items[index];
+                    final display = FormationDisplay(item);
                     return ListTile(
-                      leading: CircleAvatar(child: Text(item.name.split('-').first)),
-                      title: Text(item.name),
-                      subtitle: Text('${item.tacticalType ?? '-'} · ${item.id}'),
+                      leading: CircleAvatar(child: Text(display.name.split('-').first)),
+                      title: Text(display.name),
+                      subtitle: Text(display.tacticalType),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [

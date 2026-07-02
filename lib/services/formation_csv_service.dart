@@ -31,7 +31,7 @@ class FormationCsvService {
       return [];
     }
 
-    final headerRow = rows.first.map((cell) => '$cell'.trim()).toList();
+    final headerRow = rows.first.map((cell) => _cleanHeader('$cell')).toList();
     final headerIndex = {
       for (var i = 0; i < headerRow.length; i++) headerRow[i]: i,
     };
@@ -74,6 +74,27 @@ class FormationCsvService {
       f.keyPos3 ?? '',
       f.comment ?? '',
     ];
+  }
+
+  static void validateForDatabase(List<Formation> items) {
+    for (final item in items) {
+      if (item.name.contains('[') || item.name.contains('[index]')) {
+        throw FormatException(
+          '${item.id}: name 필드가 CSV 한 줄 전체로 읽혔습니다. CSV를 다시 저장·가져오세요.',
+        );
+      }
+      if (item.id.isEmpty) {
+        throw FormatException('formation_id가 비어 있는 행이 있습니다.');
+      }
+    }
+  }
+
+  static String _cleanHeader(String value) {
+    return value
+        .replaceAll('\uFEFF', '')
+        .trim()
+        .toLowerCase()
+        .replaceAll(' ', '_');
   }
 
   Formation _rowToFormation(List<dynamic> row, Map<String, int> headerIndex) {
