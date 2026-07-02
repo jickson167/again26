@@ -29,4 +29,13 @@ class CsvFileLoader {
   static String decodeBytes(List<int> bytes) {
     return utf8.decode(bytes);
   }
+
+  /// UTF-8 BOM 제거 및 CSV 헤더/내용 정리
+  static String normalizeCsvContent(String content) {
+    var text = content;
+    if (text.startsWith('\uFEFF')) {
+      text = text.substring(1);
+    }
+    return text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  }
 }

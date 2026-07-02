@@ -60,7 +60,7 @@ class CsvService {
   }
 
   List<Player> parseCsv(String content) {
-    final rows = _csv.decode(content);
+    final rows = _csv.decode(CsvFileLoader.normalizeCsvContent(content));
     if (rows.isEmpty) {
       return [];
     }

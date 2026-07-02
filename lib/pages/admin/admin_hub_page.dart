@@ -557,6 +557,7 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
         }
         return;
       }
+      KeyPositionCsvService.validateForDatabase(items);
       await widget.services.keyPositionService.upsertMany(items);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

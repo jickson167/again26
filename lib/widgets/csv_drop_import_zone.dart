@@ -44,7 +44,10 @@ class _CsvDropImportZoneState extends State<CsvDropImportZone> {
     if (content == null) {
       return;
     }
-    await _handleContent(content, source: '파일 선택');
+    await _handleContent(
+      CsvFileLoader.normalizeCsvContent(content),
+      source: '파일 선택',
+    );
   }
 
   Future<void> _handleDrop(DropDoneDetails details) async {
@@ -62,8 +65,9 @@ class _CsvDropImportZoneState extends State<CsvDropImportZone> {
       }
 
       final bytes = await file.readAsBytes();
+      final content = CsvFileLoader.decodeBytes(bytes);
       await _handleContent(
-        CsvFileLoader.decodeBytes(bytes),
+        CsvFileLoader.normalizeCsvContent(content),
         source: name,
       );
       return;
