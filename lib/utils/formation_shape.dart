@@ -19,7 +19,7 @@ class FormationPitchLayout {
   static const defYRatio = 0.785;
 
   /// 인접 선수 간 고정 좌우 간격 (미니맵 가로 대비, 모든 줄 동일)
-  static const dotGapRatio = 0.28;
+  static const dotGapRatio = 0.25;
 
   /// 5명 줄 등에서 필드 밖으로 넘치지 않게 줄 전체 폭 상한
   static const maxRowSpanRatio = 0.88;
