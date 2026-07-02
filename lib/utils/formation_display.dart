@@ -11,10 +11,31 @@ class FormationDisplay {
   String get comment => _extractComment();
   List<String> get keyPositionIds => _extractKeyPositionIds();
 
-  bool get needsReimport =>
-      formation.name.contains('[') ||
-      formation.name.contains(',') ||
-      (formation.comment?.contains('kp_') ?? false);
+  /// 옛 CSV 버그로 한 줄 전체가 필드에 들어간 row
+  static bool isCorruptRecord(Formation formation) {
+    return _looksCorruptValue(formation.id) ||
+        _looksCorruptValue(formation.name) ||
+        _looksCorruptValue(formation.tacticalType ?? '') ||
+        _looksCorruptValue(formation.keyPos1 ?? '') ||
+        _looksCorruptValue(formation.keyPos2 ?? '') ||
+        _looksCorruptValue(formation.keyPos3 ?? '') ||
+        _looksCorruptValue(formation.comment ?? '');
+  }
+
+  bool get needsReimport => isCorruptRecord(formation);
+
+  static bool _looksCorruptValue(String value) {
+    if (value.isEmpty) {
+      return false;
+    }
+    if (value.contains('[index]')) {
+      return true;
+    }
+    if (value.startsWith('[') && value.contains('fm_')) {
+      return true;
+    }
+    return value.contains(',') && value.contains('fm_') && value.contains('kp_');
+  }
 
   String _extractFormationName() {
     final raw = formation.name.trim();
@@ -99,7 +120,7 @@ class FormationDisplay {
   }
 
   bool _looksCorrupt(String value) {
-    return value.contains('[') || value.contains(',') || value.contains('[index]');
+    return _looksCorruptValue(value);
   }
 
   List<String> _splitParts(String raw) {

@@ -313,8 +313,16 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
       if (!mounted) {
         return;
       }
+      var formations = results[0] as List<Formation>;
+      if (formations.any(FormationDisplay.isCorruptRecord)) {
+        await widget.services.formationService.deleteCorruptRecords();
+        formations = await widget.services.formationService.fetchAll();
+      }
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _items = results[0] as List<Formation>;
+        _items = formations;
         _keyPositions = {
           for (final kp in results[1] as List<KeyPosition>) kp.id: kp,
         };
@@ -332,6 +340,10 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
   }
 
   Future<void> _showDetail(Formation item) async {
+    final fresh = await widget.services.formationService.fetchById(item.id) ?? item;
+    if (!mounted) {
+      return;
+    }
     await showDialog<void>(
       context: context,
       builder: (context) => Dialog(
@@ -351,12 +363,12 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: FormationDetailCard(
-                    formation: item,
+                    formation: fresh,
                     keyPositionsById: _keyPositions,
                     editableComment: true,
                     onSaveComment: (comment) async {
                       await widget.services.formationService.update(
-                        item.copyWith(comment: comment),
+                        fresh.copyWith(comment: comment),
                       );
                       await _load();
                     },
@@ -383,10 +395,12 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
         return;
       }
       FormationCsvService.validateForDatabase(items);
+      final removed = await widget.services.formationService.deleteCorruptRecords();
       await widget.services.formationService.upsertMany(items);
       if (mounted) {
+        final suffix = removed > 0 ? ' (깨진 데이터 $removed개 제거)' : '';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${items.length}개 포메이션 가져옴')),
+          SnackBar(content: Text('${items.length}개 포메이션 가져옴$suffix')),
         );
       }
       await _load();

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/formation.dart';
 import '../services/csv_file_loader.dart';
 import '../utils/file_download.dart';
+import '../utils/formation_display.dart';
 
 class FormationCsvService {
   static final _csv = Csv(lineDelimiter: '\n');
@@ -78,9 +79,9 @@ class FormationCsvService {
 
   static void validateForDatabase(List<Formation> items) {
     for (final item in items) {
-      if (item.name.contains('[') || item.name.contains('[index]')) {
+      if (FormationDisplay.isCorruptRecord(item)) {
         throw FormatException(
-          '${item.id}: name 필드가 CSV 한 줄 전체로 읽혔습니다. CSV를 다시 저장·가져오세요.',
+          '${item.id}: CSV 행이 잘못 파싱되었습니다. 파일을 다시 저장·가져오세요.',
         );
       }
       if (item.id.isEmpty) {
