@@ -66,7 +66,7 @@ class FormationPitchLayout {
     final rowDots = _rowDots(players, y, size);
     var best = rowDots.first;
     var bestDist = double.infinity;
-    final targetX = size.width * (0.06 + slotX * 0.88);
+    final targetX = size.width * (_sideMargin + slotX * (1 - _sideMargin * 2));
     for (final dot in rowDots) {
       final dist = (dot.dx - targetX).abs();
       if (dist < bestDist) {
@@ -86,26 +86,20 @@ class FormationPitchLayout {
     return (lineCount - 1 - fromAttack).clamp(0, lineCount - 1);
   }
 
+  static const _sideMargin = 0.075;
+
   static List<Offset> _rowDots(int players, double y, Size size) {
-    final widthRatio = switch (players) {
-      1 => 0.0,
-      2 => 0.36,
-      3 => 0.56,
-      4 => 0.80,
-      5 => 0.92,
-      _ => 0.88,
-    };
-    final rowWidth = size.width * widthRatio;
-    final left = (size.width - rowWidth) / 2;
     if (players == 1) {
       return [Offset(size.width / 2, y)];
     }
+
+    final left = size.width * _sideMargin;
+    final right = size.width * (1 - _sideMargin);
+    final span = right - left;
+
     return [
       for (var col = 0; col < players; col++)
-        Offset(
-          left + rowWidth * (col + 1) / (players + 1),
-          y,
-        ),
+        Offset(left + span * col / (players - 1), y),
     ];
   }
 }
