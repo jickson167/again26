@@ -6,12 +6,15 @@ import 'formation_slot_layout.dart';
 class FormationPitchLayout {
   FormationPitchLayout._();
 
-  static const gkYRatio = 0.84;
-  static const attackYRatio = 0.05;
-  static const defYRatio = 0.67;
+  static const gkYRatio = 0.87;
+  static const attackYRatio = 0.07;
+  static const defYRatio = 0.70;
 
   /// 모든 선수 점을 위로 올리는 px
-  static const dotLiftPx = 5.0;
+  static const dotLiftPx = 2.0;
+
+  /// 인접 선수 좌우 간격 배율 (10 → 14)
+  static const rowSpacingScale = 1.4;
 
   static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -96,9 +99,8 @@ class FormationPitchLayout {
     return (lineCount - 1 - fromAttack).clamp(0, lineCount - 1);
   }
 
-  /// 좁은 배치(0.36~0.80)와 끝까지(1.0)의 중간 폭
   static double _rowWidthRatio(int players) {
-    return switch (players) {
+    final base = switch (players) {
       1 => 0.0,
       2 => 0.50,
       3 => 0.64,
@@ -106,6 +108,10 @@ class FormationPitchLayout {
       5 => 0.88,
       _ => 0.82,
     };
+    if (players <= 1) {
+      return base;
+    }
+    return (base * rowSpacingScale).clamp(0.0, 1.0);
   }
 
   static List<Offset> _rowDots(int players, double y, Size size) {

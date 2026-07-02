@@ -112,7 +112,7 @@ class _FormationPitchPainter extends CustomPainter {
 
     final boxW = size.width * 0.48;
     final boxH = size.height * 0.16;
-    final boxCenterY = size.height * FormationPitchLayout.gkYRatio - FormationPitchLayout.dotLiftPx;
+    final boxCenterY = size.height * FormationPitchLayout.gkYRatio;
     canvas.drawRect(
       Rect.fromCenter(
         center: Offset(size.width / 2, boxCenterY),
