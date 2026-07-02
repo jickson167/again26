@@ -297,7 +297,7 @@ class _HeaderKeyPositionRow extends StatelessWidget {
           FormationPitchDiagram(
             formationName: formationName,
             keySlots: {slot},
-            size: 56,
+            size: 60,
             compact: true,
           ),
           const SizedBox(width: 8),

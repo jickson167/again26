@@ -6,8 +6,17 @@ import 'formation_slot_layout.dart';
 class FormationPitchLayout {
   FormationPitchLayout._();
 
-  static const _gkY = 0.905;
-  static const _topY = 0.13;
+  /// 골키퍼 — 골대 안쪽 (맨 아래 X)
+  static const gkYRatio = 0.87;
+
+  /// 공격선 — 상단 센터서클 근처
+  static const attackYRatio = 0.07;
+
+  /// 수비선 — GK 위
+  static const defYRatio = 0.70;
+
+  /// 좌우 여백 (작을수록 넓게)
+  static const sideMargin = 0.04;
 
   static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -21,24 +30,29 @@ class FormationPitchLayout {
     return parseLines(formationName).fold<int>(1, (sum, n) => sum + n);
   }
 
+  static double rowYRatio(int rowIndex, int lineCount) {
+    if (lineCount <= 1) {
+      return (defYRatio + attackYRatio) / 2;
+    }
+    return defYRatio -
+        (rowIndex / (lineCount - 1)) * (defYRatio - attackYRatio);
+  }
+
   /// GK(맨 아래) + 수비→공격 순으로 11개 좌표
   static List<Offset> allDotOffsets(String formationName, Size size) {
     final lines = parseLines(formationName);
     if (lines.isEmpty) {
-      return [Offset(size.width / 2, size.height * _gkY)];
+      return [Offset(size.width / 2, size.height * gkYRatio)];
     }
 
-    final dots = <Offset>[Offset(size.width / 2, size.height * _gkY)];
-    final outfieldTop = size.height * _topY;
-    final outfieldBottom = size.height * (_gkY - 0.11);
+    final dots = <Offset>[Offset(size.width / 2, size.height * gkYRatio)];
 
     for (var row = 0; row < lines.length; row++) {
       final players = lines[row];
       if (players <= 0) {
         continue;
       }
-      final y = outfieldBottom -
-          (row + 0.5) / lines.length * (outfieldBottom - outfieldTop);
+      final y = size.height * rowYRatio(row, lines.length);
       dots.addAll(_rowDots(players, y, size));
     }
     return dots;
@@ -47,7 +61,7 @@ class FormationPitchLayout {
   /// 키포지션 slot → 해당 줄에 맞춘 좌표 (별표용)
   static Offset keySlotOffset(int slot, String formationName, Size size) {
     if (slot == 13) {
-      return Offset(size.width / 2, size.height * _gkY);
+      return Offset(size.width / 2, size.height * gkYRatio);
     }
 
     final lines = parseLines(formationName);
@@ -57,16 +71,13 @@ class FormationPitchLayout {
 
     final rowIndex = _rowIndexForSlot(slot, lines.length);
     final players = lines[rowIndex];
-    final outfieldTop = size.height * _topY;
-    final outfieldBottom = size.height * (_gkY - 0.11);
-    final y = outfieldBottom -
-        (rowIndex + 0.5) / lines.length * (outfieldBottom - outfieldTop);
+    final y = size.height * rowYRatio(rowIndex, lines.length);
 
     final slotX = FormationSlotLayout.normalizedOffset(slot).dx;
     final rowDots = _rowDots(players, y, size);
     var best = rowDots.first;
     var bestDist = double.infinity;
-    final targetX = size.width * (_sideMargin + slotX * (1 - _sideMargin * 2));
+    final targetX = size.width * (sideMargin + slotX * (1 - sideMargin * 2));
     for (final dot in rowDots) {
       final dist = (dot.dx - targetX).abs();
       if (dist < bestDist) {
@@ -79,22 +90,20 @@ class FormationPitchLayout {
 
   static int _rowIndexForSlot(int slot, int lineCount) {
     final slotY = FormationSlotLayout.normalizedOffset(slot).dy;
-    const defY = 0.68;
-    const fwdY = 0.08;
-    final t = ((slotY - fwdY) / (defY - fwdY)).clamp(0.0, 1.0);
+    const refDefY = 0.68;
+    const refFwdY = 0.08;
+    final t = ((slotY - refFwdY) / (refDefY - refFwdY)).clamp(0.0, 1.0);
     final fromAttack = (t * (lineCount - 1)).round();
     return (lineCount - 1 - fromAttack).clamp(0, lineCount - 1);
   }
-
-  static const _sideMargin = 0.075;
 
   static List<Offset> _rowDots(int players, double y, Size size) {
     if (players == 1) {
       return [Offset(size.width / 2, y)];
     }
 
-    final left = size.width * _sideMargin;
-    final right = size.width * (1 - _sideMargin);
+    final left = size.width * sideMargin;
+    final right = size.width * (1 - sideMargin);
     final span = right - left;
 
     return [

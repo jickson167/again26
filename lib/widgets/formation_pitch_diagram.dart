@@ -10,7 +10,7 @@ class FormationPitchDiagram extends StatelessWidget {
     super.key,
     required this.formationName,
     required this.keySlots,
-    this.size = 128,
+    this.size = 136,
     this.showAllDots = true,
     this.compact = false,
   });
@@ -72,14 +72,14 @@ class _FormationPitchPainter extends CustomPainter {
           canvas,
           center,
           fill: compact ? Colors.blue.shade400.withValues(alpha: 0.35) : Colors.blue.shade400,
-          radius: compact ? 3.0 : 4.5,
+          radius: compact ? 3.6 : 5.5,
         );
       }
     }
 
     for (final entry in keyCenters.entries) {
       if (entry.key != 13) {
-        _drawDot(canvas, entry.value, fill: Colors.blue.shade400, radius: compact ? 3.5 : 4.5);
+        _drawDot(canvas, entry.value, fill: Colors.blue.shade400, radius: compact ? 4.0 : 5.5);
       }
       _drawStar(canvas, entry.value, compact: compact);
     }
@@ -104,17 +104,18 @@ class _FormationPitchPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
-    final inset = size.width * 0.07;
+    final inset = size.width * 0.05;
     canvas.drawRect(
       Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height - inset * 2),
       line,
     );
 
-    final boxW = size.width * 0.44;
-    final boxH = size.height * 0.17;
+    final boxW = size.width * 0.48;
+    final boxH = size.height * 0.16;
+    final boxCenterY = size.height * FormationPitchLayout.gkYRatio;
     canvas.drawRect(
       Rect.fromCenter(
-        center: Offset(size.width / 2, size.height - inset - boxH / 2),
+        center: Offset(size.width / 2, boxCenterY),
         width: boxW,
         height: boxH,
       ),
@@ -123,9 +124,9 @@ class _FormationPitchPainter extends CustomPainter {
 
     canvas.drawArc(
       Rect.fromCenter(
-        center: Offset(size.width / 2, inset),
-        width: size.width * 0.34,
-        height: size.width * 0.34,
+        center: Offset(size.width / 2, inset + 2),
+        width: size.width * 0.38,
+        height: size.width * 0.38,
       ),
       0,
       math.pi,
@@ -161,8 +162,8 @@ class _FormationPitchPainter extends CustomPainter {
   }
 
   void _drawStar(Canvas canvas, Offset center, {required bool compact}) {
-    final outerRadius = compact ? 5.5 : 7.0;
-    final innerRadius = compact ? 2.5 : 3.2;
+    final outerRadius = compact ? 6.0 : 8.0;
+    final innerRadius = compact ? 2.8 : 3.6;
     final path = Path();
     for (var i = 0; i < 10; i++) {
       final radius = i.isEven ? outerRadius : innerRadius;
