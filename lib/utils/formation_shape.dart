@@ -15,8 +15,11 @@ class FormationPitchLayout {
   /// 수비선 — GK 위
   static const defYRatio = 0.70;
 
-  /// 좌우 여백 (작을수록 넓게)
-  static const sideMargin = 0.04;
+  /// 좌우 여백 — 좁음(0.075)과 넓음(0.04)의 중간
+  static const sideMargin = 0.058;
+
+  /// 모든 선수 점을 위로 올리는 px
+  static const dotLiftPx = 5.0;
 
   static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -42,10 +45,10 @@ class FormationPitchLayout {
   static List<Offset> allDotOffsets(String formationName, Size size) {
     final lines = parseLines(formationName);
     if (lines.isEmpty) {
-      return [Offset(size.width / 2, size.height * gkYRatio)];
+      return [_lift(Offset(size.width / 2, size.height * gkYRatio))];
     }
 
-    final dots = <Offset>[Offset(size.width / 2, size.height * gkYRatio)];
+    final dots = <Offset>[_lift(Offset(size.width / 2, size.height * gkYRatio))];
 
     for (var row = 0; row < lines.length; row++) {
       final players = lines[row];
@@ -53,15 +56,17 @@ class FormationPitchLayout {
         continue;
       }
       final y = size.height * rowYRatio(row, lines.length);
-      dots.addAll(_rowDots(players, y, size));
+      dots.addAll(_rowDots(players, y, size).map(_lift));
     }
     return dots;
   }
 
+  static Offset _lift(Offset point) => Offset(point.dx, point.dy - dotLiftPx);
+
   /// 키포지션 slot → 해당 줄에 맞춘 좌표 (별표용)
   static Offset keySlotOffset(int slot, String formationName, Size size) {
     if (slot == 13) {
-      return Offset(size.width / 2, size.height * gkYRatio);
+      return _lift(Offset(size.width / 2, size.height * gkYRatio));
     }
 
     final lines = parseLines(formationName);
@@ -85,7 +90,7 @@ class FormationPitchLayout {
         best = dot;
       }
     }
-    return best;
+    return _lift(best);
   }
 
   static int _rowIndexForSlot(int slot, int lineCount) {
