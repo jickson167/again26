@@ -20,6 +20,30 @@ class FormationSlotLayout {
     13: 'GK',
   };
 
+  static const slotShortLabels = {
+    1: 'LW',
+    2: 'ST',
+    3: 'RW',
+    4: 'LM',
+    5: 'CM',
+    6: 'RM',
+    7: 'LWB',
+    8: 'DM',
+    9: 'RWB',
+    10: 'LB',
+    11: 'CB',
+    12: 'RB',
+    13: 'GK',
+  };
+
+  static String shortLabel(int slot) {
+    return slotShortLabels[slot] ?? slotLabels[slot] ?? 'S$slot';
+  }
+
+  static String fullLabel(int slot) {
+    return slotLabels[slot] ?? 'Slot $slot';
+  }
+
   /// x, y in 0~1 relative coordinates
   static Offset slotOffset(int slot, {required Size size, double padding = 8}) {
     final normalized = _normalizedOffsets[slot.clamp(1, 13)] ?? const Offset(0.5, 0.5);

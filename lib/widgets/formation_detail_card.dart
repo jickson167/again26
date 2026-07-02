@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/formation.dart';
 import '../models/key_position.dart';
 import '../utils/formation_display.dart';
+import '../utils/formation_shape.dart';
+import '../utils/formation_slot_layout.dart';
 import 'formation_pitch_diagram.dart';
 import 'game_stat_bar.dart';
 
@@ -103,6 +105,7 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 FormationPitchDiagram(
+                  formationName: display.name,
                   keySlots: formation.keyPositionSlots.toSet(),
                 ),
                 const SizedBox(width: 12),
@@ -141,6 +144,8 @@ class _FormationDetailCardState extends State<FormationDetailCard> {
                       for (var i = 0; i < keyEntries.length; i++)
                         _HeaderKeyPositionRow(
                           index: i + 1,
+                          slot: keyEntries[i].slot,
+                          formationName: display.name,
                           keyPosition: widget.keyPositionsById[keyEntries[i].id],
                           fallbackId: keyEntries[i].id,
                         ),
@@ -267,58 +272,89 @@ class _FormationTypeBadge extends StatelessWidget {
 class _HeaderKeyPositionRow extends StatelessWidget {
   const _HeaderKeyPositionRow({
     required this.index,
+    required this.slot,
+    required this.formationName,
     required this.keyPosition,
     required this.fallbackId,
   });
 
   final int index;
+  final int slot;
+  final String formationName;
   final KeyPosition? keyPosition;
   final String fallbackId;
 
   @override
   Widget build(BuildContext context) {
+    final positionLabel = FormationSlotLayout.shortLabel(slot);
     final title = keyPosition?.name ?? _humanizeId(fallbackId);
     final desc = keyPosition?.description ?? '';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              color: Colors.amber.shade700,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '$index',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          FormationPitchDiagram(
+            formationName: formationName,
+            keySlots: {slot},
+            width: 52,
+            height: 62,
+            highlightSlots: FormationShape.occupiedSlots(formationName),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade700,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$index',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      positionLabel,
+                      style: const TextStyle(
+                        color: Colors.amber,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 if (desc.isNotEmpty)
-                  Text(
-                    desc,
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 28, top: 2),
+                    child: Text(
+                      desc,
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
                   ),
               ],
             ),
