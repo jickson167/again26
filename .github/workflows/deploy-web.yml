@@ -58,7 +58,7 @@ jobs:
 
       - name: Build web
         run: |
-          flutter build web --release --base-href="/again26/"
+          flutter build web --release --base-href="/again26/" --pwa-strategy=none
 
       - name: Verify Supabase config in env.js
         run: grep -q "supabase.co" build/web/env.js

@@ -18,8 +18,8 @@ class FormationPitchLayout {
   /// 수비선 — GK 위·박스 상단 근처
   static const defYRatio = 0.785;
 
-  /// 인접 선수 간 고정 좌우 간격 (미니맵 가로 대비, 줄마다 동일)
-  static const dotGapRatio = 0.14;
+  /// 인접 선수 간 고정 좌우 간격 (미니맵 가로 대비, 모든 줄 동일)
+  static const dotGapRatio = 0.12;
 
   static List<int> parseLines(String formationName) {
     final match = RegExp(r'\d+(?:-\d+)+').firstMatch(formationName.trim());
@@ -69,29 +69,15 @@ class FormationPitchLayout {
 
     final lines = parseLines(formationName);
     if (lines.isEmpty) {
-      return FormationSlotLayout.slotOffset(slot, size: size);
+      return _rowDots(1, size.height * gkDotYRatio, size).first;
     }
 
     final rowIndex = _rowIndexForSlot(slot, lines.length);
     final players = lines[rowIndex];
     final y = size.height * rowYRatio(rowIndex, lines.length);
     final rowDots = _rowDots(players, y, size);
-
-    final slotX = FormationSlotLayout.normalizedOffset(slot).dx;
-    final gap = _dotGap(size);
-    final startX = (size.width - gap * (players - 1)) / 2;
-    final targetX = startX + gap * slotX * (players - 1);
-
-    var best = rowDots.first;
-    var bestDist = double.infinity;
-    for (final dot in rowDots) {
-      final dist = (dot.dx - targetX).abs();
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = dot;
-      }
-    }
-    return best;
+    final col = _columnForSlot(slot, players);
+    return rowDots[col.clamp(0, rowDots.length - 1)];
   }
 
   static int _rowIndexForSlot(int slot, int lineCount) {
@@ -103,19 +89,30 @@ class FormationPitchLayout {
     return (lineCount - 1 - fromAttack).clamp(0, lineCount - 1);
   }
 
+  /// 슬롯 좌/우 성향 → 해당 줄 내 열 인덱스
+  static int _columnForSlot(int slot, int players) {
+    if (players <= 1) {
+      return 0;
+    }
+    final slotX = FormationSlotLayout.normalizedOffset(slot).dx;
+    return (slotX * (players - 1)).round().clamp(0, players - 1);
+  }
+
   static double _dotGap(Size size) => size.width * dotGapRatio;
 
+  /// 가운데 정렬 + 고정 간격 (양끝 stretch 없음)
   static List<Offset> _rowDots(int players, double y, Size size) {
     if (players == 1) {
       return [Offset(size.width / 2, y)];
     }
 
     final gap = _dotGap(size);
-    final startX = (size.width - gap * (players - 1)) / 2;
+    final centerX = size.width / 2;
+    final halfSpan = gap * (players - 1) / 2;
 
     return [
       for (var col = 0; col < players; col++)
-        Offset(startX + gap * col, y),
+        Offset(centerX - halfSpan + gap * col, y),
     ];
   }
 }
