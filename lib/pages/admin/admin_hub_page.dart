@@ -8,6 +8,7 @@ import '../../services/app_services.dart';
 import '../../services/csv_service.dart';
 import '../../services/formation_csv_service.dart';
 import '../../services/key_position_csv_service.dart';
+import '../../widgets/csv_drop_import_zone.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/formation_detail_card.dart';
 import '../../widgets/player_detail_card.dart';
@@ -80,6 +81,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
   List<Player> _players = [];
   Map<String, KeyPosition> _keyPositions = {};
   bool _loading = true;
+  bool _importing = false;
   String? _error;
 
   @override
@@ -176,18 +178,30 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
     await _load();
   }
 
-  Future<void> _importCsv() async {
-    final players = await _csvService.importFromPicker();
-    if (players.isEmpty) {
-      return;
+  Future<void> _importFromContent(String content) async {
+    setState(() => _importing = true);
+    try {
+      final players = _csvService.parseCsv(content);
+      if (players.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('가져올 선수 데이터가 없습니다.')),
+          );
+        }
+        return;
+      }
+      await widget.services.playerService.upsertMany(players);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${players.length}명 가져옴')),
+        );
+      }
+      await _load();
+    } finally {
+      if (mounted) {
+        setState(() => _importing = false);
+      }
     }
-    await widget.services.playerService.upsertMany(players);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${players.length}명 가져옴')),
-      );
-    }
-    await _load();
   }
 
   void _exportCsv() {
@@ -206,10 +220,14 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
     return Column(
       children: [
         _AdminToolbar(
-          onImport: _importCsv,
           onExport: _exportCsv,
           onAdd: () => context.go('/admin/new'),
           addLabel: '선수 추가',
+        ),
+        CsvDropImportZone(
+          label: '선수 CSV 업로드',
+          busy: _importing,
+          onImport: _importFromContent,
         ),
         Expanded(
           child: _players.isEmpty
@@ -272,6 +290,7 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
   List<Formation> _items = [];
   Map<String, KeyPosition> _keyPositions = {};
   bool _loading = true;
+  bool _importing = false;
   String? _error;
 
   @override
@@ -350,18 +369,30 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
     );
   }
 
-  Future<void> _importCsv() async {
-    final items = await _csvService.importFromPicker();
-    if (items.isEmpty) {
-      return;
+  Future<void> _importFromContent(String content) async {
+    setState(() => _importing = true);
+    try {
+      final items = _csvService.parseCsv(content);
+      if (items.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('가져올 포메이션 데이터가 없습니다.')),
+          );
+        }
+        return;
+      }
+      await widget.services.formationService.upsertMany(items);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${items.length}개 포메이션 가져옴')),
+        );
+      }
+      await _load();
+    } finally {
+      if (mounted) {
+        setState(() => _importing = false);
+      }
     }
-    await widget.services.formationService.upsertMany(items);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${items.length}개 포메이션 가져옴')),
-      );
-    }
-    await _load();
   }
 
   void _exportCsv() {
@@ -385,8 +416,12 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
     return Column(
       children: [
         _AdminToolbar(
-          onImport: _importCsv,
           onExport: _exportCsv,
+        ),
+        CsvDropImportZone(
+          label: '포메이션 CSV 업로드',
+          busy: _importing,
+          onImport: _importFromContent,
         ),
         Expanded(
           child: _items.isEmpty
@@ -438,6 +473,7 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
   final _csvService = KeyPositionCsvService();
   List<KeyPosition> _items = [];
   bool _loading = true;
+  bool _importing = false;
   String? _error;
 
   @override
@@ -509,18 +545,30 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
     );
   }
 
-  Future<void> _importCsv() async {
-    final items = await _csvService.importFromPicker();
-    if (items.isEmpty) {
-      return;
+  Future<void> _importFromContent(String content) async {
+    setState(() => _importing = true);
+    try {
+      final items = _csvService.parseCsv(content);
+      if (items.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('가져올 키포지션 데이터가 없습니다.')),
+          );
+        }
+        return;
+      }
+      await widget.services.keyPositionService.upsertMany(items);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${items.length}개 키포지션 가져옴')),
+        );
+      }
+      await _load();
+    } finally {
+      if (mounted) {
+        setState(() => _importing = false);
+      }
     }
-    await widget.services.keyPositionService.upsertMany(items);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${items.length}개 키포지션 가져옴')),
-      );
-    }
-    await _load();
   }
 
   void _exportCsv() {
@@ -544,8 +592,12 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
     return Column(
       children: [
         _AdminToolbar(
-          onImport: _importCsv,
           onExport: _exportCsv,
+        ),
+        CsvDropImportZone(
+          label: '키포지션 CSV 업로드',
+          busy: _importing,
+          onImport: _importFromContent,
         ),
         Expanded(
           child: _items.isEmpty
@@ -586,13 +638,11 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
 
 class _AdminToolbar extends StatelessWidget {
   const _AdminToolbar({
-    required this.onImport,
     required this.onExport,
     this.onAdd,
     this.addLabel = '추가',
   });
 
-  final VoidCallback onImport;
   final VoidCallback onExport;
   final VoidCallback? onAdd;
   final String addLabel;
@@ -607,11 +657,6 @@ class _AdminToolbar extends StatelessWidget {
           spacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            FilledButton.icon(
-              onPressed: onImport,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('CSV 가져오기'),
-            ),
             OutlinedButton.icon(
               onPressed: onExport,
               icon: const Icon(Icons.download),

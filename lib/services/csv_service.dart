@@ -1,13 +1,11 @@
-import 'dart:convert';
-
 import 'package:csv/csv.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/player.dart';
 import '../models/player_growth.dart';
 import '../models/player_position.dart';
 import '../models/player_position_fit_columns.dart';
+import '../services/csv_file_loader.dart';
 import '../utils/file_download.dart';
 
 class CsvService {
@@ -89,23 +87,10 @@ class CsvService {
   }
 
   Future<List<Player>> importFromPicker() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-      withData: true,
-    );
-
-    if (result == null || result.files.isEmpty) {
+    final content = await CsvFileLoader.pickCsvText();
+    if (content == null) {
       return [];
     }
-
-    final file = result.files.first;
-    final bytes = file.bytes;
-    if (bytes == null) {
-      return [];
-    }
-
-    final content = utf8.decode(bytes);
     return parseCsv(content);
   }
 

@@ -1,10 +1,8 @@
-import 'dart:convert';
-
 import 'package:csv/csv.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/formation.dart';
+import '../services/csv_file_loader.dart';
 import '../utils/file_download.dart';
 
 class FormationCsvService {
@@ -53,19 +51,11 @@ class FormationCsvService {
   }
 
   Future<List<Formation>> importFromPicker() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) {
+    final content = await CsvFileLoader.pickCsvText();
+    if (content == null) {
       return [];
     }
-    final bytes = result.files.first.bytes;
-    if (bytes == null) {
-      return [];
-    }
-    return parseCsv(utf8.decode(bytes));
+    return parseCsv(content);
   }
 
   void downloadCsv(String content, {String filename = 'formations.csv'}) {
