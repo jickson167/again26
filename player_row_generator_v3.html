@@ -314,10 +314,11 @@ function applyPatternFromPlayerName(){
 function maxStatRise(rank){ return clamp(rank,1,5)>=5?3:2; }
 function rankPreDeclineAvgFloor(rank){ return [3,4,5,7,8][clamp(rank,1,5)-1]; }
 function stageAvg3(row){ return (row[0]+row[1]+row[2])/3; }
-function enforceRankPreDeclineAverages(m,rank,holdEnd){
+function enforceRankPreDeclineAverages(m,rank,holdEnd,startIdx=0){
   const floor=rankPreDeclineAvgFloor(rank);
   const last=clamp(holdEnd,1,10)-1;
-  for(let i=0;i<=last;i++){
+  const from=clamp(startIdx,0,last);
+  for(let i=from;i<=last;i++){
     let sum=m[i][0]+m[i][1]+m[i][2];
     if(sum/3>=floor) continue;
     const targetSum=Math.ceil(floor*3);
@@ -357,6 +358,10 @@ function inferPeakStat(base,csvPeak,rank){
   if(floor>0) val=Math.max(val,Math.min(10,floor));
   return val;
 }
+function inferDevelopPeakStat(base,rank){
+  const rise=maxStatRise(rank);
+  return clamp(Math.max(base+1, base+rise), base+1, 10);
+}
 function fillGrowthLeg(m,statIdx,startIdx,endIdx,fromVal,toVal){
   let cur=fromVal;
   m[startIdx][statIdx]=cur;
@@ -385,12 +390,24 @@ function rebuildGrowthCurve(baseStats,curvePeak,rank,rawHint,patternKey){
   const m=Array.from({length:10},()=>[0,0,0]);
   for(let s=0;s<3;s++){
     const b=base[s];
-    const hintPeak=rawHint?rawHint[peak-1][s]:null;
-    const peakVal=inferPeakStat(b,hintPeak??b+maxStatRise(rank),rank);
+    const peakVal=pattern==="develop"
+      ? inferDevelopPeakStat(b,rank)
+      : inferPeakStat(b,rawHint?rawHint[peak-1][s]:null,rank);
     if(pattern==="develop"){
       m[0][s]=b;
-      const riseEnd=Math.max(1,peak-1);
-      fillGrowthLeg(m,s,1,riseEnd,b,peakVal);
+      const growThrough=Math.min(3,Math.max(1,peak-1));
+      if(peakVal>b){
+        if(growThrough>=peak-1){
+          fillGrowthLeg(m,s,1,peak-1,b,peakVal);
+        }else{
+          const midVal=clamp(b+Math.max(1,Math.ceil((peakVal-b)*0.55)),b+1,peakVal-1);
+          fillGrowthLeg(m,s,1,growThrough,b,midVal);
+          fillGrowthLeg(m,s,growThrough+1,peak-1,midVal,peakVal);
+        }
+      }else{
+        for(let i=1;i<peak;i++) m[i][s]=b;
+        m[peak-1][s]=peakVal;
+      }
     }else if(peak>=5){
       for(let i=0;i<4;i++) m[i][s]=b;
       if(peak>4) fillGrowthLeg(m,s,4,peak-1,b,peakVal);
@@ -404,7 +421,8 @@ function rebuildGrowthCurve(baseStats,curvePeak,rank,rawHint,patternKey){
     m[0][s]=b;
     if(pattern!=="develop"&&peak>=5){ for(let i=1;i<4;i++) m[i][s]=b; }
   }
-  enforceRankPreDeclineAverages(m,rank,holdEnd);
+  const enforceFrom=pattern==="develop"?Math.max(0,peak-1):0;
+  enforceRankPreDeclineAverages(m,rank,holdEnd,enforceFrom);
   return m;
 }
 function growthMatrixChanged(before,after){
@@ -817,7 +835,8 @@ function applyCsvMap(m){
       parsedGrowth[i*3+2]??base1[2],
     ]);
   }
-  const fixedGrowth=rebuildGrowthCurve(base1,curvePeak,rank,rawGrowth,pattern);
+  const csvHint=pattern==="develop"?null:rawGrowth;
+  const fixedGrowth=rebuildGrowthCurve(base1,curvePeak,rank,csvHint,pattern);
   parsedGrowth=fixedGrowth.flat();
   if(growthMatrixChanged(rawGrowth,fixedGrowth)) m._growthNormalized=true;
 
@@ -914,7 +933,7 @@ function getGrowthMatrix(){
   const {curvePeak,rank,pattern}=getCurveContext();
   const base=readBaseStats();
   let rawHint=null;
-  if(parsedGrowth&&parsedGrowth.some(v=>v!==null)){
+  if(pattern!=="develop"&&parsedGrowth&&parsedGrowth.some(v=>v!==null)){
     rawHint=[];
     for(let i=0;i<10;i++){
       rawHint.push([
@@ -1150,6 +1169,7 @@ document.querySelectorAll("#playerName,#fake,#position,#simple_position,#rank,#a
 });
 $("peakPattern")?.addEventListener("change",()=>{
   applyPeakPatternToPeakAge();
+  if(($("peakPattern")?.value||"")==="develop") parsedGrowth=null;
   refreshVisuals();
   syncOutFromForm();
 });
