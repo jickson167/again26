@@ -848,16 +848,33 @@ function resolveBatchId(name){
   if(!batchStore[name].id) batchStore[name].id=padId(nid);
   return batchStore[name].id;
 }
-function buildProfileContextBlock(){
-  return parseSeedInput().map((s,i)=>{
-    const id=resolveBatchId(s.name);
-    const db=playersByName.has(s.name)?" (DB등록됨)":"";
-    const rk=s.rank!=null?` | rank=${s.rank}(고정)`:" | rank=?";
-    return `${i+1}. name=${s.name} | nationality=${s.nation} | position=${s.simple}${rk} → id=${id}${db}`;
+function getBatchNamesForStep(step){
+  const all=getBatchNames();
+  const curKey=STEP_KEYS[step];
+  const prevKey=STEP_KEYS[step-1];
+  return all.filter(name=>{
+    if(step===1) return !batchStepDone(name,"profile");
+    if(!batchStepDone(name,prevKey)) return false;
+    if(batchStepDone(name,curKey)) return false;
+    return true;
+  });
+}
+function buildProfileContextBlock(names){
+  const seeds=parseSeedInput();
+  const list=names||seeds.map(s=>s.name);
+  if(!list.length) return "(이 단계 대상 선수 없음 — 이미 완료됐거나 시드·이전 단계 확인)";
+  return list.map((name,i)=>{
+    const s=seeds.find(x=>x.name===name)||{name,nation:batchStore[name]?.nationality||"?",simple:batchStore[name]?.position||batchStore[name]?.simple||"?"};
+    const id=resolveBatchId(name);
+    const db=playersByName.has(name)?" (DB등록됨)":"";
+    const rk=s.rank!=null?` | rank=${s.rank}(고정)`:(batchStore[name]?.rank!=null?` | rank=${batchStore[name].rank}(고정)`:" | rank=?");
+    return `${i+1}. name=${name} | nationality=${s.nation||batchStore[name]?.nationality||"?"} | position=${s.simple||batchStore[name]?.position||"?"}${rk} → id=${id}${db}`;
   }).join("\n");
 }
-function buildRosterContextForSteps(){
-  return getBatchNames().map((n,i)=>{
+function buildRosterContextForSteps(names){
+  const list=names&&names.length?names:getBatchNames();
+  if(!list.length) return "(대상 선수 없음)";
+  return list.map((n,i)=>{
     const b=batchStore[n]||{name:n};
     const pos=b.position||b.simple||"?";
     const det=b.detail_position||"?";
@@ -870,21 +887,26 @@ function buildRosterContextForSteps(){
   }).join("\n");
 }
 function stepOutputRule(n){
-  const c=getBatchNames().length||1;
+  const pending=getBatchNamesForStep(n);
+  const c=pending.length;
+  if(!c) return "CSV **0줄** — 이 단계 대상 없음 (이미 모두 적용됨)";
   return c===1?"CSV **1줄**만 (헤더 없음)":`CSV **${c}줄** — 선수 1명=1줄, 헤더 없음`;
 }
 function buildStepPrompt(n){
-  const ctx=buildProfileContextBlock();
-  const roster=buildRosterContextForSteps();
+  const pending=getBatchNamesForStep(n);
+  const total=getBatchNames().length;
+  const skipped=total-pending.length;
+  const roster=buildRosterContextForSteps(pending);
   const hdr=STEP_HEADERS[n].join(",");
-  const count=getBatchNames().length||parseSeedInput().length||1;
-  const common=`Again26 선수 생성 — **${n}단계만** 출력. 설명·마크다운·코드블록 ❌\n${stepOutputRule(n)}\n컬럼 순서: ${hdr}\n\n${RANK_RULES_SHORT}\n`;
-  const players=`=== 선수 (${count}명) ===\n${ctx||"(위 시드 입력 후 프롬프트 새로고침)"}\n`;
+  const count=pending.length;
+  const skipNote=skipped>0?`\n(참고: ${total}명 중 ${skipped}명은 ${n}단계 이미 완료 → 제외)\n`:"";
+  const common=`Again26 선수 생성 — **${n}단계만** 출력. 설명·마크다운·코드블록 ❌\n${stepOutputRule(n)}\n컬럼 순서: ${hdr}\n\n${RANK_RULES_SHORT}${skipNote}\n`;
+  const players=`=== ${n}단계 대상 (${count}명) ===\n${n===1?buildProfileContextBlock(pending):roster}\n`;
   if(n===1) return common+`\n${players}\n각 선수 조사 → id·fake_name·detail_position·**rank(시드값 고정)**·age(1기)·peak_age·growth_style(develop|early|mid|late)·height·weight\n· fake_name=패러디 가명 · detail_position=LW/ST,CB,GK 등\n· **rank=시드에 적힌 값 그대로** (변경·임의 부여 ❌) · age=데뷔나이(현재나이❌)\n· growth_style=실제 커리어 기반 (rank5 월드클래스 develop❌)\n`;
-  if(n===2) return common+`\n=== 이미 확정된 프로필 ===\n${roster}\n\n1기 speed/power/technique + shooting/passing/stamina + pk/fk/ck + leadership + intelligence_sense(0지성~10감각) + individual_organization(0개인~10조직)\n· speed/power/technique=1기(영입) · rank5 손흥민 9/8/9 목박\n· FW shooting↑ CM passing↑ GK는 relevant 낮춤\n`;
-  if(n===3) return common+`\n=== 선수 ===\n${roster}\n\ncomment **한 줄** — **100자 이상** · 장점·강점·별명·연혁 스토리 · 읽는 재미\n· 단점·약점 ❌ · rank5는 「월드클래스」 명시 · 특정팀·등번호·실명특정 ❌\n· 쉼표 있으면 따옴표로 감싸기\n`;
-  if(n===4) return common+`\n=== 선수 ===\n${roster}\n\n**growth 30개만** (growth_1_speed…growth_10_technique)\n· growth_1=speed/power/technique(1기) · develop:2~4기 성장 / mid·late·early:2~4기=1기\n· 기수당+1이하 · rank5 전성 +3 · 10기=1,1,1 · 하락 전 평균 rank5≥8\n· growth_style에 맞는 전성 기수 · CSV growth 값 정확히 30개\n`;
-  if(n===5) return common+`\n=== 선수 ===\n${roster}\n\npos_gk~pos_st 12개(1~10) + recommend_key_positions=kp_id:점수|… 5개\n· 주포지션 8~10 · 비주포지션 1~5 · kp는 ${(keyPositions||[]).slice(0,3).map(k=>k.id).join(",")} 등\n`;
+  if(n===2) return common+`\n${players}\n1기 speed/power/technique + shooting/passing/stamina + pk/fk/ck + leadership + intelligence_sense(0지성~10감각) + individual_organization(0개인~10조직)\n· speed/power/technique=1기(영입) · rank5 손흥민 9/8/9 목박\n· FW shooting↑ CM passing↑ GK는 relevant 낮춤\n· **위 ${count}명만** CSV 출력 (2단계 이미 적용된 선수 제외)\n`;
+  if(n===3) return common+`\n${players}\n\ncomment **한 줄** — **100자 이상** · 장점·강점·별명·연혁 스토리 · 읽는 재미\n· 단점·약점 ❌ · rank5는 「월드클래스」 명시 · 특정팀·등번호·실명특정 ❌\n· 쉼표 있으면 따옴표로 감싸기\n`;
+  if(n===4) return common+`\n${players}\n\n**growth 30개만** (growth_1_speed…growth_10_technique)\n· growth_1=speed/power/technique(1기) · develop:2~4기 성장 / mid·late·early:2~4기=1기\n· 기수당+1이하 · rank5 전성 +3 · 10기=1,1,1 · 하락 전 평균 rank5≥8\n· growth_style에 맞는 전성 기수 · CSV growth 값 정확히 30개\n`;
+  if(n===5) return common+`\n${players}\n\npos_gk~pos_st 12개(1~10) + recommend_key_positions=kp_id:점수|… 5개\n· 주포지션 8~10 · 비주포지션 1~5 · kp는 ${(keyPositions||[]).slice(0,3).map(k=>k.id).join(",")} 등\n`;
   return "";
 }
 function refreshAllStepPrompts(){
@@ -950,11 +972,20 @@ function applyStepPaste(step){
       ent._steps[STEP_KEYS[step]]=true;
     });
     renderBatchStatus();
+    refreshAllStepPrompts();
     setStatus(`${step}단계 적용: ${rows.length}명`,"ok");
     if(rows.length===1) applyBatchPick(rows[0].name);
   }catch(e){ setStatus(`${step}단계 실패: ${e.message}`,"err"); }
 }
-function batchStepDone(name,key){ return batchStore[name]?._steps?.[key]; }
+function batchStepDone(name,key){
+  const b=batchStore[name];
+  if(b?._steps?.[key]) return true;
+  if(key==="stats"&&b?.speed!=null&&b?.speed!==""&&b?.power!=null&&b?.power!=="") return true;
+  if(key==="comment"&&b?.comment) return true;
+  if(key==="growth"&&GROWTH_COLS.every(k=>b?.[k]!=null&&b[k]!=="")) return true;
+  if(key==="synergy"&&b?.recommend_key_positions) return true;
+  return false;
+}
 function batchComplete(name){
   return batchStepDone(name,"profile")&&batchStepDone(name,"stats")&&batchStepDone(name,"comment")&&batchStepDone(name,"growth")&&batchStepDone(name,"synergy");
 }
