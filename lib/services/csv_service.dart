@@ -114,8 +114,8 @@ class CsvService {
       player.height ?? '',
       player.weight ?? '',
       player.nationality ?? '',
-      for (var i = 0; i < playerPositionFitCsvColumns.length; i++)
-        player.positionFit[i + 1] ?? 0,
+      for (final column in playerPositionFitCsvColumns)
+        player.positionFit[playerPositionFitSlotForColumn(column)] ?? 0,
       for (var i = 0; i < Player.growthPeriodCount; i++) ...[
         player.growthType[i].speed,
         player.growthType[i].power,
@@ -164,9 +164,12 @@ class CsvService {
     }
 
     final positionFit = Player.defaultPositionFit();
-    for (var i = 0; i < playerPositionFitCsvColumns.length; i++) {
-      final column = playerPositionFitCsvColumns[i];
-      positionFit[i + 1] = readStat(column);
+    for (final column in playerPositionFitCsvColumns) {
+      final slot = playerPositionFitSlotForColumn(column);
+      if (slot <= 0) continue;
+      final value = readStat(column);
+      final existing = positionFit[slot] ?? 0;
+      positionFit[slot] = value > existing ? value : existing;
     }
     for (var i = 1; i <= Player.positionFitCount; i++) {
       final legacyKey = 'pos_$i';

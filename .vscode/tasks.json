@@ -5,6 +5,9 @@
       "label": "sync-web-env",
       "type": "shell",
       "command": "bash scripts/write_web_env.sh",
+      "windows": {
+        "command": "powershell -ExecutionPolicy Bypass -File scripts/write_web_env.ps1"
+      },
       "options": {
         "cwd": "${workspaceFolder}"
       },
