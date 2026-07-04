@@ -5,6 +5,7 @@ import '../../models/player.dart';
 import '../../models/player_position.dart';
 import '../../services/player_service.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/seed_name_chips.dart';
 
 class PlayerListPage extends StatefulWidget {
   const PlayerListPage({super.key, required this.playerService});
@@ -150,12 +151,23 @@ class _PlayerListPageState extends State<PlayerListPage> {
                                   portraitUrl: player.portraitUrl,
                                 ),
                                 title: Text(player.name),
-                                subtitle: Text(
-                                  [
-                                    player.position.label,
-                                    if (player.fakeName != null) '가명: ${player.fakeName}',
-                                    if (player.rank != null) '랭크 ${player.rank}',
-                                  ].join(' · '),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      [
+                                        player.position.label,
+                                        if (player.fakeName != null)
+                                          '가명: ${player.fakeName}',
+                                        if (player.rank != null) '랭크 ${player.rank}',
+                                      ].join(' · '),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    SeedNameChips(
+                                      seedNames: player.displaySeedNames,
+                                      dense: true,
+                                    ),
+                                  ],
                                 ),
                                 trailing: IconButton(
                                   tooltip: '자세히 보기',

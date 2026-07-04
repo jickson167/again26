@@ -6,6 +6,7 @@ import '../models/player_position.dart';
 import 'game_stat_bar.dart';
 import 'growth_curve_chart.dart';
 import 'position_fit_grid.dart';
+import 'seed_name_chips.dart';
 
 class PlayerDetailCard extends StatefulWidget {
   const PlayerDetailCard({
@@ -147,6 +148,12 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                           player.fakeName!,
                           style: const TextStyle(color: Colors.white70),
                         ),
+                      const SizedBox(height: 4),
+                      SeedNameChips(
+                        seedNames: player.displaySeedNames,
+                        showLabel: true,
+                        onDarkBackground: true,
+                      ),
                       const SizedBox(height: 8),
                       _InfoTable(
                         rows: [

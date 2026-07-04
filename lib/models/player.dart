@@ -33,6 +33,7 @@ class Player {
     required     this.individualOrganization,
     this.recommendKeyPositions,
     this.portraitUrl,
+    this.seedNames = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -67,8 +68,11 @@ class Player {
   final int individualOrganization;
   final String? recommendKeyPositions;
   final String? portraitUrl;
+  final List<String> seedNames;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  static const defaultSeedName = '일반시드';
 
   static const positionFitCount = 13;
   static const growthPeriodCount = 10;
@@ -125,6 +129,7 @@ class Player {
           _clampStat(json['individual_organization'], defaultValue: 5),
       recommendKeyPositions: json['recommend_key_positions'] as String?,
       portraitUrl: json['portrait_url'] as String?,
+      seedNames: _parseSeedNames(json['seed_names']),
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
     );
@@ -162,6 +167,7 @@ class Player {
       'individual_organization': individualOrganization,
       'recommend_key_positions': recommendKeyPositions,
       'portrait_url': portraitUrl,
+      'seed_names': seedNames,
     };
   }
 
@@ -196,6 +202,7 @@ class Player {
     int? individualOrganization,
     String? recommendKeyPositions,
     String? portraitUrl,
+    List<String>? seedNames,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -232,6 +239,7 @@ class Player {
       recommendKeyPositions:
           recommendKeyPositions ?? this.recommendKeyPositions,
       portraitUrl: portraitUrl ?? this.portraitUrl,
+      seedNames: seedNames ?? this.seedNames,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -241,6 +249,10 @@ class Player {
   int get senseValue => intelligenceSense;
   int get individualValue => 10 - individualOrganization;
   int get organizationValue => individualOrganization;
+
+  /// DB에 시드가 없으면 화면 표시용으로 [defaultSeedName]만 사용.
+  List<String> get displaySeedNames =>
+      seedNames.isEmpty ? const [defaultSeedName] : seedNames;
 
   static Map<int, int> defaultPositionFit() {
     return {
@@ -297,5 +309,22 @@ class Player {
       return null;
     }
     return DateTime.tryParse('$value');
+  }
+
+  static List<String> _parseSeedNames(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw
+          .split(RegExp(r'[;；|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    return const [];
   }
 }

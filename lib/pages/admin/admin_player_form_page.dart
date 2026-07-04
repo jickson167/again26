@@ -34,6 +34,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   final _weightController = TextEditingController();
   final _nationalityController = TextEditingController();
   final _portraitUrlController = TextEditingController();
+  final _seedNamesController = TextEditingController();
 
   PlayerPosition _position = PlayerPosition.mf;
   Map<int, int> _positionFit = Player.defaultPositionFit();
@@ -71,6 +72,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _weightController.dispose();
     _nationalityController.dispose();
     _portraitUrlController.dispose();
+    _seedNamesController.dispose();
     super.dispose();
   }
 
@@ -117,6 +119,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _weightController.text = player.weight?.toString() ?? '';
     _nationalityController.text = player.nationality ?? '';
     _portraitUrlController.text = player.portraitUrl ?? '';
+    _seedNamesController.text = player.seedNames.join('; ');
     _position = player.position;
     _positionFit = Map<int, int>.from(player.positionFit);
     _growthType = List<PlayerGrowth>.from(player.growthType);
@@ -163,6 +166,11 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       portraitUrl: _portraitUrlController.text.trim().isEmpty
           ? null
           : _portraitUrlController.text.trim(),
+      seedNames: _seedNamesController.text
+          .split(RegExp(r'[;；|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -353,6 +361,15 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
                                     controller: _nationalityController,
                                     decoration: const InputDecoration(
                                       labelText: '국적',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    controller: _seedNamesController,
+                                    decoration: const InputDecoration(
+                                      labelText: '시드 카테고리 (; 구분 · 여러 개 가능)',
+                                      hintText: '일반시드; 2026 월드컵 대한민국 선발',
                                       border: OutlineInputBorder(),
                                     ),
                                   ),

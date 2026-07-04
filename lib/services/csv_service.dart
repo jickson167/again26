@@ -49,6 +49,7 @@ class CsvService {
         'goalkeeper',
         'recommend_key_positions',
         'portrait_url',
+        'seed_names',
       ];
 
   String exportPlayers(List<Player> players) {
@@ -139,6 +140,7 @@ class CsvService {
       player.goalkeeper,
       player.recommendKeyPositions ?? '',
       player.portraitUrl ?? '',
+      player.seedNames.join(';'),
     ];
   }
 
@@ -229,7 +231,26 @@ class CsvService {
           : readString('recommend_key_positions'),
       portraitUrl:
           readString('portrait_url').isEmpty ? null : readString('portrait_url'),
+      seedNames: _readSeedNames(readString, headerIndex),
     );
+  }
+
+  static List<String> _readSeedNames(
+    String Function(String key, {String defaultValue}) readString,
+    Map<String, int> headerIndex,
+  ) {
+    if (!headerIndex.containsKey('seed_names')) {
+      return const [];
+    }
+    final raw = readString('seed_names');
+    if (raw.isEmpty) {
+      return const [];
+    }
+    return raw
+        .split(RegExp(r'[;；|]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
   }
 
   static String? _readCurrentAge(

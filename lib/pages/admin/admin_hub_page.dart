@@ -10,6 +10,7 @@ import '../../services/formation_csv_service.dart';
 import '../../services/key_position_csv_service.dart';
 import '../../widgets/csv_drop_import_zone.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/seed_name_chips.dart';
 import '../../utils/formation_display.dart';
 import '../../widgets/formation_detail_card.dart';
 import '../../widgets/player_detail_card.dart';
@@ -123,6 +124,16 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
   }
 
   Future<void> _showDetail(Player player) async {
+    Player detail = player;
+    try {
+      detail = await widget.services.playerService.fetchById(player.id) ?? player;
+    } catch (_) {
+      detail = player;
+    }
+    if (!mounted) {
+      return;
+    }
+
     await showDialog<void>(
       context: context,
       builder: (context) => Dialog(
@@ -142,11 +153,11 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: PlayerDetailCard(
-                    player: player,
+                    player: detail,
                     keyPositionsById: _keyPositions,
                     editableComment: true,
                     onSaveComment: (comment) async {
-                      final updated = player.copyWith(comment: comment);
+                      final updated = detail.copyWith(comment: comment);
                       await widget.services.playerService.update(updated);
                       await _load();
                     },
@@ -245,8 +256,18 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                         portraitUrl: player.portraitUrl,
                       ),
                       title: Text(player.name),
-                      subtitle: Text(
-                        '${player.detailPosition ?? player.position.label} · 랭크 ${player.rank ?? '-'}',
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${player.detailPosition ?? player.position.label} · 랭크 ${player.rank ?? '-'}',
+                          ),
+                          const SizedBox(height: 4),
+                          SeedNameChips(
+                            seedNames: player.displaySeedNames,
+                            dense: true,
+                          ),
+                        ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,

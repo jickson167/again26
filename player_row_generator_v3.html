@@ -63,8 +63,10 @@ details.legacy{margin-top:12px}
   <h3 style="margin-top:0">① 다단계 생성 (추천 · 5~10명)</h3>
   <p class="small">60컬럼 한번에 ❌ → 5단계로 나눠 ChatGPT에 붙여넣기. DB 목록 참고 · 단계별 결과 CSV 붙여넣기 → [적용]</p>
 
-  <label class="small">0️⃣ 시드 (이름, 국적, fw|mf|df|gk, 랭크1~5 · 줄당 1명 · 탭/쉼표 구분)</label>
-  <textarea id="seedInput" rows="4" placeholder="손흥민, 대한민국, fw, 5&#10;김민재, 대한민국, df, 5&#10;황인범, 대한민국, mf, 4&#10;이동경, 대한민국, mf, 2"></textarea>
+  <label class="small">0️⃣ 시드 (이름, 국적, fw|mf|df|gk, 랭크1~5, 시드카테고리 · 줄당 1명 · 탭/쉼표 구분)</label>
+  <label class="small">기본 시드 카테고리 (줄 5번째 생략 시만 적용 · 비우면 시드 없음 · <code>;</code> 로 여러 개)</label>
+  <input id="seedCategoryDefault" value="" placeholder="예: 일반시드 또는 2026 월드컵 대한민국 선발" style="width:100%;margin-bottom:8px;padding:8px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0">
+  <textarea id="seedInput" rows="4" placeholder="손흥민, 대한민국, fw, 5, 일반시드&#10;김민재, 대한민국, df, 5, 일반시드&#10;황인범, 대한민국, mf, 4, 2026 월드컵 대한민국 선발&#10;이동경, 대한민국, mf, 2"></textarea>
   <div class="step-actions">
     <button class="secondary" type="button" onclick="copySeedList()">시드 목록 복사</button>
     <button class="secondary" type="button" onclick="refreshAllStepPrompts()">프롬프트 새로고침</button>
@@ -175,6 +177,7 @@ details.legacy{margin-top:12px}
   <div><label>지성↔감각</label><input id="intel" type="number" min="0" max="10"></div>
   <div><label>개인↔조직</label><input id="org" type="number" min="0" max="10"></div>
   <div><label>국적</label><input id="nation"></div>
+  <div><label>시드 카테고리 (; 구분 · 여러 개)</label><input id="seedNames" placeholder="일반시드;2026 월드컵 대한민국 선발"></div>
   <div><label>코멘트</label><input id="comment"></div>
   <div><label>portrait_url</label><input id="portrait" placeholder="비우면 자동"></div>
 </div></div>
@@ -805,17 +808,36 @@ function parseSeedRank(v){
   const n=parseInt(String(v).replace(/^rank\s*/i,"").trim(),10);
   return Number.isFinite(n)?clamp(n,1,5):null;
 }
+function parseSeedCategories(raw){
+  if(Array.isArray(raw)) return raw.map(s=>String(s).trim()).filter(Boolean);
+  return String(raw||"").split(/[;；|]/).map(s=>s.trim()).filter(Boolean);
+}
+function getDefaultSeedCategories(){
+  return parseSeedCategories($("seedCategoryDefault")?.value||"");
+}
+function mergeSeedNames(existing,incoming){
+  const set=new Set();
+  [...(existing||[]),...(incoming||[])].forEach(s=>{
+    const t=String(s).trim();
+    if(t) set.add(t);
+  });
+  return [...set];
+}
 function parseSeedInput(text){
   const raw=(text??$("seedInput")?.value??"").trim();
+  const defaults=getDefaultSeedCategories();
   return raw.split(/\n/).map(l=>l.trim()).filter(Boolean).map(line=>{
     const p=line.split(/[,，\t|]/).map(s=>s.trim());
     const simple=(p[2]||"mf").toLowerCase();
     const rank=parseSeedRank(p[3]);
+    const lineCats=p.length>4?parseSeedCategories(p.slice(4).join(",")):[];
+    const seedNames=lineCats.length?lineCats:defaults;
     return {
       name:p[0],
       nation:p[1]||"대한민국",
       simple:["fw","mf","df","gk"].includes(simple)?simple:"mf",
       rank,
+      seedNames,
     };
   }).filter(s=>s.name).slice(0,10);
 }
@@ -825,6 +847,7 @@ function syncSeedToBatch(s){
   ent.simple=s.simple;
   ent.position=ent.position||s.simple;
   if(s.rank!=null) ent.rank=s.rank;
+  if(s.seedNames?.length) ent.seed_names=mergeSeedNames(ent.seed_names,s.seedNames);
 }
 function ensureBatchEntry(name,seed){
   if(!batchStore[name]) batchStore[name]={name,_steps:{},...(seed||{})};
@@ -868,7 +891,9 @@ function buildProfileContextBlock(names){
     const id=resolveBatchId(name);
     const db=playersByName.has(name)?" (DB등록됨)":"";
     const rk=s.rank!=null?` | rank=${s.rank}(고정)`:(batchStore[name]?.rank!=null?` | rank=${batchStore[name].rank}(고정)`:" | rank=?");
-    return `${i+1}. name=${name} | nationality=${s.nation||batchStore[name]?.nationality||"?"} | position=${s.simple||batchStore[name]?.position||"?"}${rk} → id=${id}${db}`;
+    const mergedSeeds=mergeSeedNames(s.seedNames,batchStore[name]?.seed_names);
+    const seedNote=mergedSeeds.length?` | seed=${mergedSeeds.join("; ")}`:"";
+    return `${i+1}. name=${name} | nationality=${s.nation||batchStore[name]?.nationality||"?"} | position=${s.simple||batchStore[name]?.position||"?"}${rk}${seedNote} → id=${id}${db}`;
   }).join("\n");
 }
 function buildRosterContextForSteps(names){
@@ -922,15 +947,15 @@ function copyStepPrompt(n){
   alert(`${n}단계 프롬프트 복사됨`);
 }
 function copySeedList(){
-  const t=parseSeedInput().map(s=>`${s.name}\t${s.nation}\t${s.simple}\t${s.rank??""}`).join("\n");
+  const t=parseSeedInput().map(s=>`${s.name}\t${s.nation}\t${s.simple}\t${s.rank??""}\t${(s.seedNames||[]).join(";")}`).join("\n");
   navigator.clipboard.writeText(t||"(시드 없음)");
   alert("시드 목록 복사됨");
 }
 function copyRosterChecklist(){
-  const lines=["name\tnationality\tposition\trank\tdetail_position\tage\tpeak_age\tgrowth_style"];
+  const lines=["name\tnationality\tposition\trank\tseed_names\tdetail_position\tage\tpeak_age\tgrowth_style"];
   getBatchNames().forEach(n=>{
     const b=batchStore[n]||{};
-    lines.push([n,b.nationality||"",b.position||b.simple||"",b.rank||"",b.detail_position||"",b.age||"",b.peak_age||"",b.growth_style||""].join("\t"));
+    lines.push([n,b.nationality||"",b.position||b.simple||"",b.rank||"",(b.seed_names||[]).join(";"),b.detail_position||"",b.age||"",b.peak_age||"",b.growth_style||""].join("\t"));
   });
   navigator.clipboard.writeText(lines.join("\n"));
   alert("체크용 목록 복사됨 — ChatGPT에 붙여 검증 요청 가능");
@@ -996,10 +1021,11 @@ function renderBatchStatus(){
   const names=getBatchNames();
   if(!names.length){ wrap.innerHTML='<p class="small">시드 입력 후 프롬프트 새로고침</p>'; return; }
   const chk=(ok)=>ok?'<span class="chk-yes">✓</span>':'<span class="chk-no">·</span>';
-  let html='<table class="batch-table"><tr><th>이름</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>랭크</th><th>포지션</th><th>id</th></tr>';
+  let html='<table class="batch-table"><tr><th>이름</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>랭크</th><th>시드</th><th>포지션</th><th>id</th></tr>';
   names.forEach(n=>{
     const b=batchStore[n]||{};
-    html+=`<tr><td>${n}</td><td>${chk(batchStepDone(n,"profile"))}</td><td>${chk(batchStepDone(n,"stats"))}</td><td>${chk(batchStepDone(n,"comment"))}</td><td>${chk(batchStepDone(n,"growth"))}</td><td>${chk(batchStepDone(n,"synergy"))}</td><td>${b.rank||"—"}</td><td>${b.detail_position||b.position||"—"}</td><td>${resolveBatchId(n)}</td></tr>`;
+    const seeds=(b.seed_names||[]).join("; ")||"—";
+    html+=`<tr><td>${n}</td><td>${chk(batchStepDone(n,"profile"))}</td><td>${chk(batchStepDone(n,"stats"))}</td><td>${chk(batchStepDone(n,"comment"))}</td><td>${chk(batchStepDone(n,"growth"))}</td><td>${chk(batchStepDone(n,"synergy"))}</td><td>${b.rank||"—"}</td><td class="small">${seeds}</td><td>${b.detail_position||b.position||"—"}</td><td>${resolveBatchId(n)}</td></tr>`;
   });
   html+='</table>';
   wrap.innerHTML=html;
@@ -1223,6 +1249,9 @@ function applyCsvMap(m){
   $("height").value=m.height||"";
   $("weight").value=m.weight||"";
   $("nation").value=m.nationality||"";
+  const seedArr=Array.isArray(m.seed_names)?m.seed_names:parseSeedCategories(m.seed_names||m.seedNames||"");
+  $("seedNames").value=seedArr.join("; ");
+  if(name&&seedArr.length) ensureBatchEntry(name).seed_names=mergeSeedNames(batchStore[name]?.seed_names,seedArr);
   const hasG1=m.growth_1_speed!==undefined&&m.growth_1_speed!=="";
   const rank=clamp(m.rank||$("rank").value,1,5);
   const rawBase=enforceRankBaseStats([
@@ -1480,6 +1509,10 @@ function refreshVisuals(){
 function collectForm(){
   const playerName=$("playerName").value.trim();
   if(!playerName) throw new Error("이름 없음");
+  const formSeeds=parseSeedCategories($("seedNames")?.value||"");
+  const batchSeeds=batchStore[playerName]?.seed_names||[];
+  const dbSeeds=(playersByName.get(playerName)||playersById.get(resolvePlayerId(playerName)))?.seed_names||[];
+  const seedNames=mergeSeedNames(mergeSeedNames(dbSeeds,batchSeeds),formSeeds);
   const sp=$("setpiece").value.split(",").map(x=>clamp(x.trim(),0,10));
   const id=resolvePlayerId(playerName);
   const portraitVal=$("portrait").value.trim()||portraitUrlFor(id);
@@ -1499,6 +1532,7 @@ function collectForm(){
     sp, leadership:clamp($("leadership").value,0,10), intel:clamp($("intel").value,0,10), org:clamp($("org").value,0,10),
     comment:$("comment").value.trim(), portrait:portraitVal,
     growthStyle:($("peakPattern")?.value||"mid"),
+    seedNames,
     pos12:[...parsedPos12], growthFlat, recs, matrix
   };
 }
@@ -1543,8 +1577,17 @@ function buildDbPayload(d){
     defense:0, stamina:d.stamina, goalkeeper:0,
     pk_ability:d.sp[0]??5, fk_ability:d.sp[1]??5, ck_ability:d.sp[2]??5,
     leadership:d.leadership, intelligence_sense:d.intel, individual_organization:d.org,
-    comment:d.comment||null, recommend_key_positions:d.recs, portrait_url:d.portrait
+    comment:d.comment||null, recommend_key_positions:d.recs, portrait_url:d.portrait,
+    seed_names:d.seedNames||[]
   };
+}
+function resolveDbPayload(d){
+  const payload=buildDbPayload(d);
+  const existing=playersByName.get(d.name)||playersById.get(d.id);
+  if(existing?.seed_names?.length){
+    payload.seed_names=mergeSeedNames(existing.seed_names,d.seedNames||[]);
+  }
+  return payload;
 }
 
 function syncOutFromForm(){
@@ -1568,8 +1611,9 @@ async function saveToDb(){
     await dbRequest("players?on_conflict=id",{
       method:"POST",
       headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},
-      body:JSON.stringify(buildDbPayload(d))
+      body:JSON.stringify(resolveDbPayload(d))
     });
+    if(batchStore[d.name]) batchStore[d.name].seed_names=d.seedNames||[];
     setStatus(`${isUpdate?"수정":"추가"} 완료: [${d.id}] ${d.name}`,"ok");
     await loadPlayers();
   }catch(e){ setStatus(`DB 저장 실패: ${e.message}`,"err"); }
@@ -1578,12 +1622,15 @@ async function saveToDb(){
 async function loadPlayers(){
   if(!dbReady&&!initDb()) return;
   try{
-    const data=await dbRequest("players?select=id,name&order=id.asc");
+    const data=await dbRequest("players?select=id,name,seed_names&order=id.asc");
     playersById=new Map(); playersByName=new Map(); let maxId=0;
     (data||[]).forEach(p=>{ playersById.set(p.id,p); playersByName.set(p.name,p); maxId=Math.max(maxId,parseNumericId(p.id)); });
     nextNumericId=maxId+1;
     $("playerCount").textContent=String(data?.length||0);
-    $("dbList").innerHTML=(data||[]).map(p=>`<span class="badge" style="display:inline-block;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 10px;margin:2px;cursor:pointer" onclick="pickFromDb('${p.id}','${p.name.replace(/'/g,"\\'")}')">${p.id} ${p.name}</span>`).join("")||"없음";
+    $("dbList").innerHTML=(data||[]).map(p=>{
+      const seeds=(p.seed_names||[]).length?` · ${(p.seed_names||[]).join("; ")}`:"";
+      return `<span class="badge" style="display:inline-block;background:#0f172a;border:1px solid #334155;border-radius:999px;padding:4px 10px;margin:2px;cursor:pointer" onclick="pickFromDb('${p.id}','${p.name.replace(/'/g,"\\'")}')">${p.id} ${p.name}${seeds}</span>`;
+    }).join("")||"없음";
     $("playerId").placeholder=`다음 신규: ${padId(nextNumericId)}`;
     renderBatchStatus();
   }catch(e){ setStatus(`DB 로드 실패: ${e.message}`,"err"); }
@@ -1592,6 +1639,8 @@ async function loadPlayers(){
 function pickFromDb(id,name){
   $("playerName").value=name;
   $("playerId").value=padId(parseNumericId(id)||id);
+  const p=playersById.get(id)||playersByName.get(name);
+  if(p?.seed_names?.length) $("seedNames").value=(p.seed_names||[]).join("; ");
   syncOutFromForm();
 }
 
@@ -1599,7 +1648,7 @@ function copyOut(){ navigator.clipboard.writeText($("out").value); alert("복사
 function copyPrompt(){ navigator.clipboard.writeText(buildPrompt()); alert("프롬프트 복사됨"); }
 function copyHeader(){ navigator.clipboard.writeText(INPUT_HEADERS.join(",")); alert("헤더 복사됨"); }
 
-document.querySelectorAll("#playerName,#fake,#position,#simple_position,#rank,#age,#peakAge,#height,#weight,#speed,#power,#tech,#shooting,#passing,#stamina,#setpiece,#leadership,#intel,#org,#nation,#comment,#portrait").forEach(el=>{
+document.querySelectorAll("#playerName,#fake,#position,#simple_position,#rank,#age,#peakAge,#height,#weight,#speed,#power,#tech,#shooting,#passing,#stamina,#setpiece,#leadership,#intel,#org,#nation,#seedNames,#comment,#portrait").forEach(el=>{
   el.addEventListener("input",()=>{
     parsedRecs="";
     if(el.id==="rank"){
@@ -1619,7 +1668,18 @@ $("position").addEventListener("change",()=>{ $("simple_position").value=simpleF
 
 $("header").value=EXPORT_HEADERS.join(",");
 function refreshPromptBox(){ $("chatgptPrompt").textContent=buildPrompt(); }
-$("seedInput")?.addEventListener("input",()=>{ refreshAllStepPrompts(); refreshPromptBox(); });
+function onSeedFieldsChanged(){
+  refreshAllStepPrompts();
+  refreshPromptBox();
+}
+function bindSeedAutoRefresh(el){
+  if(!el) return;
+  el.addEventListener("input",onSeedFieldsChanged);
+  el.addEventListener("change",onSeedFieldsChanged);
+  el.addEventListener("paste",()=>setTimeout(onSeedFieldsChanged,0));
+}
+bindSeedAutoRefresh($("seedInput"));
+bindSeedAutoRefresh($("seedCategoryDefault"));
 refreshAllStepPrompts();
 refreshPromptBox();
 $("playerName").addEventListener("input",()=>{
