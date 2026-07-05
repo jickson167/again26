@@ -235,6 +235,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
           onExport: _exportCsv,
           onAdd: () => context.go('/admin/new'),
           addLabel: '선수 추가',
+          onGenerator: () => context.go('/admin/player-generator'),
         ),
         CsvDropImportZone(
           label: '선수 CSV 업로드',
@@ -693,11 +694,13 @@ class _AdminToolbar extends StatelessWidget {
     required this.onExport,
     this.onAdd,
     this.addLabel = '추가',
+    this.onGenerator,
   });
 
   final VoidCallback onExport;
   final VoidCallback? onAdd;
   final String addLabel;
+  final VoidCallback? onGenerator;
 
   @override
   Widget build(BuildContext context) {
@@ -714,6 +717,12 @@ class _AdminToolbar extends StatelessWidget {
               icon: const Icon(Icons.download),
               label: const Text('CSV 내보내기'),
             ),
+            if (onGenerator != null)
+              OutlinedButton.icon(
+                onPressed: onGenerator,
+                icon: const Icon(Icons.construction),
+                label: const Text('선수 생성기'),
+              ),
             if (onAdd != null)
               OutlinedButton.icon(
                 onPressed: onAdd,

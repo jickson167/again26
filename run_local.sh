@@ -32,6 +32,7 @@ PY
 fi
 
 bash scripts/write_web_env.sh
+bash scripts/sync_web_tools.sh
 
 echo ""
 echo "매니저 로컬 실행 (Chrome)..."

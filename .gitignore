@@ -46,3 +46,6 @@ app.*.map.json
 
 # Local Supabase credentials for web build
 env.json
+
+# Generated from scripts/sync_web_tools.sh
+web/tools/
