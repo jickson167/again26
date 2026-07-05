@@ -175,74 +175,77 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
           title: '능력치',
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final useSideBySide = constraints.maxWidth >= 560;
-              final positionSection = Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              final compact = constraints.maxWidth < 640;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('포지션 적정', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  PositionFitGrid(positionFit: player.positionFit),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      _LegendDot(color: positionFitColor(2), label: '낮음'),
-                      _LegendDot(color: positionFitColor(5), label: '중간'),
-                      _LegendDot(color: positionFitColor(8), label: '높음'),
-                    ],
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          '포지션 적정',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: compact ? 12 : 14,
+                          ),
+                        ),
+                        SizedBox(height: compact ? 4 : 6),
+                        PositionFitGrid(
+                          positionFit: player.positionFit,
+                          compact: compact,
+                        ),
+                        SizedBox(height: compact ? 4 : 6),
+                        Wrap(
+                          spacing: compact ? 6 : 8,
+                          runSpacing: 4,
+                          children: [
+                            _LegendDot(color: positionFitColor(2), label: '낮음', compact: compact),
+                            _LegendDot(color: positionFitColor(5), label: '중간', compact: compact),
+                            _LegendDot(color: positionFitColor(8), label: '높음', compact: compact),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              );
-              final statsSection = Column(
-                children: [
-                  GameStatBar(label: '스피드', value: player.speed, color: Colors.blue),
-                  GameStatBar(label: '기술', value: player.technique, color: Colors.green),
-                  GameStatBar(label: '파워', value: player.power, color: Colors.red),
-                  GameStatBar(label: '슈팅', value: player.shooting, color: Colors.deepOrange),
-                  GameStatBar(label: '패스', value: player.passing, color: Colors.teal),
-                  GameStatBar(label: '활동량', value: player.stamina, color: Colors.brown),
-                  if (player.position == PlayerPosition.gk || player.goalkeeper > 0)
-                    GameStatBar(label: 'GK', value: player.goalkeeper, color: Colors.purple),
-                  const Divider(height: 16),
-                  GameStatBar(label: 'PK', value: player.pkAbility, color: Colors.orange),
-                  GameStatBar(label: 'FK', value: player.fkAbility, color: Colors.orange),
-                  GameStatBar(label: 'CK', value: player.ckAbility, color: Colors.orange),
-                  GameStatBar(label: '리더십', value: player.leadership, color: Colors.orange),
-                  const SizedBox(height: 8),
-                  GameDualSlider(
-                    leftLabel: '지성',
-                    rightLabel: '감각',
-                    leftValue: player.intelligenceValue,
-                    rightValue: player.senseValue,
+                  SizedBox(width: compact ? 6 : 16),
+                  Expanded(
+                    flex: 6,
+                    child: Column(
+                      children: [
+                        GameStatBar(label: '스피드', value: player.speed, color: Colors.blue, compact: compact),
+                        GameStatBar(label: '기술', value: player.technique, color: Colors.green, compact: compact),
+                        GameStatBar(label: '파워', value: player.power, color: Colors.red, compact: compact),
+                        GameStatBar(label: '슈팅', value: player.shooting, color: Colors.deepOrange, compact: compact),
+                        GameStatBar(label: '패스', value: player.passing, color: Colors.teal, compact: compact),
+                        GameStatBar(label: '활동량', value: player.stamina, color: Colors.brown, compact: compact),
+                        if (player.position == PlayerPosition.gk || player.goalkeeper > 0)
+                          GameStatBar(label: 'GK', value: player.goalkeeper, color: Colors.purple, compact: compact),
+                        Divider(height: compact ? 12 : 16),
+                        GameStatBar(label: 'PK', value: player.pkAbility, color: Colors.orange, compact: compact),
+                        GameStatBar(label: 'FK', value: player.fkAbility, color: Colors.orange, compact: compact),
+                        GameStatBar(label: 'CK', value: player.ckAbility, color: Colors.orange, compact: compact),
+                        GameStatBar(label: '리더십', value: player.leadership, color: Colors.orange, compact: compact),
+                        SizedBox(height: compact ? 6 : 8),
+                        GameDualSlider(
+                          leftLabel: '지성',
+                          rightLabel: '감각',
+                          leftValue: player.intelligenceValue,
+                          rightValue: player.senseValue,
+                          compact: compact,
+                        ),
+                        SizedBox(height: compact ? 6 : 8),
+                        GameDualSlider(
+                          leftLabel: '개인',
+                          rightLabel: '조직',
+                          leftValue: player.individualValue,
+                          rightValue: player.organizationValue,
+                          compact: compact,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  GameDualSlider(
-                    leftLabel: '개인',
-                    rightLabel: '조직',
-                    leftValue: player.individualValue,
-                    rightValue: player.organizationValue,
-                  ),
-                ],
-              );
-
-              if (useSideBySide) {
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 5, child: positionSection),
-                    const SizedBox(width: 16),
-                    Expanded(flex: 6, child: statsSection),
-                  ],
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  positionSection,
-                  const SizedBox(height: 16),
-                  statsSection,
                 ],
               );
             },
@@ -448,18 +451,23 @@ class _PortraitFallback extends StatelessWidget {
 }
 
 class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label});
+  const _LegendDot({required this.color, required this.label, this.compact = false});
   final Color color;
   final String label;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11)),
+        Container(
+          width: compact ? 8 : 10,
+          height: compact ? 8 : 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        SizedBox(width: compact ? 3 : 4),
+        Text(label, style: TextStyle(fontSize: compact ? 9 : 11)),
       ],
     );
   }

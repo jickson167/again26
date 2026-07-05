@@ -16,61 +16,76 @@ class PositionFitGrid extends StatelessWidget {
   const PositionFitGrid({
     super.key,
     required this.positionFit,
+    this.compact = false,
   });
 
   final Map<int, int> positionFit;
+  final bool compact;
 
   static const _cellAspectRatio = 56 / 44;
-  static const _cellGap = 4.0;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF14532D),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        children: [
-          for (final row in FieldPositionLayout.gridRows)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 3),
-              child: Row(
-                children: [
-                  for (var i = 0; i < row.length; i++) ...[
-                    if (i > 0) const SizedBox(width: _cellGap),
-                    Expanded(
-                      child: row[i] == null
-                          ? const AspectRatio(
-                              aspectRatio: _cellAspectRatio,
-                              child: SizedBox.shrink(),
-                            )
-                          : AspectRatio(
-                              aspectRatio: _cellAspectRatio,
-                              child: _PositionCell(
-                                label: FieldPositionLayout.labels[row[i]!] ?? 'P${row[i]}',
-                                value: positionFit[row[i]!] ?? 0,
+    final padding = compact ? 4.0 : 8.0;
+    final cellGap = compact ? 2.0 : 4.0;
+    final rowGap = compact ? 2.0 : 3.0;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(padding),
+        decoration: BoxDecoration(
+          color: const Color(0xFF14532D),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final row in FieldPositionLayout.gridRows)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: rowGap),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < row.length; i++) ...[
+                      if (i > 0) SizedBox(width: cellGap),
+                      Expanded(
+                        child: row[i] == null
+                            ? const AspectRatio(
+                                aspectRatio: _cellAspectRatio,
+                                child: SizedBox.shrink(),
+                              )
+                            : AspectRatio(
+                                aspectRatio: _cellAspectRatio,
+                                child: _PositionCell(
+                                  label: FieldPositionLayout.labels[row[i]!] ?? 'P${row[i]}',
+                                  value: positionFit[row[i]!] ?? 0,
+                                  compact: compact,
+                                ),
                               ),
-                            ),
-                    ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _PositionCell extends StatelessWidget {
-  const _PositionCell({required this.label, required this.value});
+  const _PositionCell({
+    required this.label,
+    required this.value,
+    this.compact = false,
+  });
 
   final String label;
   final int value;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -90,17 +105,17 @@ class _PositionCell extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 10,
+                fontSize: compact ? 8 : 10,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
               '$value',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 13,
+                fontSize: compact ? 11 : 13,
                 fontWeight: FontWeight.w900,
               ),
             ),

@@ -7,24 +7,35 @@ class GameStatBar extends StatelessWidget {
     required this.value,
     required this.color,
     this.max = 10,
+    this.compact = false,
   });
 
   final String label;
   final int value;
   final Color color;
   final int max;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final labelWidth = compact ? 44.0 : 72.0;
+    final valueWidth = compact ? 14.0 : 20.0;
+    final fontSize = compact ? 10.0 : 12.0;
+    final barHeight = compact ? 9.0 : 12.0;
+    final segmentGap = compact ? 1.0 : 2.0;
+    final verticalPadding = compact ? 4.0 : 3.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Row(
         children: [
           SizedBox(
-            width: 72,
+            width: labelWidth,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
@@ -33,8 +44,8 @@ class GameStatBar extends StatelessWidget {
                 for (var i = 0; i < max; i++)
                   Expanded(
                     child: Container(
-                      height: 12,
-                      margin: EdgeInsets.only(right: i == max - 1 ? 0 : 2),
+                      height: barHeight,
+                      margin: EdgeInsets.only(right: i == max - 1 ? 0 : segmentGap),
                       decoration: BoxDecoration(
                         color: i < value ? color : const Color(0xFFE5E7EB),
                         borderRadius: BorderRadius.circular(2),
@@ -44,13 +55,16 @@ class GameStatBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: compact ? 3 : 6),
           SizedBox(
-            width: 20,
+            width: valueWidth,
             child: Text(
               '$value',
               textAlign: TextAlign.end,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: compact ? 10 : null,
+              ),
             ),
           ),
         ],
@@ -67,6 +81,7 @@ class GameDualSlider extends StatelessWidget {
     required this.leftValue,
     required this.rightValue,
     this.max = 10,
+    this.compact = false,
   });
 
   final String leftLabel;
@@ -74,11 +89,14 @@ class GameDualSlider extends StatelessWidget {
   final int leftValue;
   final int rightValue;
   final int max;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final total = leftValue + rightValue;
     final leftRatio = total == 0 ? 0.5 : leftValue / total;
+    final labelSize = compact ? 10.0 : 12.0;
+    final barHeight = compact ? 8.0 : 10.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,15 +104,15 @@ class GameDualSlider extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(leftLabel, style: const TextStyle(fontSize: 12)),
-            Text(rightLabel, style: const TextStyle(fontSize: 12)),
+            Text(leftLabel, style: TextStyle(fontSize: labelSize)),
+            Text(rightLabel, style: TextStyle(fontSize: labelSize)),
           ],
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: compact ? 3 : 4),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: SizedBox(
-            height: 10,
+            height: barHeight,
             child: Row(
               children: [
                 Expanded(
@@ -109,10 +127,12 @@ class GameDualSlider extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: compact ? 4 : 2),
         Text(
           '$leftLabel $leftValue · $rightLabel $rightValue',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: compact ? 9 : null,
+              ),
         ),
       ],
     );
