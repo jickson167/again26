@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../utils/open_admin.dart';
-
 class HomePage extends StatelessWidget {
   const HomePage({super.key, this.disabled = false});
 
@@ -46,7 +44,7 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: disabled ? null : openAdminPanel,
+                  onPressed: disabled ? null : () => context.go('/admin'),
                   icon: const Icon(Icons.admin_panel_settings),
                   label: const Text('매니저 데이터 관리'),
                 ),

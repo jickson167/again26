@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../models/key_position.dart';
 import '../../models/player.dart';
 import '../../services/app_services.dart';
-import '../../utils/open_admin.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/player_detail_card.dart';
 
@@ -86,7 +85,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
           if (_player != null)
             IconButton(
               tooltip: '수정',
-              onPressed: () => openAdminPlayerEdit(_player!.id),
+              onPressed: () => context.go('/admin/${_player!.id}/edit'),
               icon: const Icon(Icons.edit),
             ),
         ],

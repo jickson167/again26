@@ -1,4 +1,4 @@
-name: Deploy Web
+name: Deploy Flutter Web
 
 on:
   push:
@@ -24,10 +24,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          node-version: '22'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
 
       - name: Create web env.js
         env:
@@ -35,46 +39,41 @@ jobs:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "Missing Supabase secrets."
+            echo "Missing Supabase secrets. Set SUPABASE_URL and SUPABASE_ANON_KEY in repository secrets."
             exit 1
           fi
           python3 - <<'PY'
           import json, os
-          from pathlib import Path
-          cfg = {
-              "SUPABASE_URL": os.environ["SUPABASE_URL"],
-              "SUPABASE_ANON_KEY": os.environ["SUPABASE_ANON_KEY"],
-          }
-          text = "window.AGAIN26_CONFIG = " + json.dumps(cfg) + ";\n"
-          Path("web/env.js").write_text(text, encoding="utf-8")
+          with open("web/env.js", "w", encoding="utf-8") as f:
+              f.write("window.AGAIN26_CONFIG = ")
+              json.dump(
+                  {
+                      "SUPABASE_URL": os.environ["SUPABASE_URL"],
+                      "SUPABASE_ANON_KEY": os.environ["SUPABASE_ANON_KEY"],
+                  },
+                  f,
+              )
+              f.write(";\n")
           PY
 
-      - name: Build React web app
-        run: |
-          cd admin-web
-          npm install
-          npm run build
+      - name: Sync static tools
+        run: bash scripts/sync_web_tools.sh
 
-      - name: Bundle static tools and assets
+      - name: Build web
         run: |
-          mkdir -p build/web/tools
-          cp player_row_generator_v3.html key_positions_v2.js build/web/tools/
-          cp web/env.js build/web/env.js
-          cp web/env.js build/web/tools/generator_config.js
-          if [ -d web/player_images ]; then
-            cp -r web/player_images build/web/player_images
-          fi
+          flutter build web --release --base-href="/again26/" --pwa-strategy=none
 
-      - name: Verify Supabase config
+      - name: Verify Supabase config in env.js
         run: grep -q "supabase.co" build/web/env.js
 
-      - name: Add SPA fallback
+      - name: Add SPA fallback for GitHub Pages
         run: cp build/web/index.html build/web/404.html
 
-      - name: Stamp cache bust on env.js
+      - name: Stamp cache bust version on web entrypoints
         run: |
           VERSION=$(date +%s)
           sed -i "s|env.js|env.js?v=${VERSION}|g" build/web/index.html build/web/404.html
+          sed -i "s|flutter_bootstrap.js|flutter_bootstrap.js?v=${VERSION}|g" build/web/index.html build/web/404.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
