@@ -175,7 +175,10 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
           title: '능력치',
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact = constraints.maxWidth < 640;
+              final width = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : MediaQuery.sizeOf(context).width;
+              final compact = width < 640;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

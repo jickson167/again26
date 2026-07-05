@@ -66,6 +66,12 @@ jobs:
       - name: Add SPA fallback for GitHub Pages
         run: cp build/web/index.html build/web/404.html
 
+      - name: Stamp cache bust version on web entrypoints
+        run: |
+          VERSION=$(date +%s)
+          sed -i "s|env.js|env.js?v=${VERSION}|g" build/web/index.html build/web/404.html
+          sed -i "s|flutter_bootstrap.js|flutter_bootstrap.js?v=${VERSION}|g" build/web/index.html build/web/404.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
