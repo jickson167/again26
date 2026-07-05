@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 declare global {
   interface Window {
     AGAIN26_CONFIG?: {
@@ -6,5 +8,7 @@ declare global {
     };
   }
 }
+
+declare module '*.css';
 
 export {};

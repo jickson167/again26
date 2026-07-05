@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CsvDropZone, Modal, SeedChips, Stars, Toolbar } from '../components/Common';
+import { CsvDropZone, Modal, SeedChips, Toolbar } from '../components/Common';
 import { PlayerDetailPanel } from '../components/PlayerDetail';
 import { downloadText } from '../lib/utils';
 import { exportPlayersCsv, parsePlayersCsv } from '../services/csv';

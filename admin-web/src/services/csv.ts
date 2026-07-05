@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import type { Player, PlayerGrowth, PlayerPosition } from '../types';
+import type { Formation, KeyPosition, Player, PlayerPosition } from '../types';
 import { clampStat } from '../lib/utils';
 
 const POS_FIT_COLS = [
@@ -18,10 +18,6 @@ export const PLAYER_CSV_HEADERS = [
   'detail_position', 'comment', 'shooting', 'passing', 'defense', 'stamina',
   'goalkeeper', 'recommend_key_positions', 'portrait_url', 'seed_names',
 ];
-
-function defaultGrowth(): PlayerGrowth[] {
-  return Array.from({ length: 10 }, () => ({ speed: 0, power: 0, technique: 0 }));
-}
 
 function defaultFit(): Record<string, number> {
   const fit: Record<string, number> = {};
@@ -173,7 +169,7 @@ export function parseFormationsCsv(content: string) {
   }));
 }
 
-export function exportFormationsCsv(items: ReturnType<typeof parseFormationsCsv>): string {
+export function exportFormationsCsv(items: Formation[]): string {
   const rows = items.map((f) => ({
     formation_id: f.id,
     name: f.name,
@@ -211,7 +207,7 @@ export function parseKeyPositionsCsv(content: string) {
   }));
 }
 
-export function exportKeyPositionsCsv(items: ReturnType<typeof parseKeyPositionsCsv>): string {
+export function exportKeyPositionsCsv(items: KeyPosition[]): string {
   const rows = items.map((k) => ({
     key_position_id: k.id,
     name: k.name,
