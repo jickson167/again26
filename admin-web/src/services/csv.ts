@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import type { Formation, KeyPosition, Player, PlayerPosition } from '../types';
+import type { Formation, KeyPosition, Player, PlayerGrowth, PlayerPosition } from '../types';
 import { clampStat } from '../lib/utils';
 
 const POS_FIT_COLS = [
