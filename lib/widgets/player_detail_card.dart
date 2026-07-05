@@ -173,66 +173,79 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
         ),
         _SectionHeader(
           title: '능력치',
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 5,
-                child: Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useSideBySide = constraints.maxWidth >= 560;
+              final positionSection = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('포지션 적정', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  PositionFitGrid(positionFit: player.positionFit),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      _LegendDot(color: positionFitColor(2), label: '낮음'),
+                      _LegendDot(color: positionFitColor(5), label: '중간'),
+                      _LegendDot(color: positionFitColor(8), label: '높음'),
+                    ],
+                  ),
+                ],
+              );
+              final statsSection = Column(
+                children: [
+                  GameStatBar(label: '스피드', value: player.speed, color: Colors.blue),
+                  GameStatBar(label: '기술', value: player.technique, color: Colors.green),
+                  GameStatBar(label: '파워', value: player.power, color: Colors.red),
+                  GameStatBar(label: '슈팅', value: player.shooting, color: Colors.deepOrange),
+                  GameStatBar(label: '패스', value: player.passing, color: Colors.teal),
+                  GameStatBar(label: '활동량', value: player.stamina, color: Colors.brown),
+                  if (player.position == PlayerPosition.gk || player.goalkeeper > 0)
+                    GameStatBar(label: 'GK', value: player.goalkeeper, color: Colors.purple),
+                  const Divider(height: 16),
+                  GameStatBar(label: 'PK', value: player.pkAbility, color: Colors.orange),
+                  GameStatBar(label: 'FK', value: player.fkAbility, color: Colors.orange),
+                  GameStatBar(label: 'CK', value: player.ckAbility, color: Colors.orange),
+                  GameStatBar(label: '리더십', value: player.leadership, color: Colors.orange),
+                  const SizedBox(height: 8),
+                  GameDualSlider(
+                    leftLabel: '지성',
+                    rightLabel: '감각',
+                    leftValue: player.intelligenceValue,
+                    rightValue: player.senseValue,
+                  ),
+                  const SizedBox(height: 8),
+                  GameDualSlider(
+                    leftLabel: '개인',
+                    rightLabel: '조직',
+                    leftValue: player.individualValue,
+                    rightValue: player.organizationValue,
+                  ),
+                ],
+              );
+
+              if (useSideBySide) {
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('포지션 적정', style: TextStyle(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 6),
-                    PositionFitGrid(positionFit: player.positionFit),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        _LegendDot(color: positionFitColor(2), label: '낮음'),
-                        const SizedBox(width: 8),
-                        _LegendDot(color: positionFitColor(5), label: '중간'),
-                        const SizedBox(width: 8),
-                        _LegendDot(color: positionFitColor(8), label: '높음'),
-                      ],
-                    ),
+                    Expanded(flex: 5, child: positionSection),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 6, child: statsSection),
                   ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 6,
-                child: Column(
-                  children: [
-                    GameStatBar(label: '스피드', value: player.speed, color: Colors.blue),
-                    GameStatBar(label: '기술', value: player.technique, color: Colors.green),
-                    GameStatBar(label: '파워', value: player.power, color: Colors.red),
-                    GameStatBar(label: '슈팅', value: player.shooting, color: Colors.deepOrange),
-                    GameStatBar(label: '패스', value: player.passing, color: Colors.teal),
-                    GameStatBar(label: '활동량', value: player.stamina, color: Colors.brown),
-                    if (player.position == PlayerPosition.gk || player.goalkeeper > 0)
-                      GameStatBar(label: 'GK', value: player.goalkeeper, color: Colors.purple),
-                    const Divider(height: 16),
-                    GameStatBar(label: 'PK', value: player.pkAbility, color: Colors.orange),
-                    GameStatBar(label: 'FK', value: player.fkAbility, color: Colors.orange),
-                    GameStatBar(label: 'CK', value: player.ckAbility, color: Colors.orange),
-                    GameStatBar(label: '리더십', value: player.leadership, color: Colors.orange),
-                    const SizedBox(height: 8),
-                    GameDualSlider(
-                      leftLabel: '지성',
-                      rightLabel: '감각',
-                      leftValue: player.intelligenceValue,
-                      rightValue: player.senseValue,
-                    ),
-                    const SizedBox(height: 8),
-                    GameDualSlider(
-                      leftLabel: '개인',
-                      rightLabel: '조직',
-                      leftValue: player.individualValue,
-                      rightValue: player.organizationValue,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  positionSection,
+                  const SizedBox(height: 16),
+                  statsSection,
+                ],
+              );
+            },
           ),
         ),
         if (player.recommendKeyPositions != null &&

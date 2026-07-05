@@ -20,9 +20,13 @@ class PositionFitGrid extends StatelessWidget {
 
   final Map<int, int> positionFit;
 
+  static const _cellAspectRatio = 56 / 44;
+  static const _cellGap = 4.0;
+
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: const Color(0xFF14532D),
@@ -35,17 +39,23 @@ class PositionFitGrid extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (final slot in row) ...[
-                    if (slot == null)
-                      const SizedBox(width: 56, height: 44)
-                    else
-                      _PositionCell(
-                        label: FieldPositionLayout.labels[slot] ?? 'P$slot',
-                        value: positionFit[slot] ?? 0,
-                      ),
-                    if (slot != row.last) const SizedBox(width: 6),
+                  for (var i = 0; i < row.length; i++) ...[
+                    if (i > 0) const SizedBox(width: _cellGap),
+                    Expanded(
+                      child: row[i] == null
+                          ? const AspectRatio(
+                              aspectRatio: _cellAspectRatio,
+                              child: SizedBox.shrink(),
+                            )
+                          : AspectRatio(
+                              aspectRatio: _cellAspectRatio,
+                              child: _PositionCell(
+                                label: FieldPositionLayout.labels[row[i]!] ?? 'P${row[i]}',
+                                value: positionFit[row[i]!] ?? 0,
+                              ),
+                            ),
+                    ),
                   ],
                 ],
               ),
@@ -66,34 +76,36 @@ class _PositionCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = positionFitColor(value);
     return Container(
-      width: 56,
-      height: 44,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.black26),
       ),
       alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
+            Text(
+              '$value',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
