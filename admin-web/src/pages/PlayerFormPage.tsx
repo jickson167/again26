@@ -48,12 +48,12 @@ export default function PlayerFormPage() {
 
   return (
     <div className="form-page">
-      <Link to="/" className="back-link">
+      <Link to="/admin" className="back-link">
         ← 선수 목록
       </Link>
       <h2>{isNew ? '선수 추가' : '선수 수정'}</h2>
       <p className="muted">
-        상세 능력치·성장곡선은 <Link to="/player-generator">선수 생성기</Link> 사용을 권장합니다.
+        상세 능력치·성장곡선은 <Link to="/admin/player-generator">선수 생성기</Link> 사용을 권장합니다.
       </p>
       <form
         className="form-grid"
@@ -66,7 +66,7 @@ export default function PlayerFormPage() {
             } else {
               await updatePlayer(player);
             }
-            nav('/');
+            nav('/admin');
           } catch (err) {
             alert(err instanceof Error ? err.message : String(err));
           } finally {

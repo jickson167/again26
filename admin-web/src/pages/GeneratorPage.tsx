@@ -7,7 +7,7 @@ export default function GeneratorPage() {
   return (
     <div className="generator-page">
       <div className="generator-bar">
-        <Link to="/" className="btn btn-outline">
+        <Link to="/admin" className="btn btn-outline">
           ← 선수 목록
         </Link>
       </div>

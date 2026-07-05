@@ -45,9 +45,9 @@ export default function PlayersPage() {
     <div>
       <Toolbar
         onExport={() => downloadText(exportPlayersCsv(players), 'players.csv')}
-        onAdd={() => nav('players/new')}
+        onAdd={() => nav('/admin/players/new')}
         addLabel="선수 추가"
-        onGenerator={() => nav('player-generator')}
+        onGenerator={() => nav('/admin/player-generator')}
       />
       <div className="search-row">
         <input
@@ -103,7 +103,7 @@ export default function PlayersPage() {
               <button type="button" className="icon-btn" title="상세" onClick={() => void openDetail(p)}>
                 🔍
               </button>
-              <Link to={`players/${p.id}/edit`} className="icon-btn" title="수정">
+              <Link to={`/admin/players/${p.id}/edit`} className="icon-btn" title="수정">
                 ✏️
               </Link>
               <button

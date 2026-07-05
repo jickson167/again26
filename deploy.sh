@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# again26 웹 매니저 배포 (GitHub Pages)
-# 사용: ./deploy.sh
-#       ./deploy.sh "커밋 메시지"   ← 변경사항 있을 때
+# again26 웹 배포 (GitHub Pages · React only)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -24,7 +22,7 @@ if $DIRTY; then
   git commit -m "$MSG"
   git push origin main
 else
-  echo "▶ 커밋할 변경 없음 → GitHub Actions 재배포만 실행"
+  echo "▶ 커밋할 변경 없음 → GitHub Actions 재배포"
   gh workflow run deploy-web.yml --ref main
   sleep 3
 fi
