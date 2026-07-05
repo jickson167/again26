@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/player.dart';
 import '../../models/player_position.dart';
 import '../../services/player_service.dart';
+import '../../utils/open_admin.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/seed_name_chips.dart';
 
@@ -80,7 +81,7 @@ class _PlayerListPageState extends State<PlayerListPage> {
         actions: [
           IconButton(
             tooltip: '관리자',
-            onPressed: () => context.go('/admin'),
+            onPressed: openAdminPanel,
             icon: const Icon(Icons.admin_panel_settings),
           ),
         ],
