@@ -116,6 +116,7 @@ a:hover { text-decoration: underline; }
   margin-bottom: 8px;
 }
 .list-main strong { display: block; margin-bottom: 4px; }
+.name-meta { font-size: .85rem; font-weight: 600; margin-left: 8px; }
 .list-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .icon-btn {
   background: none;

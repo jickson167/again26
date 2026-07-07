@@ -93,7 +93,14 @@ export default function PlayersPage() {
         {players.map((p) => (
           <li key={p.id} className="list-item">
             <div className="list-main">
-              <strong>{p.name}</strong>
+              <strong>
+                {p.name}
+                <span className="name-meta muted">
+                  {p.fake_name ? ` · 가명: ${p.fake_name}` : ''}
+                  {p.peak_age ? ` · 나이: ${p.peak_age}` : ''}
+                  {typeof p.portrait_url !== 'undefined' ? ` · 이미지: ${p.portrait_url ? '있음' : '없음'}` : ''}
+                </span>
+              </strong>
               <div className="muted">
                 {p.detail_position ?? POSITION_LABELS[p.position]} · 랭크 {p.rank ?? '-'}
               </div>

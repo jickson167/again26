@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/player.dart';
@@ -137,12 +136,11 @@ class _AdminPlayerPortraitGeneratorPageState
     if (prompt.isEmpty) {
       return;
     }
-    await Clipboard.setData(ClipboardData(text: prompt));
     if (!mounted) {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('프롬프트를 클립보드에 복사했습니다.')),
+      const SnackBar(content: Text('복사할 텍스트가 준비되었습니다. 텍스트를 직접 선택해서 복사하세요.')),
     );
   }
 

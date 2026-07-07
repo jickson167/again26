@@ -6,6 +6,9 @@ import '../../models/player_position.dart';
 import '../../services/player_service.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/seed_name_chips.dart';
+import '../../utils/country_flag.dart';
+import '../../utils/player_portrait.dart';
+import '../../utils/portrait_image_check.dart';
 
 class PlayerListPage extends StatefulWidget {
   const PlayerListPage({super.key, required this.playerService});
@@ -19,6 +22,7 @@ class PlayerListPage extends StatefulWidget {
 class _PlayerListPageState extends State<PlayerListPage> {
   final _searchController = TextEditingController();
   List<Player> _players = [];
+  final Map<String, bool?> _portraitExists = {};
   bool _loading = true;
   String? _error;
   PlayerPosition? _positionFilter;
@@ -33,6 +37,23 @@ class _PlayerListPageState extends State<PlayerListPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshPortraitStatus(List<Player> players) async {
+    for (final player in players) {
+      _checkPortrait(player);
+    }
+  }
+
+  Future<void> _checkPortrait(Player player) async {
+    final url = PlayerPortrait.expectedUrl(player);
+    setState(() => _portraitExists[player.id] = null);
+
+    final exists = await portraitImageExists(url);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _portraitExists[player.id] = exists);
   }
 
   Future<void> _loadPlayers() async {
@@ -59,8 +80,10 @@ class _PlayerListPageState extends State<PlayerListPage> {
 
       setState(() {
         _players = players;
+        _portraitExists.clear();
         _loading = false;
       });
+      _refreshPortraitStatus(players);
     } catch (error) {
       if (!mounted) {
         return;
@@ -150,7 +173,39 @@ class _PlayerListPageState extends State<PlayerListPage> {
                                   name: player.name,
                                   portraitUrl: player.portraitUrl,
                                 ),
-                                title: Text(player.name),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        player.name,
+                                        style: const TextStyle(fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Wrap(
+                                      spacing: 6,
+                                      children: [
+                                        if (player.nationality != null)
+                                          Text(
+                                            flagEmoji(player.nationality) ?? '',
+                                            style: const TextStyle(fontSize: 14),
+                                          ),
+                                        if (player.fakeName != null)
+                                          Text('가명: ${player.fakeName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                        if (player.peakAge != null)
+                                          Text('나이: ${player.peakAge}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                        Text(
+                                          _portraitExists[player.id] == null
+                                              ? '이미지: 확인중'
+                                              : _portraitExists[player.id]!
+                                                  ? '이미지: 있음'
+                                                  : '이미지: 없음',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [

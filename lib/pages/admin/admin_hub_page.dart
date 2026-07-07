@@ -19,6 +19,9 @@ import '../../utils/formation_display.dart';
 import '../../widgets/coach_detail_card.dart';
 import '../../widgets/formation_detail_card.dart';
 import '../../widgets/player_detail_card.dart';
+import '../../services/nation_flag_service.dart';
+import '../../utils/coach_portrait.dart';
+import '../../utils/portrait_image_check.dart';
 
 class AdminHubPage extends StatefulWidget {
   const AdminHubPage({super.key, required this.services});
@@ -98,6 +101,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
   final _csvService = CsvService();
   List<Player> _players = [];
   Map<String, KeyPosition> _keyPositions = {};
+  Map<String, bool?> _portraitExists = {};
   bool _loading = true;
   bool _importing = false;
   String? _error;
@@ -126,8 +130,10 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
         _keyPositions = {
           for (final kp in results[1] as List<KeyPosition>) kp.id: kp,
         };
+        _portraitExists = {};
         _loading = false;
       });
+      _refreshPlayerPortraitStatus(_players);
     } catch (error) {
       if (!mounted) {
         return;
@@ -137,6 +143,27 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _refreshPlayerPortraitStatus(List<Player> players) async {
+    for (final player in players) {
+      _checkPlayerPortrait(player);
+    }
+  }
+
+  Future<void> _checkPlayerPortrait(Player player) async {
+    final url = player.portraitUrl?.trim();
+    if (url == null || url.isEmpty) {
+      setState(() => _portraitExists[player.id] = false);
+      return;
+    }
+
+    setState(() => _portraitExists[player.id] = null);
+    final exists = await portraitImageExists(url);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _portraitExists[player.id] = exists);
   }
 
   Future<void> _showDetail(Player player) async {
@@ -279,7 +306,49 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                         name: player.name,
                         portraitUrl: player.portraitUrl,
                       ),
-                      title: Text(player.name),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(player.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                          const SizedBox(width: 8),
+                          Wrap(
+                            spacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (player.fakeName != null && player.fakeName!.isNotEmpty)
+                                Text('가명: ${player.fakeName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              if (player.peakAge != null)
+                                Text('나이: ${player.peakAge}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              if (player.nationality != null && player.nationality!.isNotEmpty)
+                                FutureBuilder<void>(
+                                  future: NationFlagService.instance.ensureLoaded(),
+                                  builder: (context, snapshot) {
+                                    final nation = NationFlagService.instance.resolve(player.nationality);
+                                    if (nation.flagUrl != null && nation.flagUrl!.isNotEmpty) {
+                                      return Image.network(
+                                        nation.flagUrl!,
+                                        width: 22,
+                                        height: 16,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
+                              Text(
+                                _portraitExists[player.id] == null
+                                    ? '이미지: 확인중'
+                                    : _portraitExists[player.id]!
+                                        ? '이미지: 있음'
+                                        : '이미지: 없음',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -336,6 +405,7 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
   final _csvService = CoachCsvService();
   List<Coach> _coaches = [];
   Map<String, Formation> _formations = {};
+  Map<String, bool?> _coachPortraitExists = {};
   bool _loading = true;
   bool _importing = false;
   String? _error;
@@ -363,8 +433,10 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
       setState(() {
         _coaches = results[0] as List<Coach>;
         _formations = {for (final f in formations) f.id: f};
+        _coachPortraitExists = {};
         _loading = false;
       });
+      _refreshCoachPortraitStatus(_coaches);
     } catch (error) {
       if (!mounted) {
         return;
@@ -374,6 +446,23 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _refreshCoachPortraitStatus(List<Coach> coaches) async {
+    for (final coach in coaches) {
+      _checkCoachPortrait(coach);
+    }
+  }
+
+  Future<void> _checkCoachPortrait(Coach coach) async {
+    final url = CoachPortrait.urlFor(coach.id);
+    setState(() => _coachPortraitExists[coach.id] = null);
+
+    final exists = await portraitImageExists(url);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _coachPortraitExists[coach.id] = exists);
   }
 
   Future<void> _showDetail(Coach coach) async {
@@ -506,7 +595,47 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
                     final coach = _coaches[index];
                     return ListTile(
                       leading: CircleAvatar(child: Text('${coach.effectiveRank}')),
-                      title: Text(coach.name),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(coach.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                          const SizedBox(width: 8),
+                          Wrap(
+                            spacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (coach.fakeName != null && coach.fakeName!.isNotEmpty)
+                                Text('가명: ${coach.fakeName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              if (coach.nationality != null && coach.nationality!.isNotEmpty)
+                                FutureBuilder<void>(
+                                  future: NationFlagService.instance.ensureLoaded(),
+                                  builder: (context, snapshot) {
+                                    final nation = NationFlagService.instance.resolve(coach.nationality);
+                                    if (nation.flagUrl != null && nation.flagUrl!.isNotEmpty) {
+                                      return Image.network(
+                                        nation.flagUrl!,
+                                        width: 22,
+                                        height: 16,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
+                              Text(
+                                _coachPortraitExists[coach.id] == null
+                                    ? '이미지: 확인중'
+                                    : _coachPortraitExists[coach.id]!
+                                        ? '이미지: 있음'
+                                        : '이미지: 없음',
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                       subtitle: Text(
                         '${coach.coachType} · ${coach.age != null ? '${coach.age}세 · ' : ''}통솔 ${coach.baseLeadership} · ${coach.abilityName}',
                       ),
