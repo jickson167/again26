@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../models/coach.dart';
 import '../models/formation.dart';
+import '../services/nation_flag_service.dart';
 import '../utils/coach_portrait.dart';
+import '../utils/profile_badge_labels.dart';
 import 'game_stat_bar.dart';
 import 'leadership_curve_chart.dart';
+import 'profile_header_badges.dart';
 
-class CoachDetailCard extends StatelessWidget {
+class CoachDetailCard extends StatefulWidget {
   const CoachDetailCard({
     super.key,
     required this.coach,
@@ -17,120 +20,145 @@ class CoachDetailCard extends StatelessWidget {
   final Map<String, Formation> formationsById;
 
   @override
+  State<CoachDetailCard> createState() => _CoachDetailCardState();
+}
+
+class _CoachDetailCardState extends State<CoachDetailCard> {
+  late Future<void> _nationFlagsReady;
+
+  @override
+  void initState() {
+    super.initState();
+    _nationFlagsReady = NationFlagService.instance.ensureLoaded();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final coach = widget.coach;
     final portraitUrl = CoachPortrait.urlFor(coach.id);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionHeader(
-          title: '감독 정보',
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.red.shade800,
-                      Colors.red.shade900,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.network(
-                          portraitUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _PortraitFallback(
-                            coachId: coach.id,
-                            name: coach.name,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              _Badge(text: coach.coachType.isNotEmpty ? coach.coachType : '감독'),
-                              const SizedBox(width: 6),
-                              ...List.generate(
-                                coach.effectiveRank,
-                                (_) => const Icon(Icons.star, color: Colors.amber, size: 16),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          if (coach.fakeName != null && coach.fakeName!.isNotEmpty)
-                            Text(
-                              coach.fakeName!,
-                              style: const TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
-                          Text(
-                            coach.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            coach.id,
-                            style: const TextStyle(color: Colors.white54, fontSize: 11),
-                          ),
-                          const SizedBox(height: 8),
-                          _InfoTable(
-                            rows: [
-                              if (coach.nationality != null) ('국적', coach.nationality!),
-                              if (coach.age != null) ('나이', '${coach.age}세'),
-                              ('유형', coach.coachType.isNotEmpty ? coach.coachType : '-'),
-                              ('랭크', '${coach.effectiveRank}'),
-                              ('기본 통솔력', '${coach.baseLeadership}'),
-                              (
-                                '적합 포메이션',
-                                '${coach.unlockFormationCount}개',
-                              ),
-                            ],
-                          ),
+    return FutureBuilder<void>(
+      future: _nationFlagsReady,
+      builder: (context, snapshot) {
+        final nation = NationFlagService.instance.resolve(coach.nationality);
+        final nationalityLabel =
+            nation.displayName.isNotEmpty ? nation.displayName : null;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SectionHeader(
+              title: '감독 정보',
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.red.shade800,
+                          Colors.red.shade900,
                         ],
                       ),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
-                ),
-              ),
-              Positioned(
-                right: 8,
-                bottom: 4,
-                child: Text(
-                  'HEAD COACH',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 1.2,
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: Image.network(
+                              portraitUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => _PortraitFallback(
+                                coachId: coach.id,
+                                name: coach.name,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ProfileHeaderBadges(
+                                positionLabel: coachPositionBadgeLabel(coach.coachType),
+                                flagUrl: nation.flagUrl,
+                                rank: coach.effectiveRank,
+                              ),
+                              const SizedBox(height: 4),
+                              if (coach.fakeName != null && coach.fakeName!.isNotEmpty)
+                                Text(
+                                  coach.fakeName!,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              Text(
+                                coach.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                coach.id,
+                                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                              ),
+                              const SizedBox(height: 8),
+                              _InfoTable(
+                                rows: [
+                                  if (nationalityLabel != null) ('국적', nationalityLabel),
+                                  if (coach.age != null) ('나이', '${coach.age}세'),
+                                  ('유형', coach.coachType.isNotEmpty ? coach.coachType : '-'),
+                                  ('랭크', '${coach.effectiveRank}'),
+                                  ('기본 통솔력', '${coach.baseLeadership}'),
+                                  (
+                                    '적합 포메이션',
+                                    '${coach.unlockFormationCount}개',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  Positioned(
+                    right: 8,
+                    bottom: 4,
+                    child: Text(
+                      'HEAD COACH',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        fontStyle: FontStyle.italic,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+            ..._buildRest(coach),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildRest(Coach coach) {
+    return [
         _SectionHeader(
           title: '고유능력',
           child: Column(
@@ -199,7 +227,7 @@ class CoachDetailCard extends StatelessWidget {
               _FormationFitBlock(
                 title: '높음',
                 formationIds: coach.fitGood,
-                formationsById: formationsById,
+                formationsById: widget.formationsById,
                 color: Colors.green.shade700,
                 background: Colors.green.shade50,
               ),
@@ -207,7 +235,7 @@ class CoachDetailCard extends StatelessWidget {
               _FormationFitBlock(
                 title: '보통',
                 formationIds: coach.fitNormal,
-                formationsById: formationsById,
+                formationsById: widget.formationsById,
                 color: Colors.orange.shade800,
                 background: Colors.orange.shade50,
               ),
@@ -215,7 +243,7 @@ class CoachDetailCard extends StatelessWidget {
               _FormationFitBlock(
                 title: '낮음',
                 formationIds: coach.fitBad,
-                formationsById: formationsById,
+                formationsById: widget.formationsById,
                 color: Colors.blueGrey.shade700,
                 background: Colors.blueGrey.shade50,
               ),
@@ -261,8 +289,7 @@ class CoachDetailCard extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
+      ];
   }
 }
 
@@ -354,24 +381,6 @@ class _SectionHeader extends StatelessWidget {
         ),
         const SizedBox(height: 8),
       ],
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade800,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 11)),
     );
   }
 }

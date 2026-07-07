@@ -11,6 +11,14 @@ cp player_row_generator_v3.html web/tools/
 cp coach_row_generator_v1.html web/tools/
 cp key_positions_v2.js web/tools/
 
+if [[ -f flag_nation_mapper.html ]]; then
+  cp flag_nation_mapper.html web/tools/
+fi
+
+if [[ -x scripts/generate_flags_manifest.sh ]] && [[ -d web/flags ]]; then
+  bash scripts/generate_flags_manifest.sh
+fi
+
 if [[ -f web/env.js ]]; then
   cp web/env.js web/tools/generator_config.js
 elif [[ -f generator_config.js ]]; then

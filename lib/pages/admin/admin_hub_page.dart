@@ -53,6 +53,13 @@ class _AdminHubPageState extends State<AdminHubPage> with SingleTickerProviderSt
           icon: const Icon(Icons.home),
           onPressed: () => context.go('/'),
         ),
+        actions: [
+          IconButton(
+            tooltip: '국기 매핑',
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () => context.go('/admin/flag-nation-mapper'),
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

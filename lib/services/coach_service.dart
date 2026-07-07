@@ -24,6 +24,17 @@ class CoachService {
     return Coach.fromJson(Map<String, dynamic>.from(row));
   }
 
+  Future<List<Coach>> fetchGoodFitForFormation(String formationId) async {
+    final rows = await _client
+        .from(table)
+        .select()
+        .contains('fit_good', [formationId])
+        .order('id', ascending: true);
+    return (rows as List)
+        .map((row) => Coach.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
   Future<Coach> create(Coach coach) async {
     final row = await _client
         .from(table)

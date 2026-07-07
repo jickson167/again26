@@ -76,6 +76,17 @@ class PlayerService {
     return list.isEmpty ? null : list.first;
   }
 
+  Future<List<Player>> fetchByRank(int rank) async {
+    final rows = await _client
+        .from(table)
+        .select()
+        .eq('rank', rank)
+        .order('id', ascending: true);
+    return (rows as List)
+        .map((row) => Player.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
   Future<List<Player>> fetchByIds(List<String> ids) async {
     if (ids.isEmpty) {
       return const [];

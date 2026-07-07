@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../models/key_position.dart';
 import '../models/player.dart';
 import '../models/player_position.dart';
+import '../services/nation_flag_service.dart';
+import '../utils/profile_badge_labels.dart';
 import 'game_stat_bar.dart';
+import 'profile_header_badges.dart';
 import 'growth_curve_chart.dart';
 import 'position_fit_grid.dart';
 import 'seed_name_chips.dart';
@@ -29,11 +32,13 @@ class PlayerDetailCard extends StatefulWidget {
 class _PlayerDetailCardState extends State<PlayerDetailCard> {
   late TextEditingController _commentController;
   bool _savingComment = false;
+  late Future<void> _nationFlagsReady;
 
   @override
   void initState() {
     super.initState();
     _commentController = TextEditingController(text: widget.player.comment ?? '');
+    _nationFlagsReady = NationFlagService.instance.ensureLoaded();
   }
 
   @override
@@ -74,103 +79,111 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
     final player = widget.player;
     final displayPosition = player.detailPosition ?? player.position.label;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SectionHeader(
-          title: '선수 정보',
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.red.shade800,
-                  Colors.red.shade900,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 88,
-                  height: 88,
-                  decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: player.portraitUrl != null && player.portraitUrl!.isNotEmpty
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(6),
-                          child: Image.network(
-                            player.portraitUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _PortraitFallback(name: player.name),
-                          ),
-                        )
-                      : _PortraitFallback(name: player.name),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          _Badge(text: player.position.label),
-                          const SizedBox(width: 6),
-                          if (player.rank != null)
-                            Row(
-                              children: List.generate(
-                                player.rank!.clamp(0, 5),
-                                (_) => const Icon(Icons.star, color: Colors.amber, size: 16),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        displayPosition,
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                      Text(
-                        player.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (player.fakeName != null)
-                        Text(
-                          player.fakeName!,
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      const SizedBox(height: 4),
-                      SeedNameChips(
-                        seedNames: player.displaySeedNames,
-                        showLabel: true,
-                        onDarkBackground: true,
-                      ),
-                      const SizedBox(height: 8),
-                      _InfoTable(
-                        rows: [
-                          if (player.nationality != null) ('국적', player.nationality!),
-                          if (player.height != null) ('키', '${player.height} cm'),
-                          if (player.weight != null) ('몸무게', '${player.weight} kg'),
-                          if (player.ageStage != null) ('나이', '${player.ageStage}세'),
-                          if (player.peakAge != null) ('전성기 참고', '${player.peakAge}세'),
-                        ],
-                      ),
+    return FutureBuilder<void>(
+      future: _nationFlagsReady,
+      builder: (context, snapshot) {
+        final nation = NationFlagService.instance.resolve(player.nationality);
+        final nationalityLabel =
+            nation.displayName.isNotEmpty ? nation.displayName : null;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SectionHeader(
+              title: '선수 정보',
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.red.shade800,
+                      Colors.red.shade900,
                     ],
                   ),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: player.portraitUrl != null && player.portraitUrl!.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.network(
+                                player.portraitUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => _PortraitFallback(name: player.name),
+                              ),
+                            )
+                          : _PortraitFallback(name: player.name),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ProfileHeaderBadges(
+                            positionLabel: playerPositionBadgeLabel(player),
+                            flagUrl: nation.flagUrl,
+                            rank: player.rank,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            displayPosition,
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                          Text(
+                            player.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (player.fakeName != null)
+                            Text(
+                              player.fakeName!,
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          const SizedBox(height: 4),
+                          SeedNameChips(
+                            seedNames: player.displaySeedNames,
+                            showLabel: true,
+                            onDarkBackground: true,
+                          ),
+                          const SizedBox(height: 8),
+                          _InfoTable(
+                            rows: [
+                              if (nationalityLabel != null) ('국적', nationalityLabel),
+                              if (player.height != null) ('키', '${player.height} cm'),
+                              if (player.weight != null) ('몸무게', '${player.weight} kg'),
+                              if (player.ageStage != null) ('나이', '${player.ageStage}세'),
+                              if (player.peakAge != null) ('전성기 참고', '${player.peakAge}세'),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
+            ..._buildRest(player),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildRest(Player player) {
+    return [
         _SectionHeader(
           title: '능력치',
           child: LayoutBuilder(
@@ -347,8 +360,7 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
             ],
           ),
         ),
-      ],
-    );
+      ];
   }
 
   List<_RecommendEntry> _parseRecommendations(String raw) {
@@ -394,23 +406,6 @@ class _SectionHeader extends StatelessWidget {
         ),
         const SizedBox(height: 8),
       ],
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade800,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 11)),
     );
   }
 }

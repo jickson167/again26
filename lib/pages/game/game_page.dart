@@ -27,16 +27,13 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   bool _bootstrapping = true;
-  bool _loadingData = false;
+  bool _loadingClub = false;
   bool _signedIn = false;
   bool _signingIn = false;
   bool _showUserSettings = false;
   bool _settingsProcessing = false;
   String? _error;
 
-  List<Player> _players = [];
-  List<Coach> _coaches = [];
-  List<Formation> _formations = [];
   GameClub? _club;
 
   StreamSubscription<AuthState>? _authSubscription;
@@ -64,18 +61,15 @@ class _GamePageState extends State<GamePage> {
       case AuthChangeEvent.signedIn:
       case AuthChangeEvent.tokenRefreshed:
         if (state.session != null) {
-          _loadGameData();
+          _loadUserClub();
         }
       case AuthChangeEvent.signedOut:
         setState(() {
           _signedIn = false;
           _club = null;
-          _players = [];
-          _coaches = [];
-          _formations = [];
           _error = null;
           _bootstrapping = false;
-          _loadingData = false;
+          _loadingClub = false;
           _signingIn = false;
           _showUserSettings = false;
           _settingsProcessing = false;
@@ -87,7 +81,7 @@ class _GamePageState extends State<GamePage> {
 
   Future<void> _bootstrapSession() async {
     if (widget.services.authService.currentSession != null) {
-      await _loadGameData();
+      await _loadUserClub();
       return;
     }
     if (mounted) {
@@ -121,13 +115,13 @@ class _GamePageState extends State<GamePage> {
     }
   }
 
-  Future<void> _loadGameData() async {
+  Future<void> _loadUserClub() async {
     final user = widget.services.authService.currentUser;
     if (user == null) {
       if (mounted) {
         setState(() {
           _bootstrapping = false;
-          _loadingData = false;
+          _loadingClub = false;
           _signedIn = false;
         });
       }
@@ -137,32 +131,24 @@ class _GamePageState extends State<GamePage> {
     setState(() {
       _bootstrapping = false;
       _signedIn = true;
-      _loadingData = true;
+      _loadingClub = true;
       _error = null;
       _signingIn = false;
     });
 
     try {
-      final results = await Future.wait([
-        widget.services.playerService.fetchAll(),
-        widget.services.coachService.fetchAll(),
-        widget.services.formationService.fetchAll(),
-        widget.services.gameClubService.fetchUserClub(
-          userId: user.id,
-          playerService: widget.services.playerService,
-          coachService: widget.services.coachService,
-          formationService: widget.services.formationService,
-        ),
-      ]);
+      final club = await widget.services.gameClubService.fetchUserClub(
+        userId: user.id,
+        playerService: widget.services.playerService,
+        coachService: widget.services.coachService,
+        formationService: widget.services.formationService,
+      );
       if (!mounted) {
         return;
       }
       setState(() {
-        _players = results[0] as List<Player>;
-        _coaches = results[1] as List<Coach>;
-        _formations = results[2] as List<Formation>;
-        _club = results[3] as GameClub?;
-        _loadingData = false;
+        _club = club;
+        _loadingClub = false;
       });
     } catch (error) {
       if (!mounted) {
@@ -170,7 +156,7 @@ class _GamePageState extends State<GamePage> {
       }
       setState(() {
         _error = error.toString();
-        _loadingData = false;
+        _loadingClub = false;
       });
     }
   }
@@ -243,9 +229,9 @@ class _GamePageState extends State<GamePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_bootstrapping || (_signedIn && _loadingData && !_showUserSettings)) {
+    if (_bootstrapping || (_signedIn && _loadingClub && !_showUserSettings)) {
       return const Scaffold(
-        body: LoadingView(message: '게임 데이터 불러오는 중...'),
+        body: LoadingView(message: '구단 정보 불러오는 중...'),
       );
     }
     if (_signedIn && _showUserSettings) {
@@ -266,13 +252,11 @@ class _GamePageState extends State<GamePage> {
       );
     }
     if (_error != null) {
-      return ErrorView(message: _error!, onRetry: _loadGameData);
+      return ErrorView(message: _error!, onRetry: _loadUserClub);
     }
     if (_club == null) {
       return _GameSetupView(
-        players: _players,
-        coaches: _coaches,
-        formations: _formations,
+        services: widget.services,
         onCreateClub: _createClub,
         onOpenUserSettings: () => setState(() => _showUserSettings = true),
       );
@@ -390,16 +374,12 @@ class _GameLoginView extends StatelessWidget {
 
 class _GameSetupView extends StatefulWidget {
   const _GameSetupView({
-    required this.players,
-    required this.coaches,
-    required this.formations,
+    required this.services,
     required this.onCreateClub,
     required this.onOpenUserSettings,
   });
 
-  final List<Player> players;
-  final List<Coach> coaches;
-  final List<Formation> formations;
+  final AppServices services;
   final Future<void> Function(GameClub club) onCreateClub;
   final VoidCallback onOpenUserSettings;
 
@@ -412,6 +392,12 @@ class _GameSetupViewState extends State<_GameSetupView> {
   Formation? _selectedFormation;
   Coach? _selectedCoach;
   bool _saving = false;
+  bool _loadingOptions = true;
+  bool _loadingPlayers = false;
+  String? _optionsError;
+
+  List<Formation> _formations = [];
+  List<Coach> _coaches = [];
 
   static const _initialFormationIds = [
     'fm_4231_press',
@@ -423,11 +409,76 @@ class _GameSetupViewState extends State<_GameSetupView> {
   @override
   void initState() {
     super.initState();
-    final initial = _initialFormations();
-    _selectedFormation = initial.isNotEmpty ? initial.first : null;
-    _selectedCoach = _availableCoaches().isNotEmpty
-        ? _availableCoaches().first
-        : null;
+    _loadSetupOptions();
+  }
+
+  Future<void> _loadSetupOptions() async {
+    setState(() {
+      _loadingOptions = true;
+      _optionsError = null;
+    });
+    try {
+      final formationResults = await Future.wait(
+        _initialFormationIds.map(widget.services.formationService.fetchById),
+      );
+      if (!mounted) {
+        return;
+      }
+      final formations = [
+        for (final formation in formationResults)
+          if (formation != null) formation,
+      ];
+      final firstFormation = formations.isNotEmpty ? formations.first : null;
+      final coaches = firstFormation == null
+          ? const <Coach>[]
+          : await widget.services.coachService
+              .fetchGoodFitForFormation(firstFormation.id);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _formations = formations;
+        _coaches = coaches;
+        _loadingOptions = false;
+        _selectedFormation = firstFormation;
+        _selectedCoach = coaches.isNotEmpty ? coaches.first : null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _optionsError = error.toString();
+        _loadingOptions = false;
+      });
+    }
+  }
+
+  Future<void> _loadCoachesForFormation(String formationId) async {
+    try {
+      final coaches =
+          await widget.services.coachService.fetchGoodFitForFormation(
+        formationId,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _coaches = coaches;
+        _selectedCoach = coaches.contains(_selectedCoach)
+            ? _selectedCoach
+            : coaches.isNotEmpty
+            ? coaches.first
+            : null;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('감독 목록 불러오기 실패: $error')),
+      );
+    }
   }
 
   @override
@@ -437,40 +488,17 @@ class _GameSetupViewState extends State<_GameSetupView> {
   }
 
   List<Formation> _initialFormations() {
-    final byId = {
-      for (final formation in widget.formations) formation.id: formation,
-    };
-    final preferred = [
-      for (final id in _initialFormationIds)
-        if (byId[id] != null) byId[id]!,
-    ];
-    if (preferred.isNotEmpty) {
-      return preferred;
+    if (_formations.isNotEmpty) {
+      return _formations;
     }
-    return widget.formations.take(4).toList();
+    return const [];
   }
 
-  List<Coach> _availableCoaches() {
-    final formationId = _selectedFormation?.id;
-    if (formationId == null) {
-      return widget.coaches;
-    }
-    final goodFit = widget.coaches
-        .where((coach) => coach.fitGood.contains(formationId))
-        .toList();
-    return goodFit.isNotEmpty ? goodFit : widget.coaches;
-  }
+  List<Coach> _availableCoaches() => _coaches;
 
   void _selectFormation(Formation formation) {
-    setState(() {
-      _selectedFormation = formation;
-      final coaches = _availableCoaches();
-      _selectedCoach = coaches.contains(_selectedCoach)
-          ? _selectedCoach
-          : coaches.isNotEmpty
-          ? coaches.first
-          : null;
-    });
+    setState(() => _selectedFormation = formation);
+    _loadCoachesForFormation(formation.id);
   }
 
   Future<void> _startGame() async {
@@ -484,7 +512,25 @@ class _GameSetupViewState extends State<_GameSetupView> {
       return;
     }
 
-    final roster = _buildInitialRoster(widget.players);
+    setState(() => _loadingPlayers = true);
+    List<Player> players;
+    try {
+      players = await widget.services.playerService.fetchByRank(1);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _loadingPlayers = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('선수 목록 불러오기 실패: $error')),
+        );
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _loadingPlayers = false);
+
+    final roster = _buildInitialRoster(players);
     if (roster.starters.length < 11 || roster.bench.length < 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -547,6 +593,19 @@ class _GameSetupViewState extends State<_GameSetupView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingOptions) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('구단 생성')),
+        body: const LoadingView(message: '포메이션·감독 후보 불러오는 중...'),
+      );
+    }
+    if (_optionsError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('구단 생성')),
+        body: ErrorView(message: _optionsError!, onRetry: _loadSetupOptions),
+      );
+    }
+
     final initialFormations = _initialFormations();
     final availableCoaches = _availableCoaches();
 
@@ -633,15 +692,21 @@ class _GameSetupViewState extends State<_GameSetupView> {
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
-                onPressed: _saving ? null : _startGame,
-                icon: _saving
+                onPressed: (_saving || _loadingPlayers) ? null : _startGame,
+                icon: _saving || _loadingPlayers
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.flag),
-                label: Text(_saving ? '저장 중...' : '구단 생성하고 시작'),
+                label: Text(
+                  _loadingPlayers
+                      ? '1랭크 선수 불러오는 중...'
+                      : _saving
+                      ? '저장 중...'
+                      : '구단 생성하고 시작',
+                ),
               ),
             ],
           ),
@@ -676,6 +741,27 @@ class _GameHomeViewState extends State<_GameHomeView> {
   static const _gameShellMaxWidth = 980.0;
   static const _gameBoardMaxWidth = 860.0;
 
+  Widget _buildMainContent(bool compact) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 12,
+        vertical: 12,
+      ),
+      child: Column(
+        children: [
+          _DashboardMainArea(club: widget.club),
+          const SizedBox(height: 12),
+          _RosterPanel(
+            title: '선발 11명',
+            players: widget.club.starters,
+          ),
+          const SizedBox(height: 12),
+          _AchievementPanel(club: widget.club),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -701,26 +787,7 @@ class _GameHomeViewState extends State<_GameHomeView> {
                     onSelected: (tab) => setState(() => _selectedNavTab = tab),
                   ),
                   _GameClubHeader(club: widget.club, compact: compact),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: compact ? 8 : 12,
-                        vertical: 12,
-                      ),
-                      child: Column(
-                        children: [
-                          _DashboardMainArea(club: widget.club),
-                          const SizedBox(height: 12),
-                          _RosterPanel(
-                            title: '선발 11명',
-                            players: widget.club.starters,
-                          ),
-                          const SizedBox(height: 12),
-                          _AchievementPanel(club: widget.club),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Expanded(child: _buildMainContent(compact)),
                 ],
               );
 

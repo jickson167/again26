@@ -9,6 +9,10 @@ String coachGeneratorPageUrl() {
   return _toolPageUrl('coach_row_generator_v1.html');
 }
 
+String flagNationMapperPageUrl() {
+  return _toolPageUrl('flag_nation_mapper.html');
+}
+
 String _toolPageUrl(String filename) {
   if (!kIsWeb) {
     return '/tools/$filename';

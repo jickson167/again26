@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../pages/admin/admin_coach_form_page.dart';
 import '../pages/admin/admin_coach_generator_page.dart';
+import '../pages/admin/admin_flag_nation_mapper_page.dart';
 import '../pages/admin/admin_hub_page.dart';
 import '../pages/admin/admin_player_form_page.dart';
 import '../pages/admin/admin_player_generator_page.dart';
@@ -124,6 +125,10 @@ GoRouter createRouter({required AppServices? services}) {
           GoRoute(
             path: 'coach-generator',
             builder: (context, state) => const AdminCoachGeneratorPage(),
+          ),
+          GoRoute(
+            path: 'flag-nation-mapper',
+            builder: (context, state) => const AdminFlagNationMapperPage(),
           ),
           GoRoute(
             path: 'coaches/new',

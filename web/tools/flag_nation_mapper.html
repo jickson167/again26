@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>국기 ↔ 나라 매핑 툴</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#3b82f6;--ok:#22c55e;--warn:#f59e0b}
+*{box-sizing:border-box}
+body{font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);margin:0;padding:16px}
+.wrap{max-width:1100px;margin:auto}
+a{color:#93c5fd;text-decoration:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+h1{font-size:1.35rem;margin:0 0 8px}
+.small{font-size:12px;color:var(--muted);line-height:1.5}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+input,textarea{width:100%;background:#0b1220;color:var(--text);border:1px solid #475569;border-radius:8px;padding:10px;margin:0}
+textarea{font-family:Consolas,monospace;font-size:12px;min-height:120px}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;margin:4px 4px 4px 0}
+button.secondary{background:#475569}
+button.ok{background:#15803d}
+button:disabled{opacity:.45;cursor:not-allowed}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.stat{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.stat span{background:#0b1220;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px}
+.stat b{color:#fff}
+.layout{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}
+@media(max-width:800px){.layout{grid-template-columns:1fr}}
+.flag-box{background:#0b1220;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.flag-box img{max-width:100%;height:auto;max-height:140px;image-rendering:pixelated;border-radius:4px}
+.flag-id{font-size:18px;font-weight:800;margin-top:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;max-height:420px;overflow:auto;padding:4px}
+.grid button{background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:6px;cursor:pointer;color:var(--text);font-size:10px}
+.grid button img{width:100%;height:44px;object-fit:contain;image-rendering:pixelated;display:block;margin-bottom:4px}
+.grid button.cur{border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,130,246,.35)}
+.grid button.done{border-color:var(--ok)}
+.grid button .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.status{padding:10px;border-radius:8px;font-size:13px;margin-top:10px}
+.status.ok{background:#064e3b;color:#a7f3d0}
+.status.err{background:#7f1d1d;color:#fecaca}
+.status.info{background:#1e3a5f;color:#bfdbfe}
+.hidden{display:none}
+.filter{margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="small" style="margin:0 0 10px">
+    <a href="../admin/">← 매니저 관리</a>
+  </p>
+  <h1>국기 ↔ 나라 매핑 툴</h1>
+  <p class="small">
+    <code>web/flags/flags_XX.png</code> 옆에 한글 국가명·영문명·별칭을 입력하고 JSON으로 저장합니다.
+    완성본은 <code>web/data/nation_flag_map.json</code>에 저장하세요.
+  </p>
+
+  <div class="card">
+    <div class="toolbar">
+      <button type="button" class="secondary" onclick="loadServerJson()">서버 JSON 불러오기</button>
+      <button type="button" class="secondary" onclick="importJson()">JSON 파일 가져오기</button>
+      <button type="button" class="ok" onclick="exportJson()">JSON 다운로드</button>
+      <button type="button" class="secondary" onclick="copyJson()">JSON 복사</button>
+      <button type="button" class="secondary" onclick="clearLocal()">로컬 초기화</button>
+    </div>
+    <div class="stat" id="stats"></div>
+    <div id="msg" class="status info hidden"></div>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="toolbar">
+        <button type="button" class="secondary" onclick="setView('grid')">전체 목록</button>
+        <button type="button" class="secondary" onclick="setView('edit')">편집</button>
+      </div>
+      <div class="filter">
+        <label>필터</label>
+        <select id="filter" onchange="renderGrid()">
+          <option value="all">전체</option>
+          <option value="done">매핑 완료</option>
+          <option value="todo">미완료</option>
+        </select>
+      </div>
+      <div id="grid" class="grid" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="editor">
+      <div class="flag-box">
+        <img id="flagImg" alt="국기" src="">
+        <div class="flag-id" id="flagId">-</div>
+        <div class="small" id="flagFile">-</div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label>국가명 (한글) *</label>
+        <input id="nameKo" placeholder="예: 대한민국" oninput="saveCurrent(false)">
+
+        <label style="margin-top:10px">국가명 (영문)</label>
+        <input id="nameEn" placeholder="예: South Korea" oninput="saveCurrent(false)">
+
+        <label style="margin-top:10px">별칭 (쉼표 구분 · DB nationality와 동일하게)</label>
+        <input id="aliases" placeholder="예: 대한민국,한국,Korea,KOR" oninput="saveCurrent(false)">
+        <p class="small" style="margin-top:6px">별칭 비우면 한글·영문 이름이 자동으로 별칭에 포함됩니다.</p>
+      </div>
+
+      <div class="nav">
+        <button type="button" class="secondary" onclick="move(-1)">← 이전</button>
+        <button type="button" class="secondary" onclick="move(1)">다음 →</button>
+        <button type="button" onclick="saveCurrent(true)">저장</button>
+        <button type="button" class="secondary" onclick="clearCurrent()">이 국기 비우기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>미리보기 JSON</label>
+    <textarea id="preview" readonly></textarea>
+  </div>
+</div>
+
+<script>
+const LS_KEY = "again26_flag_nation_map_v1";
+const MANIFEST_URL = "../flags/manifest.json";
+const SERVER_JSON_URL = "../data/nation_flag_map.json";
+
+let files = [];
+let index = 0;
+/** @type {Record<string, {flag_id:string,file:string,name_ko:string,name_en:string,aliases:string[]}>} */
+let mapByFlagId = {};
+
+function $(id){ return document.getElementById(id); }
+function flagIdFromFile(file){ return file.replace(/\.[^.]+$/, ""); }
+
+function showMsg(text, kind="info"){
+  const el = $("msg");
+  el.textContent = text;
+  el.className = "status " + kind;
+  el.classList.remove("hidden");
+}
+
+function parseAliases(raw, nameKo, nameEn){
+  const items = (raw || "")
+    .split(/[,;|]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+  for (const v of [nameKo, nameEn]) {
+    if (v && !items.includes(v)) items.push(v);
+  }
+  return items;
+}
+
+function isDone(entry){
+  return !!(entry && entry.name_ko && entry.name_ko.trim());
+}
+
+function loadLocal(){
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data && data.mapByFlagId) mapByFlagId = data.mapByFlagId;
+    if (Number.isInteger(data.index)) index = Math.min(Math.max(0, data.index), Math.max(0, files.length - 1));
+  } catch (_) {}
+}
+
+function persistLocal(){
+  localStorage.setItem(LS_KEY, JSON.stringify({ mapByFlagId, index }));
+  updatePreview();
+  updateStats();
+  renderGrid();
+}
+
+function buildExport(){
+  const flags = files.map(file => {
+    const flag_id = flagIdFromFile(file);
+    const cur = mapByFlagId[flag_id] || { flag_id, file, name_ko: "", name_en: "", aliases: [] };
+    const name_ko = (cur.name_ko || "").trim();
+    const name_en = (cur.name_en || "").trim();
+    const aliases = parseAliases((cur.aliases || []).join(","), name_ko, name_en);
+    return { flag_id, file, name_ko, name_en, aliases };
+  }).filter(f => f.name_ko);
+
+  const by_name_ko = {};
+  const by_alias = {};
+  for (const f of flags) {
+    by_name_ko[f.name_ko] = f.flag_id;
+    for (const a of f.aliases) by_alias[a] = f.flag_id;
+  }
+
+  return {
+    version: 1,
+    updated_at: new Date().toISOString(),
+    flags,
+    lookup: { by_name_ko, by_alias },
+  };
+}
+
+function applyImportData(data){
+  mapByFlagId = {};
+  const list = data.flags || data.items || [];
+  if (Array.isArray(list)) {
+    for (const item of list) {
+      const flag_id = item.flag_id || flagIdFromFile(item.file || "");
+      if (!flag_id) continue;
+      mapByFlagId[flag_id] = {
+        flag_id,
+        file: item.file || (flag_id + ".png"),
+        name_ko: item.name_ko || "",
+        name_en: item.name_en || "",
+        aliases: Array.isArray(item.aliases) ? item.aliases : [],
+      };
+    }
+  }
+  if (data.lookup && data.lookup.by_name_ko) {
+    // 역으로 비어 있는 항목 채우기는 생략 — flags 배열 우선
+  }
+  persistLocal();
+  renderEditor();
+  showMsg("JSON을 불러왔습니다.", "ok");
+}
+
+async function loadManifest(){
+  const res = await fetch(MANIFEST_URL + "?t=" + Date.now());
+  if (!res.ok) throw new Error("manifest.json 없음 — scripts/generate_flags_manifest.sh 실행");
+  const data = await res.json();
+  files = data.files || [];
+  if (!files.length) throw new Error("국기 파일 목록이 비어 있습니다.");
+}
+
+async function loadServerJson(){
+  try {
+    const res = await fetch(SERVER_JSON_URL + "?t=" + Date.now());
+    if (!res.ok) throw new Error("서버에 nation_flag_map.json 없음");
+    applyImportData(await res.json());
+  } catch (e) {
+    showMsg(String(e.message || e), "err");
+  }
+}
+
+function importJson(){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/json,.json";
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      applyImportData(JSON.parse(await file.text()));
+    } catch (e) {
+      showMsg("JSON 파싱 실패: " + e, "err");
+    }
+  };
+  input.click();
+}
+
+function exportJson(){
+  const data = buildExport();
+  const blob = new Blob([JSON.stringify(data, null, 2) + "\n"], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "nation_flag_map.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showMsg(`다운로드 완료 (${data.flags.length}개 매핑)`, "ok");
+}
+
+async function copyJson(){
+  const text = JSON.stringify(buildExport(), null, 2);
+  await navigator.clipboard.writeText(text);
+  showMsg("JSON을 클립보드에 복사했습니다.", "ok");
+}
+
+function clearLocal(){
+  if (!confirm("로컬 저장 데이터를 지울까요? (파일 다운로드본은 유지)")) return;
+  localStorage.removeItem(LS_KEY);
+  showMsg("로컬 저장을 초기화했습니다.", "info");
+}
+
+function updateStats(){
+  const done = files.filter(f => isDone(mapByFlagId[flagIdFromFile(f)])).length;
+  $("stats").innerHTML = `
+    <span>전체 <b>${files.length}</b></span>
+    <span>완료 <b style="color:#4ade80">${done}</b></span>
+    <span>미완료 <b style="color:#fbbf24">${files.length - done}</b></span>
+    <span>현재 <b>${index + 1}</b> / ${files.length}</span>
+  `;
+}
+
+function updatePreview(){
+  $("preview").value = JSON.stringify(buildExport(), null, 2);
+}
+
+function renderGrid(){
+  const filter = $("filter").value;
+  const grid = $("grid");
+  grid.innerHTML = "";
+  const curFile = files[index];
+  const curId = curFile ? flagIdFromFile(curFile) : "";
+
+  files.forEach((file, i) => {
+    const id = flagIdFromFile(file);
+    const entry = mapByFlagId[id];
+    const done = isDone(entry);
+    if (filter === "done" && !done) return;
+    if (filter === "todo" && done) return;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    if (i === index) btn.classList.add("cur");
+    if (done) btn.classList.add("done");
+    btn.innerHTML = `
+      <img src="../flags/${file}" alt="${id}">
+      <div class="lbl">${id}</div>
+      <div class="lbl">${done ? entry.name_ko : "미지정"}</div>
+    `;
+    btn.onclick = () => { index = i; renderEditor(); renderGrid(); persistLocal(); };
+    grid.appendChild(btn);
+  });
+}
+
+function renderEditor(){
+  if (!files.length) return;
+  const file = files[index];
+  const flag_id = flagIdFromFile(file);
+  const entry = mapByFlagId[flag_id] || { flag_id, file, name_ko: "", name_en: "", aliases: [] };
+
+  $("flagImg").src = "../flags/" + file;
+  $("flagId").textContent = flag_id;
+  $("flagFile").textContent = file;
+  $("nameKo").value = entry.name_ko || "";
+  $("nameEn").value = entry.name_en || "";
+  $("aliases").value = (entry.aliases || []).join(",");
+
+  updateStats();
+  updatePreview();
+}
+
+function saveCurrent(showToast){
+  if (!files.length) return;
+  const file = files[index];
+  const flag_id = flagIdFromFile(file);
+  const name_ko = $("nameKo").value.trim();
+  const name_en = $("nameEn").value.trim();
+  const aliases = parseAliases($("aliases").value, name_ko, name_en);
+
+  mapByFlagId[flag_id] = { flag_id, file, name_ko, name_en, aliases };
+  persistLocal();
+  if (showToast) showMsg(flag_id + " 저장됨", "ok");
+}
+
+function clearCurrent(){
+  if (!files.length) return;
+  const flag_id = flagIdFromFile(files[index]);
+  delete mapByFlagId[flag_id];
+  $("nameKo").value = "";
+  $("nameEn").value = "";
+  $("aliases").value = "";
+  persistLocal();
+  showMsg(flag_id + " 비움", "info");
+}
+
+function move(delta){
+  if (!files.length) return;
+  saveCurrent(false);
+  index = (index + delta + files.length) % files.length;
+  renderEditor();
+  renderGrid();
+  persistLocal();
+}
+
+function setView(mode){
+  $("editor").classList.toggle("hidden", mode === "grid");
+  if (mode === "edit") $("editor").classList.remove("hidden");
+}
+
+(async function init(){
+  try {
+    await loadManifest();
+    loadLocal();
+    if (index >= files.length) index = 0;
+    renderEditor();
+    renderGrid();
+    updatePreview();
+    showMsg(`국기 ${files.length}개 로드됨. 한글 국가명 입력 후 JSON 다운로드하세요.`, "info");
+    try { await loadServerJson(); } catch (_) {}
+  } catch (e) {
+    showMsg(String(e.message || e), "err");
+  }
+})();
+</script>
+</body>
+</html>

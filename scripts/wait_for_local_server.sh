@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# localhost:8080 Flutter web-server 준비 대기 (HTML + JS 번들)
+# localhost:8080 Flutter web-server 준비 대기
+# web-server 디버그 모드는 브라우저 첫 접속 시 컴파일이 끝나야 앱이 뜬다.
 set -euo pipefail
 
 PORT="${LOCAL_WEB_PORT:-8080}"
-TRIES="${LOCAL_WEB_WAIT_TRIES:-120}"
+TRIES="${LOCAL_WEB_WAIT_TRIES:-90}"
+WARMUP_SEC="${LOCAL_WEB_WARMUP_SEC:-18}"
 
 html_ready() {
   curl -sf "http://127.0.0.1:$PORT/" >/dev/null 2>&1
@@ -14,10 +16,17 @@ js_ready() {
     && curl -sf "http://127.0.0.1:$PORT/main.dart.js" >/dev/null 2>&1
 }
 
+warmup_compile() {
+  # 첫 HTTP 요청으로 컴파일을 시작시키고, 완료될 때까지 대기
+  curl -sf "http://127.0.0.1:$PORT/admin" >/dev/null 2>&1 || true
+  curl -sf "http://127.0.0.1:$PORT/flutter_bootstrap.js" >/dev/null 2>&1 || true
+  curl -sf "http://127.0.0.1:$PORT/main.dart.js" >/dev/null 2>&1 || true
+  sleep "$WARMUP_SEC"
+}
+
 for _ in $(seq 1 "$TRIES"); do
   if html_ready && js_ready; then
-    # 첫 빌드 직후 JS 실행·첫 프레임까지 여유
-    sleep 3
+    warmup_compile
     exit 0
   fi
   sleep 2

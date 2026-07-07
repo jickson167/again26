@@ -36,24 +36,35 @@
   <title>again26</title>
   <link rel="manifest" href="manifest.json">
   <script>
-    // iOS Safari / 홈 화면 PWA가 예전 Flutter 서비스워커·캐시를 붙잡는 경우가 있어 배포마다 정리한다.
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        registrations.forEach(function (registration) {
-          registration.unregister();
+    // GitHub Pages PWA 캐시 문제용. 로컬(localhost) 첫 로드는 건드리지 않는다.
+    (function () {
+      var host = location.hostname;
+      var isLocal = host === 'localhost' || host === '127.0.0.1';
+      if (isLocal) return;
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          registrations.forEach(function (registration) {
+            registration.unregister();
+          });
         });
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function (names) {
-        names.forEach(function (name) {
-          caches.delete(name);
+      }
+      if ('caches' in window) {
+        caches.keys().then(function (names) {
+          names.forEach(function (name) {
+            caches.delete(name);
+          });
         });
-      });
-    }
+      }
+    })();
   </script>
   <script src="env.js"></script>
   <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #f4f6f4;
+    }
     #again26-boot {
       position: fixed;
       inset: 0;
@@ -104,21 +115,32 @@
       el.style.display = 'block';
       el.textContent = '로드 오류: ' + (event.message || '알 수 없음') + ' — 새로고침(Cmd+Shift+R) 해보세요.';
     });
-    window.addEventListener('flutter-first-frame', function () {
+
+    function removeBootOverlay() {
       var boot = document.getElementById('again26-boot');
       if (boot) boot.remove();
+    }
+
+    window.addEventListener('flutter-first-frame', function () {
+      sessionStorage.removeItem('again26_boot_reload');
+      removeBootOverlay();
     });
-    (function () {
-      var tries = 0;
-      var timer = setInterval(function () {
-        tries++;
-        if (document.querySelector('flutter-view') || tries > 300) {
-          clearInterval(timer);
-          var boot = document.getElementById('again26-boot');
-          if (boot) boot.remove();
-        }
-      }, 100);
-    })();
+
+    // web-server 디버그 모드: 첫 접속이 컴파일 트리거인데 실패하는 경우가 있어 1회 자동 새로고침
+    setTimeout(function () {
+      var boot = document.getElementById('again26-boot');
+      if (!boot) return;
+      if (!sessionStorage.getItem('again26_boot_reload')) {
+        sessionStorage.setItem('again26_boot_reload', '1');
+        location.reload();
+        return;
+      }
+      var err = document.getElementById('again26-boot-error');
+      if (err) {
+        err.style.display = 'block';
+        err.textContent = '로드가 지연되고 있습니다. 새로고침(Cmd+Shift+R) 해보세요.';
+      }
+    }, 12000);
   </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.

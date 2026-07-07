@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
 import 'router/app_router.dart';
 import 'services/app_services.dart';
+import 'services/nation_flag_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ Future<void> main() async {
       ),
     );
     services = AppServices(Supabase.instance.client);
+    NationFlagService.instance.ensureLoaded();
   }
 
   runApp(Again26App(services: services));
