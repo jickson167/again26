@@ -8,6 +8,7 @@ cd "$ROOT"
 mkdir -p web/tools
 
 cp player_row_generator_v3.html web/tools/
+cp coach_row_generator_v1.html web/tools/
 cp key_positions_v2.js web/tools/
 
 if [[ -f web/env.js ]]; then

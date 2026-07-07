@@ -38,6 +38,12 @@ class HomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 FilledButton.icon(
+                  onPressed: disabled ? null : () => context.go('/game'),
+                  icon: const Icon(Icons.sports_esports),
+                  label: const Text('게임 시작'),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
                   onPressed: disabled ? null : () => context.go('/players'),
                   icon: const Icon(Icons.people),
                   label: const Text('선수 목록'),

@@ -47,3 +47,4 @@ app.*.map.json
 # Local Supabase credentials for web build
 env.json
 web/tools/generator_config.js
+supabase/.temp/

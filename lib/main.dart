@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/supabase_config.dart';
@@ -8,12 +10,19 @@ import 'services/app_services.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
+
   AppServices? services;
 
   if (SupabaseConfig.isConfigured) {
     await Supabase.initialize(
       url: SupabaseConfig.url,
       publishableKey: SupabaseConfig.anonKey,
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.pkce,
+      ),
     );
     services = AppServices(Supabase.instance.client);
   }
@@ -41,11 +50,24 @@ class Again26App extends StatelessWidget {
       ),
       routerConfig: router,
       builder: (context, child) {
-        if (SupabaseConfig.isConfigured) {
-          return child ?? const SizedBox.shrink();
+        if (!SupabaseConfig.isConfigured) {
+          return _SetupRequiredScreen(child: child);
         }
-
-        return _SetupRequiredScreen(child: child);
+        if (child == null) {
+          return const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('앱 불러오는 중...'),
+                ],
+              ),
+            ),
+          );
+        }
+        return child;
       },
     );
   }

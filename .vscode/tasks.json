@@ -6,12 +6,56 @@
       "type": "shell",
       "command": "bash scripts/write_web_env.sh",
       "windows": {
-        "command": "powershell -ExecutionPolicy Bypass -File scripts/write_web_env.ps1"
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/write_web_env.ps1"
       },
       "options": {
         "cwd": "${workspaceFolder}"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "sync-web-tools",
+      "type": "shell",
+      "command": "bash scripts/sync_web_tools.sh",
+      "windows": {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/sync_web_tools.ps1"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "prepare-local-run",
+      "dependsOn": ["sync-web-env", "sync-web-tools"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "run-local",
+      "type": "shell",
+      "command": "./run_local.sh",
+      "windows": {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File run_local.ps1"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "dart",
+        "pattern": {
+          "regexp": ".",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "(Syncing files|Application finished|To hot restart)"
+        }
+      }
     }
   ]
 }

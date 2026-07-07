@@ -7,7 +7,12 @@
       "type": "dart",
       "program": "lib/main.dart",
       "deviceId": "chrome",
-      "preLaunchTask": "sync-web-env"
+      "preLaunchTask": "prepare-local-run",
+      "toolArgs": [
+        "--web-port",
+        "8080",
+        "--dart-define-from-file=env.json"
+      ]
     }
   ]
 }

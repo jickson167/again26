@@ -1,0 +1,3 @@
+[functions.naver-userinfo]
+# Naver access_token을 Authorization으로 받음 (Supabase JWT 아님)
+verify_jwt = false

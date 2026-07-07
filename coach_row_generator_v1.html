@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Again26 감독 CSV 생성기 v1</title>
+  <style>
+    body{font-family:Arial,"Noto Sans KR",sans-serif;background:#111827;color:#e5e7eb;margin:0;padding:24px}
+    .wrap{max-width:1200px;margin:auto}
+    .card{background:#1f2937;border:1px solid #374151;border-radius:14px;padding:18px;margin:14px 0}
+    label{font-size:12px;color:#cbd5e1;display:block;margin-bottom:5px}
+    input,textarea{width:100%;box-sizing:border-box;background:#0b1220;color:#e5e7eb;border:1px solid #475569;border-radius:8px;padding:10px;margin-top:5px}
+    textarea{font-family:Consolas,monospace}
+    button{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;margin-right:8px;margin-top:6px}
+    button.secondary{background:#374151}
+    button.danger{background:#991b1b}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .small{font-size:12px;color:#94a3b8}
+    .note{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:10px;margin-top:10px;color:#cbd5e1;font-size:13px;line-height:1.6}
+    .status{padding:10px;border-radius:8px;margin-top:10px;font-size:13px}
+    .status.ok{background:#064e3b;color:#a7f3d0}.status.err{background:#7f1d1d;color:#fecaca}.status.info{background:#1e3a5f;color:#bfdbfe}
+    .prompt-box{background:#0b1220;border:1px solid #334155;border-radius:10px;padding:12px;font-size:12px;white-space:pre-wrap;line-height:1.5;max-height:300px;overflow:auto}
+    .step{border:1px solid #334155;border-radius:10px;padding:12px;margin:12px 0;background:#0b1220}
+    .step h4{margin:0 0 8px;font-size:14px;color:#93c5fd}
+    .step.done{border-color:#166534}
+    .step-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .batch-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+    .batch-table th,.batch-table td{border:1px solid #334155;padding:6px;text-align:left;vertical-align:top}
+    .batch-table th{background:#1e293b;color:#94a3b8;position:sticky;top:0}
+    .chk-yes{color:#4ade80;font-weight:800}.chk-no{color:#64748b}
+    .preview{max-height:360px;overflow:auto;border:1px solid #334155;border-radius:10px}
+    .preview table{width:100%;border-collapse:collapse;font-size:12px}
+    .preview th,.preview td{border-bottom:1px solid #334155;padding:6px;text-align:left}
+    .preview th{background:#1e293b;color:#94a3b8;position:sticky;top:0}
+    code{background:#0f172a;border:1px solid #334155;border-radius:4px;padding:1px 4px}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <p class="small" style="margin:0 0 12px"><a href="../admin/" style="color:#93c5fd;text-decoration:none">← 감독 관리</a></p>
+  <h1>축구 매니저 감독 CSV 생성기 v1</h1>
+  <p><b>선수 생성기와 같은 방식</b>입니다. 한 번에 만들지 말고 3단계로 ChatGPT에 CSV를 계속 요구하고, 붙여넣기해서 데이터를 완성합니다.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">① 다단계 생성 (추천 · 5~10명)</h3>
+    <p class="small">진행 순서: 0 시드 입력 → 1 프로필/고유능력 → 2 포메이션 적합도 → 3 통솔력곡선/코멘트 → 최종 CSV 생성 → DB 저장</p>
+
+      <div class="seed-help" style="margin:6px 0 8px;font-size:12px;color:#94a3b8;line-height:1.5">
+        줄마다 <code>이름, 국적, 나이, 랭크, 시드종류</code> 또는 앞에 번호를 붙여도 됩니다.<br>
+        예: <code>1,대니 뢸,독일,36,1,일반시드</code> · <code>대니 뢸,독일,36,1,일반시드</code>
+      </div>
+      <label>0️⃣ 시드 (이름, 국적, 나이, 랭크, 시드종류 · 줄당 1명 · 탭/쉼표 구분)</label>
+    <label class="small">기본 시드종류 (줄 5번째 생략 시만 적용)</label>
+    <input id="seedCategoryDefault" value="일반 감독시드">
+    <textarea id="seedInput" rows="5" placeholder="1,대니 뢸,독일,36,1,일반시드&#10;2,카를로스 쿠에스타,스페인,30,1,일반시드&#10;또는 거스 히딩크, 네덜란드, 57, 5, 레전드 명장시드"></textarea>
+    <div class="step-actions">
+      <button class="secondary" type="button" onclick="copySeedList()">시드 목록 복사</button>
+      <button class="secondary" type="button" onclick="refreshAllStepPrompts()">프롬프트 새로고침</button>
+      <button class="danger" type="button" onclick="resetBatch()">작업 초기화</button>
+    </div>
+
+    <div id="batchStatusWrap" style="margin-top:12px;max-height:240px;overflow:auto"></div>
+
+    <div class="step" id="step1">
+      <h4>1️⃣ 프로필 + 스타일 + 고유능력</h4>
+      <div id="promptStep1" class="prompt-box"></div>
+      <div class="step-actions"><button class="secondary" type="button" onclick="copyStepPrompt(1)">1단계 프롬프트 복사</button></div>
+      <textarea id="pasteStep1" rows="5" placeholder="ChatGPT CSV 결과 붙여넣기"></textarea>
+      <button type="button" onclick="applyStepPaste(1)">1단계 적용</button>
+    </div>
+
+    <div class="step" id="step2">
+      <h4>2️⃣ 모든 포메이션 적합도</h4>
+      <div id="promptStep2" class="prompt-box"></div>
+      <div class="step-actions"><button class="secondary" type="button" onclick="copyStepPrompt(2)">2단계 프롬프트 복사</button></div>
+      <textarea id="pasteStep2" rows="5" placeholder="name,fit_good,fit_normal,fit_bad"></textarea>
+      <button type="button" onclick="applyStepPaste(2)">2단계 적용</button>
+    </div>
+
+    <div class="step" id="step3">
+      <h4>3️⃣ 통솔력 곡선 + 코멘트</h4>
+      <div id="promptStep3" class="prompt-box"></div>
+      <div class="step-actions"><button class="secondary" type="button" onclick="copyStepPrompt(3)">3단계 프롬프트 복사</button></div>
+      <textarea id="pasteStep3" rows="5" placeholder="name,leadership_curve,comment"></textarea>
+      <button type="button" onclick="applyStepPaste(3)">3단계 적용</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">② 최종 CSV / DB 저장</h3>
+    <div class="step-actions">
+      <button type="button" onclick="buildFinalCsv()">최종 CSV 생성</button>
+      <button id="btnDb" class="secondary" type="button" onclick="saveCsvToDb()">DB 저장</button>
+      <button class="secondary" type="button" onclick="copyFinalCsv()">CSV 복사</button>
+      <button class="secondary" type="button" onclick="downloadCsv()">CSV 다운로드</button>
+    </div>
+    <textarea id="csvInput" rows="8" placeholder="최종 CSV 생성 후 여기에 표시됩니다."></textarea>
+    <div id="status" class="status info">단계별 CSV를 적용한 뒤 [최종 CSV 생성]을 누르세요.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">미리보기</h3>
+    <div id="preview" class="preview small">최종 CSV 생성 후 미리보기가 표시됩니다.</div>
+  </div>
+</div>
+
+<script src="../env.js"></script>
+<script src="generator_config.js"></script>
+<script>
+const HEADERS=[
+  "coach_id","name","fake_name","nationality","age","rank","coach_type","base_leadership",
+  "ability_id","ability_name","ability_effect","fit_good","fit_normal","fit_bad",
+  "leadership_curve","comment"
+];
+const STEP_HEADERS={
+  1:["name","coach_id","fake_name","nationality","age","rank","coach_type","base_leadership","ability_id","ability_name","ability_effect"],
+  2:["name","fit_good","fit_normal","fit_bad"],
+  3:["name","leadership_curve","comment"],
+};
+const STEP_KEYS=["","profile","fit","final"];
+let batchStore={};
+let dbReady=false;
+
+const formations=[
+  "fm_4231_press","fm_433_wing","fm_442_balance","fm_352_engine",
+  "fm_41212_diamond","fm_4141_press","fm_4312_center","fm_451_wall","fm_3412_counter",
+  "fm_3241_possession","fm_343_build","fm_4222_transition","fm_424_allout","fm_532_lock","fm_541_defense"
+];
+const coachAbilities=[
+  {id:"iron_discipline",name:"철의 규율",effect:"수비 조직력↑, 라인 유지력↑",ranks:["수비조직+2|라인유지+1","수비조직+3|라인유지+2","수비조직+4|라인유지+3","수비조직+6|라인유지+4","수비조직+8|라인유지+5"]},
+  {id:"gegen_press",name:"게겐프레싱",effect:"전방 압박 성공률↑, 세컨드볼 획득률↑",ranks:["전방압박+2|세컨드볼+1","전방압박+3|세컨드볼+2","전방압박+5|세컨드볼+3","전방압박+7|세컨드볼+4","전방압박+9|세컨드볼+6"]},
+  {id:"tiki_taka",name:"티키타카",effect:"패스 성공률↑, 점유율↑",ranks:["패스성공+2|점유율+1","패스성공+3|점유율+2","패스성공+5|점유율+3","패스성공+7|점유율+4","패스성공+9|점유율+6"]},
+  {id:"fast_counter",name:"초고속 역습",effect:"역습 전개속도↑, 침투 타이밍↑",ranks:["역습속도+2|침투타이밍+1","역습속도+3|침투타이밍+2","역습속도+5|침투타이밍+3","역습속도+7|침투타이밍+4","역습속도+9|침투타이밍+6"]},
+  {id:"wide_attack",name:"측면 공략",effect:"크로스 정확도↑, 윙어 움직임↑",ranks:["크로스+2|윙어움직임+1","크로스+3|윙어움직임+2","크로스+5|윙어움직임+3","크로스+7|윙어움직임+4","크로스+9|윙어움직임+6"]},
+  {id:"central_break",name:"중앙 침투",effect:"중앙 패스 성공률↑, 침투 패턴↑",ranks:["중앙패스+2|침투패턴+1","중앙패스+3|침투패턴+2","중앙패스+5|침투패턴+3","중앙패스+7|침투패턴+4","중앙패스+9|침투패턴+6"]},
+  {id:"setpiece_master",name:"세트피스 마스터",effect:"코너킥·프리킥 득점 확률↑",ranks:["세트피스득점+2","세트피스득점+3","세트피스득점+5","세트피스득점+7","세트피스득점+9"]},
+  {id:"flexible_tactics",name:"전술 전환",effect:"경기 중 포메이션 적응력↑, 전술 변화 효율↑",ranks:["포메이션적응+2|전술변화+1","포메이션적응+3|전술변화+2","포메이션적응+5|전술변화+3","포메이션적응+7|전술변화+4","포메이션적응+9|전술변화+6"]},
+];
+const coachStyles=[
+  {name:"밸런스형",desc:"공수 균형이 뛰어나 어떤 포메이션에도 무난하다."},
+  {name:"압박형",desc:"전방 압박과 활동량을 극대화한다."},
+  {name:"점유형",desc:"패스와 점유율을 바탕으로 경기를 지배한다."},
+  {name:"역습형",desc:"빠른 전환과 속공에 특화되어 있다."},
+  {name:"수비형",desc:"수비 조직력과 실점 억제에 강하다."},
+  {name:"공격형",desc:"득점력과 공격 전개를 극대화한다."},
+];
+
+function $(id){return document.getElementById(id);}
+function cfg(){return window.AGAIN26_CONFIG||{};}
+function setStatus(msg,type="info"){const el=$("status");el.className=`status ${type}`;el.textContent=msg;}
+function esc(v){v=String(v??"");return /[,"\n]/.test(v)?'"'+v.replaceAll('"','""')+'"':v;}
+function parseCsvLine(line){
+  const out=[];let cell="",q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i],next=line[i+1];
+    if(ch==='"'&&q&&next==='"'){cell+='"';i++;}
+    else if(ch==='"'){q=!q;}
+    else if(ch===","&&!q){out.push(cell.trim());cell="";}
+    else cell+=ch;
+  }
+  out.push(cell.trim());return out;
+}
+function parseCsv(text,expected){
+  const lines=String(text||"").trim().split(/\r?\n/).filter(Boolean);
+  if(!lines.length)return[];
+  let header=parseCsvLine(lines[0]).map(x=>x.replace(/^\uFEFF/,"").trim());
+  let start=1;
+  if(!expected.some(h=>header.includes(h))){
+    header=expected; start=0;
+  }
+  return lines.slice(start).map(line=>{
+    const cells=parseCsvLine(line), row={};
+    header.forEach((h,i)=>row[h]=cells[i]??"");
+    return row;
+  }).filter(r=>r.name);
+}
+function splitSeedLine(line){
+  return String(line||"").split(/[,，\t|]/).map(x=>x.trim()).filter(x=>x!=="");
+}
+function stripLeadingIndex(parts){
+  if(!parts.length) return parts;
+  if(/^\d+$/.test(parts[0])) return parts.slice(1);
+  if(/^\d+[\.\)]\s*/.test(parts[0])){
+    parts[0]=parts[0].replace(/^\d+[\.\)]\s*/,"");
+    if(!parts[0]) return parts.slice(1);
+  }
+  return parts;
+}
+function parseSeedInput(){
+  const def=$("seedCategoryDefault").value.trim();
+  return $("seedInput").value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>{
+    const p=stripLeadingIndex(splitSeedLine(line));
+    return {name:p[0]||"",nationality:p[1]||"",age:p[2]||"",rank:p[3]||"",seed_kind:p[4]||def};
+  }).filter(s=>s.name);
+}
+function ensureEntry(name,seed){
+  if(!batchStore[name]) batchStore[name]={name,_steps:{}};
+  if(seed) Object.assign(batchStore[name],{
+    name:seed.name,nationality:seed.nationality||batchStore[name].nationality,
+    age:seed.age||batchStore[name].age,rank:seed.rank||batchStore[name].rank,
+    seed_kind:seed.seed_kind||batchStore[name].seed_kind
+  });
+  return batchStore[name];
+}
+function syncSeeds(){
+  parseSeedInput().forEach(s=>ensureEntry(s.name,s));
+}
+function getNames(){
+  syncSeeds();
+  return Object.keys(batchStore);
+}
+function abilityBlock(){
+  return [
+    "감독 고유능력 마스터:",
+    "반드시 아래 ability_id/name 중 하나만 사용. ability_effect는 해당 감독 rank의 효과 문자열을 그대로 사용.",
+    "ability_id,ability_name,기본효과,rank1,rank2,rank3,rank4,rank5",
+    ...coachAbilities.map(a=>[a.id,a.name,a.effect,...a.ranks].join(","))
+  ].join("\n");
+}
+function styleBlock(){
+  return ["감독 스타일 마스터: coach_type은 아래 name 중 하나만 사용","name,description",...coachStyles.map(s=>`${s.name},${s.desc}`)].join("\n");
+}
+function rankRule(){
+  return [
+    "랭크 규칙:",
+    "- 등급은 base_leadership과 고유능력 수치 강도로 결정한다.",
+    "- 1랭크 base_leadership 45~62 / 2랭크 60~72 / 3랭크 70~82 / 4랭크 80~90 / 5랭크 88~96",
+    "- 랭크가 높을수록 기본 4개 외 추가 해금/적합 포메이션 폭이 넓다.",
+    "- 좋은 적합 개수: rank1=4개, rank2=5개, rank3=6개, rank4=7개, rank5=8개 내외"
+  ].join("\n");
+}
+function curveRule(){
+  return [
+    "통솔력 곡선 규칙:",
+    "- leadership_curve는 1기~18기 총 18개 정수이며 | 로 구분한다.",
+    "- 1~5기는 성장, 6~11기는 전성기, 12~14기는 하락, 15~18기는 급락한다.",
+    "- 18기는 반드시 0. 예: 83|86|88|90|92|91|90|88|85|82|79|74|68|60|35|20|8|0"
+  ].join("\n");
+}
+function rosterForStep(step){
+  const names=getNames();
+  if(!names.length) return "(시드에 감독을 먼저 입력)";
+  return names.map((n,i)=>{
+    const b=batchStore[n];
+    return `${i+1}. name=${n} | nationality=${b.nationality||"?"} | age=${b.age||"?"} | rank=${b.rank||"?"} | seed=${b.seed_kind||""}`;
+  }).join("\n");
+}
+function contextRows(){
+  const names=getNames();
+  if(!names.length)return"(이전 단계 데이터 없음)";
+  return names.map(n=>{
+    const b=batchStore[n];
+    return `name=${n} | id=${b.coach_id||"?"} | age=${b.age||"?"} | rank=${b.rank||"?"} | type=${b.coach_type||"?"} | ability=${b.ability_id||"?"}`;
+  }).join("\n");
+}
+function buildStepPrompt(step){
+  const common=[
+    "Again26 축구 매니저 게임용 감독 데이터를 단계별 CSV로 생성한다.",
+    "중요: 표/마크다운/설명 금지. 반드시 CSV 텍스트만 출력.",
+    "쉼표가 들어가는 문장은 큰따옴표로 감싼다.",
+    "",
+    styleBlock(),
+    "",
+    abilityBlock(),
+    "",
+    rankRule(),
+    "",
+    "대상 감독:",
+    rosterForStep(step),
+  ].join("\n");
+  if(step===1) return common+`\n\n1단계 출력 CSV 헤더:\n${STEP_HEADERS[1].join(",")}\n\n규칙:\n- 시드의 name/nationality/age/rank는 그대로 유지한다. age는 시드 나이 정수를 age 컬럼에 출력.\n- coach_id는 ch_0001 형식. 배치 내 중복 금지.\n- coach_type은 감독 스타일 마스터 name만 사용.\n- ability_id/name/effect는 고유능력 마스터와 rank별 효과를 정확히 사용.\n- base_leadership은 rank 규칙 범위 안에서 결정.\n`;
+  if(step===2) return common+`\n\n이전 단계 요약:\n${contextRows()}\n\n2단계 출력 CSV 헤더:\n${STEP_HEADERS[2].join(",")}\n\n사용 가능한 포메이션 id:\n${formations.join("|")}\n\n규칙:\n- fit_good, fit_normal, fit_bad 합치면 모든 포메이션 id가 정확히 한 번씩 포함되어야 한다.\n- 각 칸은 | 로 구분한다.\n- coach_type/ability 성격과 맞는 포메이션을 good에 우선 배치한다.\n`;
+  return common+`\n\n이전 단계 요약:\n${contextRows()}\n\n3단계 출력 CSV 헤더:\n${STEP_HEADERS[3].join(",")}\n\n${curveRule()}\n\n규칙:\n- comment는 한국어 1문장. 감독 운용 색깔·시드종류·나이 톤을 자연스럽게 반영한다.\n- leadership_curve와 comment만 출력한다.\n`;
+}
+function refreshAllStepPrompts(){
+  for(let i=1;i<=3;i++) $("promptStep"+i).textContent=buildStepPrompt(i);
+  renderBatchStatus();
+}
+function copyStepPrompt(n){navigator.clipboard.writeText(buildStepPrompt(n));alert(`${n}단계 프롬프트 복사됨`);}
+function copySeedList(){
+  const rows=parseSeedInput();
+  navigator.clipboard.writeText(["name,nationality,age,rank,seed_kind",...rows.map(s=>[s.name,s.nationality,s.age,s.rank,s.seed_kind].join(","))].join("\n"));
+  alert("시드 목록 복사됨");
+}
+function applyStepPaste(step){
+  try{
+    const rows=parseCsv($("pasteStep"+step).value,STEP_HEADERS[step]);
+    if(!rows.length) throw new Error("붙여넣은 CSV 없음");
+    rows.forEach(r=>{
+      const ent=ensureEntry(r.name);
+      Object.entries(r).forEach(([k,v])=>{ if(k!=="name"&&v!=="") ent[k]=v; });
+      ent._steps[STEP_KEYS[step]]=true;
+    });
+    renderBatchStatus();
+    refreshAllStepPrompts();
+    setStatus(`${step}단계 적용: ${rows.length}명`,"ok");
+  }catch(e){setStatus(`${step}단계 실패: ${e.message}`,"err");}
+}
+function stepDone(b,key){
+  if(b?._steps?.[key]) return true;
+  if(key==="profile") return !!(b?.coach_id&&b?.ability_id&&b?.coach_type);
+  if(key==="fit") return !!(b?.fit_good&&b?.fit_normal&&b?.fit_bad);
+  if(key==="final") return !!(b?.leadership_curve&&b?.comment);
+  return false;
+}
+function renderBatchStatus(){
+  const names=getNames(), chk=ok=>ok?'<span class="chk-yes">✓</span>':'<span class="chk-no">·</span>';
+  let html='<table class="batch-table"><tr><th>이름</th><th>나이</th><th>1</th><th>2</th><th>3</th><th>랭크</th><th>스타일</th><th>고유능력</th><th>id</th></tr>';
+  names.forEach(n=>{
+    const b=batchStore[n]||{};
+    html+=`<tr><td>${escapeHtml(n)}</td><td>${b.age||"—"}</td><td>${chk(stepDone(b,"profile"))}</td><td>${chk(stepDone(b,"fit"))}</td><td>${chk(stepDone(b,"final"))}</td><td>${b.rank||"—"}</td><td>${escapeHtml(b.coach_type||"—")}</td><td>${escapeHtml(b.ability_name||b.ability_id||"—")}</td><td>${escapeHtml(b.coach_id||"—")}</td></tr>`;
+  });
+  $("batchStatusWrap").innerHTML=html+"</table>";
+}
+function finalRows(){
+  return getNames().map(n=>batchStore[n]).filter(Boolean);
+}
+function buildFinalCsv(){
+  const rows=finalRows();
+  if(!rows.length){setStatus("최종 CSV로 만들 감독이 없습니다.","err");return;}
+  const lines=[HEADERS.join(",")];
+  rows.forEach(b=>{
+    lines.push([
+      b.coach_id,b.name,b.fake_name,b.nationality,b.age,b.rank,b.coach_type,b.base_leadership,
+      b.ability_id,b.ability_name,b.ability_effect,b.fit_good,b.fit_normal,b.fit_bad,
+      b.leadership_curve,b.comment
+    ].map(esc).join(","));
+  });
+  $("csvInput").value=lines.join("\n");
+  previewCsv();
+  setStatus(`최종 CSV 생성 완료: ${rows.length}명`,"ok");
+}
+function parseCsvRows(){
+  const rows=parseCsv($("csvInput").value,HEADERS);
+  return rows.filter(r=>(r.coach_id||r.id)&&r.name);
+}
+function splitList(v){return String(v||"").split(/[|;；]/).map(x=>x.trim()).filter(Boolean);}
+function parseIntList(v){return String(v||"").split(/[|;；]/).map(x=>Math.max(0,Math.min(100,parseInt(x.trim(),10)||0)));}
+function nullable(v){const t=String(v||"").trim();return t?t:null;}
+function coachPayload(r){
+  const curve=parseIntList(r.leadership_curve); while(curve.length<18) curve.push(0);
+  return {
+    id:r.coach_id||r.id,name:r.name,fake_name:nullable(r.fake_name),nationality:nullable(r.nationality),
+    age:r.age?Math.max(0,Math.min(120,parseInt(r.age,10)||0)):null,
+    rank:r.rank?Math.max(1,Math.min(5,parseInt(r.rank,10)||1)):null,coach_type:r.coach_type||"",
+    base_leadership:Math.max(0,Math.min(100,parseInt(r.base_leadership,10)||0)),
+    ability_id:r.ability_id||"",ability_name:r.ability_name||"",ability_effect:r.ability_effect||"",
+    fit_good:splitList(r.fit_good),fit_normal:splitList(r.fit_normal),fit_bad:splitList(r.fit_bad),
+    leadership_curve:curve.slice(0,18),comment:nullable(r.comment)
+  };
+}
+function validatePayload(p){
+  if(!String(p.id||"").startsWith("ch_")) throw new Error(`${p.id}: coach_id는 ch_로 시작해야 함`);
+  if(p.leadership_curve.length!==18||p.leadership_curve[17]!==0) throw new Error(`${p.id}: leadership_curve 18개, 마지막 0 필요`);
+}
+function dbSettings(){const c=cfg();return{url:String(c.SUPABASE_URL||"").replace(/\/$/,""),key:String(c.SUPABASE_ANON_KEY||"")};}
+function dbHeaders(extra={}){const{key}=dbSettings();return{apikey:key,Authorization:`Bearer ${key}`,...extra};}
+async function dbRequest(path,opt={}){
+  const{url,key}=dbSettings(); if(!url||!key) throw new Error("generator_config.js Supabase 설정 없음");
+  const res=await fetch(`${url}/rest/v1/${path}`,{method:opt.method||"GET",headers:dbHeaders(opt.headers||{}),body:opt.body});
+  if(!res.ok){let msg=await res.text();try{msg=JSON.parse(msg).message||msg;}catch(_){}throw new Error(msg||`HTTP ${res.status}`);}
+  return res.status===204?null:res.json().catch(()=>null);
+}
+function initDb(){const{url,key}=dbSettings();if(!url||!key){$("btnDb").disabled=true;setStatus("Supabase 설정 없음 — CSV만 가능","err");return false;}dbReady=true;return true;}
+async function saveCsvToDb(){
+  try{
+    if(!dbReady&&!initDb()) return;
+    if(!$("csvInput").value.trim()) buildFinalCsv();
+    const payload=parseCsvRows().map(coachPayload); if(!payload.length) throw new Error("저장할 CSV 없음");
+    payload.forEach(validatePayload);
+    setStatus(`DB 저장 중… (${payload.length}명)`,"info");
+    await dbRequest("coaches?on_conflict=id",{method:"POST",headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
+    setStatus(`DB 저장 완료: ${payload.length}명`,"ok");
+  }catch(e){setStatus(`DB 저장 실패: ${e.message}`,"err");}
+}
+function previewCsv(){
+  const text=$("csvInput").value.trim(); if(!text){$("preview").textContent="최종 CSV 생성 후 미리보기가 표시됩니다.";return;}
+  const lines=text.split(/\r?\n/).filter(Boolean).map(parseCsvLine), head=lines[0], body=lines.slice(1);
+  $("preview").innerHTML=["<table><thead><tr>",...head.map(h=>`<th>${escapeHtml(h)}</th>`),"</tr></thead><tbody>",...body.map(r=>`<tr>${r.map(c=>`<td>${escapeHtml(c)}</td>`).join("")}</tr>`),"</tbody></table>"].join("");
+}
+function copyFinalCsv(){navigator.clipboard.writeText($("csvInput").value);alert("CSV 복사됨");}
+function downloadCsv(){
+  const text=$("csvInput").value.trim(); if(!text)return;
+  const blob=new Blob([text+"\n"],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="coaches.csv";a.click();URL.revokeObjectURL(url);
+}
+function resetBatch(){if(confirm("단계별 작업 내용을 초기화할까요?")){batchStore={};$("csvInput").value="";refreshAllStepPrompts();previewCsv();setStatus("초기화 완료","info");}}
+function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
+
+["seedInput","seedCategoryDefault"].forEach(id=>$(id).addEventListener("input",refreshAllStepPrompts));
+refreshAllStepPrompts();
+initDb();
+</script>
+</body>
+</html>

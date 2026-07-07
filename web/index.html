@@ -17,6 +17,7 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -52,8 +53,73 @@
     }
   </script>
   <script src="env.js"></script>
+  <style>
+    #again26-boot {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f4f6f4;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1b5e20;
+    }
+    #again26-boot .panel {
+      text-align: center;
+      padding: 24px 32px;
+    }
+    #again26-boot .title {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 8px;
+    }
+    #again26-boot .hint {
+      margin: 0;
+      color: #555;
+      font-size: 14px;
+    }
+    #again26-boot .error {
+      display: none;
+      margin-top: 12px;
+      color: #b00020;
+      font-size: 13px;
+      max-width: 420px;
+      word-break: break-word;
+    }
+  </style>
 </head>
 <body>
+  <div id="again26-boot">
+    <div class="panel">
+      <p class="title">Again26</p>
+      <p class="hint">불러오는 중… (최초 실행은 20~30초 걸릴 수 있습니다)</p>
+      <p id="again26-boot-error" class="error"></p>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('error', function (event) {
+      var el = document.getElementById('again26-boot-error');
+      if (!el) return;
+      el.style.display = 'block';
+      el.textContent = '로드 오류: ' + (event.message || '알 수 없음') + ' — 새로고침(Cmd+Shift+R) 해보세요.';
+    });
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('again26-boot');
+      if (boot) boot.remove();
+    });
+    (function () {
+      var tries = 0;
+      var timer = setInterval(function () {
+        tries++;
+        if (document.querySelector('flutter-view') || tries > 300) {
+          clearInterval(timer);
+          var boot = document.getElementById('again26-boot');
+          if (boot) boot.remove();
+        }
+      }, 100);
+    })();
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

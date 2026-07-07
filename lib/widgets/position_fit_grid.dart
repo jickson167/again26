@@ -34,48 +34,86 @@ class PositionFitGrid extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : _gridWidth + padding * 2;
+
         return Align(
           alignment: Alignment.topCenter,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.topCenter,
-            child: Container(
-              width: _gridWidth + padding * 2,
-              padding: EdgeInsets.all(padding),
-              decoration: BoxDecoration(
-                color: const Color(0xFF14532D),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final row in FieldPositionLayout.gridRows)
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: rowGap),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (var i = 0; i < row.length; i++) ...[
-                            if (i > 0) const SizedBox(width: _cellGap),
-                            if (row[i] == null)
-                              const SizedBox(width: _cellWidth, height: _cellHeight)
-                            else
-                              _PositionCell(
-                                label: FieldPositionLayout.labels[row[i]!] ?? 'P${row[i]}',
-                                value: positionFit[row[i]!] ?? 0,
-                                compact: compact,
-                              ),
-                          ],
-                        ],
-                      ),
+          child: SizedBox(
+            width: maxWidth,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topCenter,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14532D),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(padding),
+                  child: SizedBox(
+                    width: _gridWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final row in FieldPositionLayout.gridRows)
+                          Padding(
+                            padding: EdgeInsets.symmetric(vertical: rowGap),
+                            child: _PositionRow(
+                              slots: row,
+                              positionFit: positionFit,
+                              compact: compact,
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _PositionRow extends StatelessWidget {
+  const _PositionRow({
+    required this.slots,
+    required this.positionFit,
+    required this.compact,
+  });
+
+  final List<int?> slots;
+  final Map<int, int> positionFit;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: PositionFitGrid._gridWidth,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (var i = 0; i < slots.length; i++) ...[
+            if (i > 0) const SizedBox(width: PositionFitGrid._cellGap),
+            if (slots[i] == null)
+              const SizedBox(
+                width: PositionFitGrid._cellWidth,
+                height: PositionFitGrid._cellHeight,
+              )
+            else
+              _PositionCell(
+                label: FieldPositionLayout.labels[slots[i]!] ?? 'P${slots[i]}',
+                value: positionFit[slots[i]!] ?? 0,
+                compact: compact,
+              ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -94,35 +132,36 @@ class _PositionCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = positionFitColor(value);
-    return Container(
+    return SizedBox(
       width: PositionFitGrid._cellWidth,
       height: PositionFitGrid._cellHeight,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.black26),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? 9 : 10,
-              fontWeight: FontWeight.bold,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.black26),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: compact ? 9 : 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          Text(
-            '$value',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: compact ? 12 : 13,
-              fontWeight: FontWeight.w900,
+            Text(
+              '$value',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: compact ? 12 : 13,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

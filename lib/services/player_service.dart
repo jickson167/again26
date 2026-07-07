@@ -57,6 +57,38 @@ class PlayerService {
     await _client.from(table).delete().eq('id', id);
   }
 
+  /// portrait_url이 비어 있는 선수 (id 오름차순, 최대 [limit]명).
+  Future<List<Player>> fetchNextWithoutPortraitUrls({int limit = 5}) async {
+    final rows = await _client
+        .from(table)
+        .select()
+        .or('portrait_url.is.null,portrait_url.eq.')
+        .order('id', ascending: true)
+        .limit(limit);
+    return (rows as List)
+        .map((row) => Player.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  /// @deprecated [fetchNextWithoutPortraitUrls] 사용
+  Future<Player?> fetchNextWithoutPortraitUrl() async {
+    final list = await fetchNextWithoutPortraitUrls(limit: 1);
+    return list.isEmpty ? null : list.first;
+  }
+
+  Future<List<Player>> fetchByIds(List<String> ids) async {
+    if (ids.isEmpty) {
+      return const [];
+    }
+
+    final rows = await _client.from(table).select().inFilter('id', ids);
+    final playersById = {
+      for (final row in rows as List)
+        '${row['id']}': Player.fromJson(Map<String, dynamic>.from(row)),
+    };
+    return [for (final id in ids) if (playersById[id] != null) playersById[id]!];
+  }
+
   Future<void> upsertMany(List<Player> players) async {
     if (players.isEmpty) {
       return;
