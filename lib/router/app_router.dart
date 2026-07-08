@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../pages/admin/admin_coach_form_page.dart';
 import '../pages/admin/admin_coach_generator_page.dart';
+import '../pages/admin/admin_coach_portrait_generator_page.dart';
 import '../pages/admin/admin_flag_nation_mapper_page.dart';
 import '../pages/admin/admin_hub_page.dart';
 import '../pages/admin/admin_player_form_page.dart';
@@ -110,11 +111,19 @@ GoRouter createRouter({required AppServices? services}) {
       ),
       GoRoute(
         path: '/admin',
-        builder: (context, state) => AdminHubPage(services: services),
+        builder: (context, state) => AdminHubPage(
+          services: services,
+          initialTab: state.uri.queryParameters['tab'],
+          coachesRefreshToken: state.uri.queryParameters['coachesRefresh'],
+        ),
         routes: [
           GoRoute(
             path: 'player-generator',
             builder: (context, state) => const AdminPlayerGeneratorPage(),
+          ),
+          GoRoute(
+            path: 'coach-generator',
+            builder: (context, state) => const AdminCoachGeneratorPage(),
           ),
           GoRoute(
             path: 'player-portrait-generator',
@@ -123,8 +132,10 @@ GoRouter createRouter({required AppServices? services}) {
             ),
           ),
           GoRoute(
-            path: 'coach-generator',
-            builder: (context, state) => const AdminCoachGeneratorPage(),
+            path: 'coach-portrait-generator',
+            builder: (context, state) => AdminCoachPortraitGeneratorPage(
+              services: services,
+            ),
           ),
           GoRoute(
             path: 'flag-nation-mapper',

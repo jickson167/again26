@@ -28,9 +28,16 @@ import '../../utils/coach_portrait.dart';
 import '../../utils/portrait_image_check.dart';
 
 class AdminHubPage extends StatefulWidget {
-  const AdminHubPage({super.key, required this.services});
+  const AdminHubPage({
+    super.key,
+    required this.services,
+    this.initialTab,
+    this.coachesRefreshToken,
+  });
 
   final AppServices services;
+  final String? initialTab;
+  final String? coachesRefreshToken;
 
   @override
   State<AdminHubPage> createState() => _AdminHubPageState();
@@ -43,7 +50,8 @@ class _AdminHubPageState extends State<AdminHubPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    final initialIndex = widget.initialTab == 'coach' ? 1 : 0;
+    _tabController = TabController(length: 6, vsync: this, initialIndex: initialIndex);
   }
 
   @override
@@ -86,7 +94,10 @@ class _AdminHubPageState extends State<AdminHubPage>
         controller: _tabController,
         children: [
           AdminPlayersTab(services: widget.services),
-          AdminCoachesTab(services: widget.services),
+          AdminCoachesTab(
+            services: widget.services,
+            refreshToken: widget.coachesRefreshToken,
+          ),
           AdminFormationsTab(services: widget.services),
           AdminKeyPositionsTab(services: widget.services),
           AdminNationFlagsTab(services: widget.services),
@@ -563,9 +574,14 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
 }
 
 class AdminCoachesTab extends StatefulWidget {
-  const AdminCoachesTab({super.key, required this.services});
+  const AdminCoachesTab({
+    super.key,
+    required this.services,
+    this.refreshToken,
+  });
 
   final AppServices services;
+  final String? refreshToken;
 
   @override
   State<AdminCoachesTab> createState() => _AdminCoachesTabState();
@@ -573,6 +589,7 @@ class AdminCoachesTab extends StatefulWidget {
 
 class _AdminCoachesTabState extends State<AdminCoachesTab> {
   final _csvService = CoachCsvService();
+  final _listScrollController = ScrollController();
   List<Coach> _coaches = [];
   Map<String, Formation> _formations = {};
   Map<String, bool?> _coachPortraitExists = {};
@@ -583,6 +600,22 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminCoachesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken &&
+        widget.refreshToken != null &&
+        widget.refreshToken!.isNotEmpty) {
+      _reloadKeepingScroll();
+    }
+  }
+
+  @override
+  void dispose() {
+    _listScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -613,6 +646,44 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
       setState(() {
         _error = error.toString();
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _reloadKeepingScroll() async {
+    final keepOffset = _listScrollController.hasClients
+        ? _listScrollController.offset
+        : 0.0;
+
+    try {
+      final results = await Future.wait([
+        widget.services.coachService.fetchAll(),
+        widget.services.formationService.fetchAll(),
+      ]);
+      if (!mounted) {
+        return;
+      }
+      final formations = results[1] as List<Formation>;
+      setState(() {
+        _coaches = results[0] as List<Coach>;
+        _formations = {for (final f in formations) f.id: f};
+        _coachPortraitExists = {};
+        _error = null;
+      });
+      _refreshCoachPortraitStatus(_coaches);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_listScrollController.hasClients) {
+          return;
+        }
+        final max = _listScrollController.position.maxScrollExtent;
+        _listScrollController.jumpTo(keepOffset.clamp(0.0, max));
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString();
       });
     }
   }
@@ -717,6 +788,9 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
           addLabel: '감독 추가',
           onGenerator: () => context.go('/admin/coach-generator'),
           generatorLabel: '감독 생성기',
+          onSecondaryGenerator: () =>
+              context.go('/admin/coach-portrait-generator'),
+          secondaryGeneratorLabel: '감독 이미지 생성',
         ),
         _RankCountSummary(
           entityLabel: '감독',
@@ -728,6 +802,7 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
           child: _coaches.isEmpty
               ? const Center(child: Text('등록된 감독이 없습니다. CSV를 가져오세요.'))
               : ListView.separated(
+                  controller: _listScrollController,
                   padding: const EdgeInsets.all(16),
                   itemCount: _coaches.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),

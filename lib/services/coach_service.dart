@@ -9,6 +9,20 @@ class CoachService {
 
   static const table = 'coaches';
 
+  bool _isMissingPortraitUrlColumn(Object error) {
+    if (error is! PostgrestException) {
+      return false;
+    }
+    final message = '${error.message} ${error.details ?? ''}';
+    return error.code == 'PGRST204' && message.contains('portrait_url');
+  }
+
+  Map<String, dynamic> _withoutPortraitUrl(Map<String, dynamic> json) {
+    final copy = Map<String, dynamic>.from(json);
+    copy.remove('portrait_url');
+    return copy;
+  }
+
   Future<List<Coach>> fetchAll() async {
     final rows = await _client.from(table).select().order('id', ascending: true);
     return (rows as List)
@@ -36,22 +50,45 @@ class CoachService {
   }
 
   Future<Coach> create(Coach coach) async {
-    final row = await _client
-        .from(table)
-        .insert(coach.toJson())
-        .select()
-        .single();
-    return Coach.fromJson(Map<String, dynamic>.from(row));
+    final payload = coach.toJson();
+    try {
+      final row = await _client.from(table).insert(payload).select().single();
+      return Coach.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error) {
+      if (!_isMissingPortraitUrlColumn(error)) {
+        rethrow;
+      }
+      final fallbackRow = await _client
+          .from(table)
+          .insert(_withoutPortraitUrl(payload))
+          .select()
+          .single();
+      return Coach.fromJson(Map<String, dynamic>.from(fallbackRow));
+    }
   }
 
   Future<Coach> update(Coach coach) async {
-    final row = await _client
-        .from(table)
-        .update(coach.toJson(includeId: false))
-        .eq('id', coach.id)
-        .select()
-        .single();
-    return Coach.fromJson(Map<String, dynamic>.from(row));
+    final payload = coach.toJson(includeId: false);
+    try {
+      final row = await _client
+          .from(table)
+          .update(payload)
+          .eq('id', coach.id)
+          .select()
+          .single();
+      return Coach.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error) {
+      if (!_isMissingPortraitUrlColumn(error)) {
+        rethrow;
+      }
+      final fallbackRow = await _client
+          .from(table)
+          .update(_withoutPortraitUrl(payload))
+          .eq('id', coach.id)
+          .select()
+          .single();
+      return Coach.fromJson(Map<String, dynamic>.from(fallbackRow));
+    }
   }
 
   Future<void> delete(String id) async {
@@ -62,6 +99,39 @@ class CoachService {
     if (coaches.isEmpty) {
       return;
     }
-    await _client.from(table).upsert(coaches.map((coach) => coach.toJson()).toList());
+    final payload = coaches.map((coach) => coach.toJson()).toList();
+    try {
+      await _client.from(table).upsert(payload);
+    } on PostgrestException catch (error) {
+      if (!_isMissingPortraitUrlColumn(error)) {
+        rethrow;
+      }
+      await _client
+          .from(table)
+          .upsert(payload.map(_withoutPortraitUrl).toList());
+    }
+  }
+
+  Future<List<Coach>> fetchNextWithoutPortraitUrls({int limit = 5}) async {
+    try {
+      final rows = await _client
+          .from(table)
+          .select()
+          .or('portrait_url.is.null,portrait_url.eq.')
+          .order('id', ascending: true)
+          .limit(limit);
+      return (rows as List)
+          .map((row) => Coach.fromJson(Map<String, dynamic>.from(row)))
+          .toList();
+    } on PostgrestException catch (error) {
+      if (!_isMissingPortraitUrlColumn(error)) {
+        rethrow;
+      }
+      final all = await fetchAll();
+      return all
+          .where((coach) => (coach.portraitUrl ?? '').trim().isEmpty)
+          .take(limit)
+          .toList();
+    }
   }
 }

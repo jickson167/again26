@@ -16,6 +16,7 @@ class Coach {
     this.fitBad = const [],
     required this.leadershipCurve,
     this.comment,
+    this.portraitUrl,
     this.createdAt,
     this.updatedAt,
   });
@@ -39,6 +40,7 @@ class Coach {
   final List<String> fitBad;
   final List<int> leadershipCurve;
   final String? comment;
+  final String? portraitUrl;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -84,6 +86,7 @@ class Coach {
       fitBad: _parseStringList(json['fit_bad']),
       leadershipCurve: _normalizeLeadershipCurve(_parseIntList(json['leadership_curve'])),
       comment: json['comment'] as String?,
+      portraitUrl: json['portrait_url'] as String?,
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
     );
@@ -107,6 +110,7 @@ class Coach {
       'fit_bad': fitBad,
       'leadership_curve': leadershipCurve,
       'comment': comment,
+      'portrait_url': portraitUrl,
     };
   }
 
@@ -127,6 +131,7 @@ class Coach {
     List<String>? fitBad,
     List<int>? leadershipCurve,
     String? comment,
+    String? portraitUrl,
   }) {
     return Coach(
       id: id ?? this.id,
@@ -145,6 +150,7 @@ class Coach {
       fitBad: fitBad ?? this.fitBad,
       leadershipCurve: leadershipCurve ?? this.leadershipCurve,
       comment: comment ?? this.comment,
+      portraitUrl: portraitUrl ?? this.portraitUrl,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

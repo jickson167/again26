@@ -7,6 +7,11 @@ import '../../widgets/embed_web_page.dart';
 class AdminCoachGeneratorPage extends StatelessWidget {
   const AdminCoachGeneratorPage({super.key});
 
+  String _adminCoachListLocation() {
+    final refreshToken = DateTime.now().millisecondsSinceEpoch.toString();
+    return '/admin?tab=coach&coachesRefresh=$refreshToken';
+  }
+
   @override
   Widget build(BuildContext context) {
     final url = coachGeneratorPageUrl();
@@ -16,11 +21,11 @@ class AdminCoachGeneratorPage extends StatelessWidget {
         title: const Text('감독 생성기'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/admin'),
+          onPressed: () => context.go(_adminCoachListLocation()),
         ),
         actions: [
           TextButton.icon(
-            onPressed: () => context.go('/admin'),
+            onPressed: () => context.go(_adminCoachListLocation()),
             icon: const Icon(Icons.sports),
             label: const Text('감독 목록'),
           ),

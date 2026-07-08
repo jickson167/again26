@@ -205,7 +205,12 @@ function ensureEntry(name,seed){
   return batchStore[name];
 }
 function syncSeeds(){
-  parseSeedInput().forEach(s=>ensureEntry(s.name,s));
+  const seeds=parseSeedInput();
+  const seedNames=new Set(seeds.map(s=>s.name));
+  Object.keys(batchStore).forEach(name=>{
+    if(!seedNames.has(name)) delete batchStore[name];
+  });
+  seeds.forEach(s=>ensureEntry(s.name,s));
 }
 function getNames(){
   syncSeeds();
@@ -355,6 +360,43 @@ function validatePayload(p){
   if(!String(p.id||"").startsWith("ch_")) throw new Error(`${p.id}: coach_id는 ch_로 시작해야 함`);
   if(p.leadership_curve.length!==18||p.leadership_curve[17]!==0) throw new Error(`${p.id}: leadership_curve 18개, 마지막 0 필요`);
 }
+function coachIdNumber(id){
+  const m=String(id||"").match(/^ch_(\d+)$/);
+  return m?parseInt(m[1],10):0;
+}
+function formatCoachId(n){
+  return `ch_${String(n).padStart(4,"0")}`;
+}
+async function remapConflictingCoachIds(payload){
+  const existing=await dbRequest("coaches?select=id,name");
+  const existingById=new Map((existing||[]).map(row=>[String(row.id||""),String(row.name||"")]));
+
+  const used=new Set((existing||[]).map(row=>String(row.id||"")));
+  payload.forEach(p=>used.add(String(p.id||"")));
+
+  let next=1;
+  used.forEach(id=>{next=Math.max(next,coachIdNumber(id)+1);});
+
+  let remapped=0;
+  const seenIncoming=new Set();
+  payload.forEach(p=>{
+    const currentId=String(p.id||"");
+    const currentName=String(p.name||"").trim();
+    const existingName=existingById.get(currentId);
+    const sameCoach=existingName!=null && existingName.trim()===currentName;
+    const duplicatedInPayload=seenIncoming.has(currentId);
+    seenIncoming.add(currentId);
+
+    if((existingById.has(currentId) && !sameCoach) || duplicatedInPayload){
+      while(used.has(formatCoachId(next))) next++;
+      const newId=formatCoachId(next++);
+      p.id=newId;
+      used.add(newId);
+      remapped++;
+    }
+  });
+  return remapped;
+}
 function dbSettings(){const c=cfg();return{url:String(c.SUPABASE_URL||"").replace(/\/$/,""),key:String(c.SUPABASE_ANON_KEY||"")};}
 function dbHeaders(extra={}){const{key}=dbSettings();return{apikey:key,Authorization:`Bearer ${key}`,...extra};}
 async function dbRequest(path,opt={}){
@@ -370,9 +412,18 @@ async function saveCsvToDb(){
     if(!$("csvInput").value.trim()) buildFinalCsv();
     const payload=parseCsvRows().map(coachPayload); if(!payload.length) throw new Error("저장할 CSV 없음");
     payload.forEach(validatePayload);
-    setStatus(`DB 저장 중… (${payload.length}명)`,"info");
+    const remapped=await remapConflictingCoachIds(payload);
+    if(remapped>0){
+      setStatus(`ID 충돌 ${remapped}건 자동 재번호 후 DB 저장 중… (${payload.length}명)`,"info");
+    }else{
+      setStatus(`DB 저장 중… (${payload.length}명)`,"info");
+    }
     await dbRequest("coaches?on_conflict=id",{method:"POST",headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
-    setStatus(`DB 저장 완료: ${payload.length}명`,"ok");
+    if(remapped>0){
+      setStatus(`DB 저장 완료: ${payload.length}명 (신규 ID ${remapped}건 자동 부여)","ok");
+    }else{
+      setStatus(`DB 저장 완료: ${payload.length}명`,"ok");
+    }
   }catch(e){setStatus(`DB 저장 실패: ${e.message}`,"err");}
 }
 function previewCsv(){

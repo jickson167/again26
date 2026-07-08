@@ -11,4 +11,18 @@ class CoachPortrait {
     final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
     return '$base/$coachId.png';
   }
+
+  static String expectedUrl(dynamic coach) {
+    final custom = coach.portraitUrl?.trim();
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+    return urlFor(coach.id);
+  }
+}
+
+class CoachPortraitPath {
+  CoachPortraitPath._();
+
+  static const storageDir = 'coach_images';
 }
