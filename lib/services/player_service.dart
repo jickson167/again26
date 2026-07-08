@@ -53,6 +53,24 @@ class PlayerService {
     return Player.fromJson(Map<String, dynamic>.from(row));
   }
 
+  /// 폼에 없는 필드(comment 등)를 지우지 않고 일부 컬럼만 갱신한다.
+  Future<Player> patch(String id, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) {
+      final existing = await fetchById(id);
+      if (existing == null) {
+        throw StateError('선수를 찾을 수 없습니다: $id');
+      }
+      return existing;
+    }
+    final row = await _client
+        .from(table)
+        .update(fields)
+        .eq('id', id)
+        .select()
+        .single();
+    return Player.fromJson(Map<String, dynamic>.from(row));
+  }
+
   Future<void> delete(String id) async {
     await _client.from(table).delete().eq('id', id);
   }

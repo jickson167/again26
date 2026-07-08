@@ -58,6 +58,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   String? _error;
   String? _selectedPortraitDataUrl;
   String? _portraitMappingHint;
+  Player? _baselinePlayer;
 
   @override
   void initState() {
@@ -116,6 +117,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   }
 
   void _applyPlayer(Player player) {
+    _baselinePlayer = player;
     _nameController.text = player.name;
     _fakeNameController.text = player.fakeName ?? '';
     _rankController.text = player.rank?.toString() ?? '';
@@ -220,6 +222,50 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   }
 
   Player _buildPlayer({String? id}) {
+    final portraitUrl =
+        _selectedPortraitDataUrl ??
+        (_portraitUrlController.text.trim().isEmpty
+            ? null
+            : _portraitUrlController.text.trim());
+    final seedNames = _seedNamesController.text
+        .split(RegExp(r'[;；|]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+
+    if (widget.isEditing && _baselinePlayer != null) {
+      return _baselinePlayer!.copyWith(
+        name: _nameController.text.trim(),
+        fakeName: _fakeNameController.text.trim().isEmpty
+            ? null
+            : _fakeNameController.text.trim(),
+        position: _position,
+        positionFit: _positionFit,
+        rank: int.tryParse(_rankController.text.trim()),
+        ageStage: _ageStageController.text.trim().isEmpty
+            ? null
+            : _ageStageController.text.trim(),
+        peakAge: int.tryParse(_peakAgeController.text.trim()),
+        height: int.tryParse(_heightController.text.trim()),
+        weight: int.tryParse(_weightController.text.trim()),
+        nationality: _nationalityController.text.trim().isEmpty
+            ? null
+            : _nationalityController.text.trim(),
+        growthType: _growthType,
+        speed: _speed,
+        power: _power,
+        technique: _technique,
+        pkAbility: _pkAbility,
+        fkAbility: _fkAbility,
+        ckAbility: _ckAbility,
+        leadership: _leadership,
+        intelligenceSense: _intelligenceSense,
+        individualOrganization: _individualOrganization,
+        portraitUrl: portraitUrl,
+        seedNames: seedNames,
+      );
+    }
+
     return Player(
       id: id ?? '',
       name: _nameController.text.trim(),
@@ -248,16 +294,8 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       leadership: _leadership,
       intelligenceSense: _intelligenceSense,
       individualOrganization: _individualOrganization,
-      portraitUrl:
-          _selectedPortraitDataUrl ??
-          (_portraitUrlController.text.trim().isEmpty
-              ? null
-              : _portraitUrlController.text.trim()),
-      seedNames: _seedNamesController.text
-          .split(RegExp(r'[;；|]'))
-          .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
-          .toList(),
+      portraitUrl: portraitUrl,
+      seedNames: seedNames,
     );
   }
 
@@ -271,7 +309,8 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     try {
       final player = _buildPlayer(id: widget.playerId);
       if (widget.isEditing) {
-        await widget.playerService.update(player);
+        final saved = await widget.playerService.update(player);
+        _baselinePlayer = saved;
       } else {
         await widget.playerService.create(player);
       }

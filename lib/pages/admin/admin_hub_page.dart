@@ -287,8 +287,10 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
     setState(() => _portraitUploading.add(player.id));
     try {
       final dataUrl = portraitDataUrlFromBytes(bytes, fileName);
-      final updated = player.copyWith(portraitUrl: dataUrl);
-      await widget.services.playerService.update(updated);
+      final updated = await widget.services.playerService.patch(
+        player.id,
+        {'portrait_url': dataUrl},
+      );
       if (!mounted) {
         return;
       }
@@ -351,8 +353,10 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                     keyPositionsById: _keyPositions,
                     editableComment: true,
                     onSaveComment: (comment) async {
-                      final updated = detail.copyWith(comment: comment);
-                      await widget.services.playerService.update(updated);
+                      await widget.services.playerService.patch(
+                        detail.id,
+                        {'comment': comment},
+                      );
                       await _load(showLoading: false);
                     },
                   ),
@@ -749,8 +753,10 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
     setState(() => _portraitUploading.add(coach.id));
     try {
       final dataUrl = portraitDataUrlFromBytes(bytes, fileName);
-      final updated = coach.copyWith(portraitUrl: dataUrl);
-      await widget.services.coachService.update(updated);
+      final updated = await widget.services.coachService.patch(
+        coach.id,
+        {'portrait_url': dataUrl},
+      );
       if (!mounted) {
         return;
       }

@@ -91,6 +91,37 @@ class CoachService {
     }
   }
 
+  /// 폼에 없는 필드를 지우지 않고 일부 컬럼만 갱신한다.
+  Future<Coach> patch(String id, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) {
+      final existing = await fetchById(id);
+      if (existing == null) {
+        throw StateError('감독을 찾을 수 없습니다: $id');
+      }
+      return existing;
+    }
+    try {
+      final row = await _client
+          .from(table)
+          .update(fields)
+          .eq('id', id)
+          .select()
+          .single();
+      return Coach.fromJson(Map<String, dynamic>.from(row));
+    } on PostgrestException catch (error) {
+      if (!_isMissingPortraitUrlColumn(error)) {
+        rethrow;
+      }
+      final fallbackRow = await _client
+          .from(table)
+          .update(_withoutPortraitUrl(fields))
+          .eq('id', id)
+          .select()
+          .single();
+      return Coach.fromJson(Map<String, dynamic>.from(fallbackRow));
+    }
+  }
+
   Future<void> delete(String id) async {
     await _client.from(table).delete().eq('id', id);
   }

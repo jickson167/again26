@@ -107,10 +107,10 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
                             editableComment: widget.editableComment,
                             onSaveComment: widget.editableComment
                                 ? (comment) async {
-                                    final updated =
-                                        _player!.copyWith(comment: comment);
-                                    await widget.services.playerService
-                                        .update(updated);
+                                    await widget.services.playerService.patch(
+                                      _player!.id,
+                                      {'comment': comment},
+                                    );
                                     await _loadPlayer();
                                   }
                                 : null,
