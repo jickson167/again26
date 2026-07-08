@@ -57,7 +57,7 @@
     <textarea id="seedInput" rows="5" placeholder="1,대니 뢸,독일,36,1,일반시드&#10;2,카를로스 쿠에스타,스페인,30,1,일반시드&#10;또는 거스 히딩크, 네덜란드, 57, 5, 레전드 명장시드"></textarea>
     <div class="step-actions">
       <button class="secondary" type="button" onclick="copySeedList()">시드 목록 복사</button>
-      <button class="secondary" type="button" onclick="refreshAllStepPrompts()">프롬프트 새로고침</button>
+      <button class="secondary" type="button" onclick="refreshAllStepPromptsAsync()">프롬프트 새로고침</button>
       <button class="danger" type="button" onclick="resetBatch()">작업 초기화</button>
     </div>
 
@@ -122,6 +122,10 @@ const STEP_HEADERS={
 const STEP_KEYS=["","profile","fit","final"];
 let batchStore={};
 let dbReady=false;
+let coachesById=new Map();
+let coachesByName=new Map();
+let nextCoachNumericId=1;
+let coachesLoadPromise=null;
 
 const formations=[
   "fm_4231_press","fm_433_wing","fm_442_balance","fm_352_engine",
@@ -244,12 +248,43 @@ function curveRule(){
     "- 18기는 반드시 0. 예: 83|86|88|90|92|91|90|88|85|82|79|74|68|60|35|20|8|0"
   ].join("\n");
 }
+function isExistingCoach(name){
+  return coachesByName.has(String(name||"").trim());
+}
+function resolveBatchCoachId(name){
+  const key=String(name||"").trim();
+  const ex=coachesByName.get(key);
+  if(ex) return ex.id;
+  const stored=batchStore[key]?.coach_id;
+  if(stored){
+    const id=String(stored);
+    const occupied=coachesById.get(id);
+    const batchDup=Object.entries(batchStore).some(([n,b])=>n!==key&&String(b?.coach_id||"")===id);
+    if((!occupied||occupied.name===key)&&!batchDup) return id;
+    delete batchStore[key].coach_id;
+  }
+  const used=new Set([...coachesById.keys()]);
+  Object.values(batchStore).forEach(b=>{ if(b?.coach_id) used.add(String(b.coach_id)); });
+  let nid=nextCoachNumericId;
+  while(used.has(formatCoachId(nid))) nid++;
+  ensureEntry(key);
+  batchStore[key].coach_id=formatCoachId(nid);
+  return batchStore[key].coach_id;
+}
+function reassignBatchCoachIds(){
+  getNames().forEach(n=>{
+    if(!coachesByName.has(n)&&batchStore[n]?.coach_id) delete batchStore[n].coach_id;
+  });
+  getNames().forEach(n=>resolveBatchCoachId(n));
+}
 function rosterForStep(step){
   const names=getNames();
   if(!names.length) return "(시드에 감독을 먼저 입력)";
   return names.map((n,i)=>{
     const b=batchStore[n];
-    return `${i+1}. name=${n} | nationality=${b.nationality||"?"} | age=${b.age||"?"} | rank=${b.rank||"?"} | seed=${b.seed_kind||""}`;
+    const id=resolveBatchCoachId(n);
+    const db=isExistingCoach(n)?" (DB등록됨)":"";
+    return `${i+1}. name=${n} | nationality=${b.nationality||"?"} | age=${b.age||"?"} | rank=${b.rank||"?"} | seed=${b.seed_kind||""} → coach_id=${id}${db}`;
   }).join("\n");
 }
 function contextRows(){
@@ -257,7 +292,7 @@ function contextRows(){
   if(!names.length)return"(이전 단계 데이터 없음)";
   return names.map(n=>{
     const b=batchStore[n];
-    return `name=${n} | id=${b.coach_id||"?"} | age=${b.age||"?"} | rank=${b.rank||"?"} | type=${b.coach_type||"?"} | ability=${b.ability_id||"?"}`;
+    return `name=${n} | id=${resolveBatchCoachId(n)} | age=${b.age||"?"} | rank=${b.rank||"?"} | type=${b.coach_type||"?"} | ability=${b.ability_id||"?"}`;
   }).join("\n");
 }
 function buildStepPrompt(step){
@@ -275,7 +310,7 @@ function buildStepPrompt(step){
     "대상 감독:",
     rosterForStep(step),
   ].join("\n");
-  if(step===1) return common+`\n\n1단계 출력 CSV 헤더:\n${STEP_HEADERS[1].join(",")}\n\n규칙:\n- 시드의 name/nationality/age/rank는 그대로 유지한다. age는 시드 나이 정수를 age 컬럼에 출력.\n- coach_id는 ch_0001 형식. 배치 내 중복 금지.\n- coach_type은 감독 스타일 마스터 name만 사용.\n- ability_id/name/effect는 고유능력 마스터와 rank별 효과를 정확히 사용.\n- base_leadership은 rank 규칙 범위 안에서 결정.\n`;
+  if(step===1) return common+`\n\n1단계 출력 CSV 헤더:\n${STEP_HEADERS[1].join(",")}\n\n규칙:\n- 시드의 name/nationality/age/rank는 그대로 유지한다. age는 시드 나이 정수를 age 컬럼에 출력.\n- coach_id는 위 대상 감독에 표시된 coach_id를 그대로 사용한다. 배치 내 중복 금지.\n- coach_type은 감독 스타일 마스터 name만 사용.\n- ability_id/name/effect는 고유능력 마스터와 rank별 효과를 정확히 사용.\n- base_leadership은 rank 규칙 범위 안에서 결정.\n`;
   if(step===2) return common+`\n\n이전 단계 요약:\n${contextRows()}\n\n2단계 출력 CSV 헤더:\n${STEP_HEADERS[2].join(",")}\n\n사용 가능한 포메이션 id:\n${formations.join("|")}\n\n규칙:\n- fit_good, fit_normal, fit_bad 합치면 모든 포메이션 id가 정확히 한 번씩 포함되어야 한다.\n- 각 칸은 | 로 구분한다.\n- coach_type/ability 성격과 맞는 포메이션을 good에 우선 배치한다.\n`;
   return common+`\n\n이전 단계 요약:\n${contextRows()}\n\n3단계 출력 CSV 헤더:\n${STEP_HEADERS[3].join(",")}\n\n${curveRule()}\n\n규칙:\n- comment는 한국어 1문장. 감독 운용 색깔·시드종류·나이 톤을 자연스럽게 반영한다.\n- leadership_curve와 comment만 출력한다.\n`;
 }
@@ -283,25 +318,36 @@ function refreshAllStepPrompts(){
   for(let i=1;i<=3;i++) $("promptStep"+i).textContent=buildStepPrompt(i);
   renderBatchStatus();
 }
-function copyStepPrompt(n){navigator.clipboard.writeText(buildStepPrompt(n));alert(`${n}단계 프롬프트 복사됨`);}
+async function refreshAllStepPromptsAsync(){
+  await ensureCoachesLoaded();
+  refreshAllStepPrompts();
+}
+function copyStepPrompt(n){
+  ensureCoachesLoaded().then(()=>{
+    navigator.clipboard.writeText(buildStepPrompt(n));
+    alert(`${n}단계 프롬프트 복사됨`);
+  });
+}
 function copySeedList(){
   const rows=parseSeedInput();
   navigator.clipboard.writeText(["name,nationality,age,rank,seed_kind",...rows.map(s=>[s.name,s.nationality,s.age,s.rank,s.seed_kind].join(","))].join("\n"));
   alert("시드 목록 복사됨");
 }
 function applyStepPaste(step){
+  ensureCoachesLoaded().then(()=>{
   try{
     const rows=parseCsv($("pasteStep"+step).value,STEP_HEADERS[step]);
     if(!rows.length) throw new Error("붙여넣은 CSV 없음");
     rows.forEach(r=>{
       const ent=ensureEntry(r.name);
-      Object.entries(r).forEach(([k,v])=>{ if(k!=="name"&&v!=="") ent[k]=v; });
+      Object.entries(r).forEach(([k,v])=>{ if(k!=="name"&&k!=="coach_id"&&v!=="") ent[k]=v; });
+      ent.coach_id=resolveBatchCoachId(r.name);
       ent._steps[STEP_KEYS[step]]=true;
     });
-    renderBatchStatus();
     refreshAllStepPrompts();
     setStatus(`${step}단계 적용: ${rows.length}명`,"ok");
   }catch(e){setStatus(`${step}단계 실패: ${e.message}`,"err");}
+  });
 }
 function stepDone(b,key){
   if(b?._steps?.[key]) return true;
@@ -315,7 +361,7 @@ function renderBatchStatus(){
   let html='<table class="batch-table"><tr><th>이름</th><th>나이</th><th>1</th><th>2</th><th>3</th><th>랭크</th><th>스타일</th><th>고유능력</th><th>id</th></tr>';
   names.forEach(n=>{
     const b=batchStore[n]||{};
-    html+=`<tr><td>${escapeHtml(n)}</td><td>${b.age||"—"}</td><td>${chk(stepDone(b,"profile"))}</td><td>${chk(stepDone(b,"fit"))}</td><td>${chk(stepDone(b,"final"))}</td><td>${b.rank||"—"}</td><td>${escapeHtml(b.coach_type||"—")}</td><td>${escapeHtml(b.ability_name||b.ability_id||"—")}</td><td>${escapeHtml(b.coach_id||"—")}</td></tr>`;
+    html+=`<tr><td>${escapeHtml(n)}</td><td>${b.age||"—"}</td><td>${chk(stepDone(b,"profile"))}</td><td>${chk(stepDone(b,"fit"))}</td><td>${chk(stepDone(b,"final"))}</td><td>${b.rank||"—"}</td><td>${escapeHtml(b.coach_type||"—")}</td><td>${escapeHtml(b.ability_name||b.ability_id||"—")}</td><td>${escapeHtml(resolveBatchCoachId(n))}${isExistingCoach(n)?' <span class="small">(DB)</span>':""}</td></tr>`;
   });
   $("batchStatusWrap").innerHTML=html+"</table>";
 }
@@ -323,12 +369,13 @@ function finalRows(){
   return getNames().map(n=>batchStore[n]).filter(Boolean);
 }
 function buildFinalCsv(){
+  ensureCoachesLoaded().then(()=>{
   const rows=finalRows();
   if(!rows.length){setStatus("최종 CSV로 만들 감독이 없습니다.","err");return;}
   const lines=[HEADERS.join(",")];
   rows.forEach(b=>{
     lines.push([
-      b.coach_id,b.name,b.fake_name,b.nationality,b.age,b.rank,b.coach_type,b.base_leadership,
+      resolveBatchCoachId(b.name),b.name,b.fake_name,b.nationality,b.age,b.rank,b.coach_type,b.base_leadership,
       b.ability_id,b.ability_name,b.ability_effect,b.fit_good,b.fit_normal,b.fit_bad,
       b.leadership_curve,b.comment
     ].map(esc).join(","));
@@ -336,6 +383,7 @@ function buildFinalCsv(){
   $("csvInput").value=lines.join("\n");
   previewCsv();
   setStatus(`최종 CSV 생성 완료: ${rows.length}명`,"ok");
+  });
 }
 function parseCsvRows(){
   const rows=parseCsv($("csvInput").value,HEADERS);
@@ -367,35 +415,48 @@ function coachIdNumber(id){
 function formatCoachId(n){
   return `ch_${String(n).padStart(4,"0")}`;
 }
-async function remapConflictingCoachIds(payload){
-  const existing=await dbRequest("coaches?select=id,name");
-  const existingById=new Map((existing||[]).map(row=>[String(row.id||""),String(row.name||"")]));
-
-  const used=new Set((existing||[]).map(row=>String(row.id||"")));
-  payload.forEach(p=>used.add(String(p.id||"")));
-
-  let next=1;
-  used.forEach(id=>{next=Math.max(next,coachIdNumber(id)+1);});
-
-  let remapped=0;
-  const seenIncoming=new Set();
+async function loadCoaches(){
+  if(!dbReady&&!initDb()) return;
+  try{
+    const data=await dbRequest("coaches?select=id,name&order=id.asc");
+    coachesById=new Map();
+    coachesByName=new Map();
+    let maxId=0;
+    (data||[]).forEach(row=>{
+      const id=String(row.id||"");
+      const name=String(row.name||"").trim();
+      coachesById.set(id,{id,name});
+      if(name) coachesByName.set(name,{id,name});
+      maxId=Math.max(maxId,coachIdNumber(id));
+    });
+    nextCoachNumericId=maxId+1;
+    reassignBatchCoachIds();
+  }catch(e){ setStatus(`DB 감독 목록 로드 실패: ${e.message}`,"err"); }
+}
+function ensureCoachesLoaded(){
+  if(!coachesLoadPromise) coachesLoadPromise=loadCoaches();
+  return coachesLoadPromise;
+}
+async function resolveCoachIdsForSave(payload){
+  await loadCoaches();
+  const used=new Set([...coachesById.keys()]);
+  let next=nextCoachNumericId;
+  let added=0, updated=0;
   payload.forEach(p=>{
-    const currentId=String(p.id||"");
-    const currentName=String(p.name||"").trim();
-    const existingName=existingById.get(currentId);
-    const sameCoach=existingName!=null && existingName.trim()===currentName;
-    const duplicatedInPayload=seenIncoming.has(currentId);
-    seenIncoming.add(currentId);
-
-    if((existingById.has(currentId) && !sameCoach) || duplicatedInPayload){
+    const name=String(p.name||"").trim();
+    const existing=coachesByName.get(name);
+    if(existing){
+      p.id=existing.id;
+      updated++;
+    }else{
       while(used.has(formatCoachId(next))) next++;
       const newId=formatCoachId(next++);
       p.id=newId;
       used.add(newId);
-      remapped++;
+      added++;
     }
   });
-  return remapped;
+  return {added,updated};
 }
 function dbSettings(){const c=cfg();return{url:String(c.SUPABASE_URL||"").replace(/\/$/,""),key:String(c.SUPABASE_ANON_KEY||"")};}
 function dbHeaders(extra={}){const{key}=dbSettings();return{apikey:key,Authorization:`Bearer ${key}`,...extra};}
@@ -412,18 +473,12 @@ async function saveCsvToDb(){
     if(!$("csvInput").value.trim()) buildFinalCsv();
     const payload=parseCsvRows().map(coachPayload); if(!payload.length) throw new Error("저장할 CSV 없음");
     payload.forEach(validatePayload);
-    const remapped=await remapConflictingCoachIds(payload);
-    if(remapped>0){
-      setStatus(`ID 충돌 ${remapped}건 자동 재번호 후 DB 저장 중… (${payload.length}명)`,"info");
-    }else{
-      setStatus(`DB 저장 중… (${payload.length}명)`,"info");
-    }
+    const {added,updated}=await resolveCoachIdsForSave(payload);
+    setStatus(`DB 저장 중… (신규 ${added}명 · 수정 ${updated}명)`,"info");
     await dbRequest("coaches?on_conflict=id",{method:"POST",headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
-    if(remapped>0){
-      setStatus(`DB 저장 완료: ${payload.length}명 (신규 ID ${remapped}건 자동 부여)","ok");
-    }else{
-      setStatus(`DB 저장 완료: ${payload.length}명`,"ok");
-    }
+    await loadCoaches();
+    refreshAllStepPrompts();
+    setStatus(`DB 저장 완료: 신규 ${added}명 · 수정 ${updated}명`,"ok");
   }catch(e){setStatus(`DB 저장 실패: ${e.message}`,"err");}
 }
 function previewCsv(){
@@ -437,12 +492,12 @@ function downloadCsv(){
   const blob=new Blob([text+"\n"],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="coaches.csv";a.click();URL.revokeObjectURL(url);
 }
-function resetBatch(){if(confirm("단계별 작업 내용을 초기화할까요?")){batchStore={};$("csvInput").value="";refreshAllStepPrompts();previewCsv();setStatus("초기화 완료","info");}}
+function resetBatch(){if(confirm("단계별 작업 내용을 초기화할까요?")){batchStore={};$("csvInput").value="";refreshAllStepPromptsAsync();previewCsv();setStatus("초기화 완료","info");}}
 function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");}
 
-["seedInput","seedCategoryDefault"].forEach(id=>$(id).addEventListener("input",refreshAllStepPrompts));
-refreshAllStepPrompts();
+["seedInput","seedCategoryDefault"].forEach(id=>$(id).addEventListener("input",()=>refreshAllStepPromptsAsync()));
 initDb();
+ensureCoachesLoaded().then(()=>refreshAllStepPrompts());
 </script>
 </body>
 </html>

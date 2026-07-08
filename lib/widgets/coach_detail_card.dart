@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/coach.dart';
 import '../models/formation.dart';
 import '../services/nation_flag_service.dart';
-import '../utils/coach_portrait.dart';
 import '../utils/profile_badge_labels.dart';
 import 'game_stat_bar.dart';
 import 'leadership_curve_chart.dart';
@@ -35,7 +34,7 @@ class _CoachDetailCardState extends State<CoachDetailCard> {
   @override
   Widget build(BuildContext context) {
     final coach = widget.coach;
-    final portraitUrl = CoachPortrait.urlFor(coach.id);
+    final portraitUrl = coach.portraitUrl?.trim();
 
     return FutureBuilder<void>(
       future: _nationFlagsReady,
@@ -66,26 +65,33 @@ class _CoachDetailCardState extends State<CoachDetailCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          width: 96,
-                          height: 96,
+                          width: 220,
+                          height: 220,
                           decoration: BoxDecoration(
                             color: Colors.black26,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.white24),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              portraitUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => _PortraitFallback(
-                                coachId: coach.id,
-                                name: coach.name,
-                              ),
-                            ),
-                          ),
+                          child:
+                              portraitUrl != null && portraitUrl.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    portraitUrl,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, _, _) =>
+                                        _PortraitFallback(
+                                          coachId: coach.id,
+                                          name: coach.name,
+                                        ),
+                                  ),
+                                )
+                              : _PortraitFallback(
+                                  coachId: coach.id,
+                                  name: coach.name,
+                                ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../models/coach.dart';
 import '../../models/coach_master.dart';
 import '../../services/app_services.dart';
-import '../../utils/coach_portrait.dart';
 import '../../utils/portrait_upload_target.dart';
 
 class AdminCoachFormPage extends StatefulWidget {
@@ -38,13 +39,14 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
   final _fitBadController = TextEditingController();
   final _leadershipCurveController = TextEditingController();
   final _commentController = TextEditingController();
+  final _portraitUrlController = TextEditingController();
 
   List<CoachAbility> _abilities = [];
   List<CoachStyle> _styles = [];
   bool _initialLoading = false;
   bool _saving = false;
   String? _error;
-  String? _selectedPortraitFileName;
+  String? _selectedPortraitDataUrl;
   String? _portraitMappingHint;
 
   @override
@@ -72,6 +74,7 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
     _fitBadController.dispose();
     _leadershipCurveController.dispose();
     _commentController.dispose();
+    _portraitUrlController.dispose();
     super.dispose();
   }
 
@@ -180,6 +183,9 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
     _fitBadController.text = coach.fitBad.join('|');
     _leadershipCurveController.text = coach.leadershipCurve.join('|');
     _commentController.text = coach.comment ?? '';
+    _portraitUrlController.text = coach.portraitUrl ?? '';
+    _selectedPortraitDataUrl = null;
+    _portraitMappingHint = null;
   }
 
   Future<void> _save() async {
@@ -196,7 +202,17 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
       }
 
       if (mounted) {
-        context.go('/admin');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.isEditing ? '수정되었습니다.' : '등록되었습니다.'),
+          ),
+        );
+        if (Navigator.of(context).canPop()) {
+          context.pop(true);
+        } else {
+          final token = DateTime.now().millisecondsSinceEpoch.toString();
+          context.go('/admin?tab=coach&coachesRefresh=$token');
+        }
       }
     } catch (error) {
       if (mounted) {
@@ -215,25 +231,77 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
     final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: false,
+      withData: true,
     );
     if (result == null || result.files.isEmpty) {
       return;
     }
 
     final file = result.files.single;
-    final entityId = _idController.text.trim().isEmpty
-        ? 'coach'
+    final bytes = file.bytes;
+    if (bytes == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이미지 바이트를 읽지 못했습니다. 다시 선택해 주세요.')),
+      );
+      return;
+    }
+
+    final entityId = widget.isEditing
+        ? (widget.coachId ?? '').trim()
         : _idController.text.trim();
     final target = PortraitUploadTarget.forEntity(
-      entityId: entityId,
+      entityId: entityId.isEmpty ? 'coach' : entityId,
       sourceFileName: file.name,
       directory: 'coach_images',
     );
 
+    final mimeType = _mimeTypeFor(file.name, file.extension);
+    final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
+
     setState(() {
-      _selectedPortraitFileName = file.name;
+      _selectedPortraitDataUrl = dataUrl;
       _portraitMappingHint = '선택한 파일: ${file.name} → ${target.fileName}';
     });
+  }
+
+  String _mimeTypeFor(String fileName, String? extension) {
+    final ext = (extension ?? '').toLowerCase();
+    if (ext == 'jpg' || ext == 'jpeg') {
+      return 'image/jpeg';
+    }
+    if (ext == 'webp') {
+      return 'image/webp';
+    }
+    if (ext == 'gif') {
+      return 'image/gif';
+    }
+    if (ext == 'bmp') {
+      return 'image/bmp';
+    }
+    if (ext == 'avif') {
+      return 'image/avif';
+    }
+
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    if (lower.endsWith('.bmp')) {
+      return 'image/bmp';
+    }
+    if (lower.endsWith('.avif')) {
+      return 'image/avif';
+    }
+    return 'image/png';
   }
 
   Coach _buildCoach() {
@@ -257,6 +325,11 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
       fitBad: _splitList(_fitBadController.text),
       leadershipCurve: _parseCurve(_leadershipCurveController.text),
       comment: _nullable(_commentController.text),
+      portraitUrl:
+          _selectedPortraitDataUrl ??
+          (_portraitUrlController.text.trim().isEmpty
+              ? null
+              : _portraitUrlController.text.trim()),
     );
   }
 
@@ -375,13 +448,18 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
                   if (_portraitMappingHint != null) ...[
                     const SizedBox(height: 8),
                     Text(
-                      '선택한 파일: $_selectedPortraitFileName → ${_portraitMappingHint!.split(' → ').last}',
+                      _portraitMappingHint!,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
+                  _TextField(
+                    controller: _portraitUrlController,
+                    label: 'portrait_url',
+                    maxLines: 2,
+                  ),
                   Text(
-                    '매핑 대상: ${CoachPortrait.urlFor(_idController.text.trim().isEmpty ? 'coach' : _idController.text.trim())}',
+                    '업로드한 파일은 감독 ID 기반 이미지로 자동 매핑됩니다.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   _TextField(

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -24,8 +22,9 @@ import '../../widgets/coach_detail_card.dart';
 import '../../widgets/formation_detail_card.dart';
 import '../../widgets/player_detail_card.dart';
 import '../../services/nation_flag_service.dart';
-import '../../utils/coach_portrait.dart';
+import '../../utils/portrait_data_url.dart';
 import '../../utils/portrait_image_check.dart';
+import '../../widgets/portrait_drop_avatar.dart';
 
 class AdminHubPage extends StatefulWidget {
   const AdminHubPage({
@@ -134,6 +133,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
   List<Player> _players = [];
   Map<String, KeyPosition> _keyPositions = {};
   Map<String, bool?> _portraitExists = {};
+  final Set<String> _portraitUploading = {};
   _PlayerSortType _sortType = _PlayerSortType.id;
   bool _loading = true;
   String? _error;
@@ -274,6 +274,46 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
       return;
     }
     setState(() => _portraitExists[player.id] = exists);
+  }
+
+  Future<void> _uploadPlayerPortrait(
+    Player player,
+    List<int> bytes,
+    String fileName,
+  ) async {
+    if (_portraitUploading.contains(player.id)) {
+      return;
+    }
+    setState(() => _portraitUploading.add(player.id));
+    try {
+      final dataUrl = portraitDataUrlFromBytes(bytes, fileName);
+      final updated = player.copyWith(portraitUrl: dataUrl);
+      await widget.services.playerService.update(updated);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final index = _players.indexWhere((item) => item.id == player.id);
+        if (index >= 0) {
+          _players[index] = updated;
+        }
+      });
+      _checkPlayerPortrait(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${player.name} 이미지가 저장되었습니다.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('이미지 저장 실패: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _portraitUploading.remove(player.id));
+      }
+    }
   }
 
   Future<void> _showDetail(Player player) async {
@@ -447,77 +487,65 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final player = _sortedPlayers[index];
+                    final compact = AdminLayout.isCompact(context);
                     return ListTile(
-                      leading: PlayerAvatar(
+                      isThreeLine: compact,
+                      contentPadding: compact
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            )
+                          : null,
+                      leading: PortraitDropAvatar(
                         name: player.name,
                         portraitUrl: player.portraitUrl,
+                        uploading: _portraitUploading.contains(player.id),
+                        onImageDropped: (bytes, fileName) =>
+                            _uploadPlayerPortrait(player, bytes, fileName),
                       ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              player.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                      title: _AdminListTitle(
+                        name: player.name,
+                        meta: [
+                          if (player.fakeName != null &&
+                              player.fakeName!.isNotEmpty)
+                            Text(
+                              '가명: ${player.fakeName}',
+                              style: _adminListMetaStyle,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Wrap(
-                            spacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (player.fakeName != null &&
-                                  player.fakeName!.isNotEmpty)
-                                Text(
-                                  '가명: ${player.fakeName}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              if (player.peakAge != null)
-                                Text(
-                                  '나이: ${player.peakAge}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              if (player.nationality != null &&
-                                  player.nationality!.isNotEmpty)
-                                FutureBuilder<void>(
-                                  future: NationFlagService.instance
-                                      .ensureLoaded(),
-                                  builder: (context, snapshot) {
-                                    final nation = NationFlagService.instance
-                                        .resolve(player.nationality);
-                                    if (nation.flagUrl != null &&
-                                        nation.flagUrl!.isNotEmpty) {
-                                      return Image.network(
-                                        nation.flagUrl!,
-                                        width: 22,
-                                        height: 16,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const SizedBox.shrink(),
-                                      );
-                                    }
-                                    return const SizedBox.shrink();
-                                  },
-                                ),
-                              Text(
-                                _portraitExists[player.id] == null
-                                    ? '이미지: 확인중'
-                                    : _portraitExists[player.id]!
-                                    ? '이미지: 있음'
-                                    : '이미지: 없음',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
+                          if (player.peakAge != null)
+                            Text(
+                              '나이: ${player.peakAge}',
+                              style: _adminListMetaStyle,
+                            ),
+                          if (player.nationality != null &&
+                              player.nationality!.isNotEmpty)
+                            FutureBuilder<void>(
+                              future: NationFlagService.instance
+                                  .ensureLoaded(),
+                              builder: (context, snapshot) {
+                                final nation = NationFlagService.instance
+                                    .resolve(player.nationality);
+                                if (nation.flagUrl != null &&
+                                    nation.flagUrl!.isNotEmpty) {
+                                  return Image.network(
+                                    nation.flagUrl!,
+                                    width: 22,
+                                    height: 16,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const SizedBox.shrink(),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          Text(
+                            _portraitExists[player.id] == null
+                                ? '이미지: 확인중'
+                                : _portraitExists[player.id]!
+                                ? '이미지: 있음'
+                                : '이미지: 없음',
+                            style: _adminListMetaStyle,
                           ),
                         ],
                       ),
@@ -593,6 +621,7 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
   List<Coach> _coaches = [];
   Map<String, Formation> _formations = {};
   Map<String, bool?> _coachPortraitExists = {};
+  final Set<String> _portraitUploading = {};
   bool _loading = true;
   String? _error;
 
@@ -695,14 +724,58 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
   }
 
   Future<void> _checkCoachPortrait(Coach coach) async {
-    final url = CoachPortrait.urlFor(coach.id);
-    setState(() => _coachPortraitExists[coach.id] = null);
+    final url = coach.portraitUrl?.trim();
+    if (url == null || url.isEmpty) {
+      setState(() => _coachPortraitExists[coach.id] = false);
+      return;
+    }
 
+    setState(() => _coachPortraitExists[coach.id] = null);
     final exists = await portraitImageExists(url);
     if (!mounted) {
       return;
     }
     setState(() => _coachPortraitExists[coach.id] = exists);
+  }
+
+  Future<void> _uploadCoachPortrait(
+    Coach coach,
+    List<int> bytes,
+    String fileName,
+  ) async {
+    if (_portraitUploading.contains(coach.id)) {
+      return;
+    }
+    setState(() => _portraitUploading.add(coach.id));
+    try {
+      final dataUrl = portraitDataUrlFromBytes(bytes, fileName);
+      final updated = coach.copyWith(portraitUrl: dataUrl);
+      await widget.services.coachService.update(updated);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final index = _coaches.indexWhere((item) => item.id == coach.id);
+        if (index >= 0) {
+          _coaches[index] = updated;
+        }
+      });
+      _checkCoachPortrait(updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${coach.name} 이미지가 저장되었습니다.')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('이미지 저장 실패: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _portraitUploading.remove(coach.id));
+      }
+    }
   }
 
   Future<void> _showDetail(Coach coach) async {
@@ -784,7 +857,15 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
       children: [
         _AdminToolbar(
           onExport: _exportCsv,
-          onAdd: () => context.go('/admin/coaches/new'),
+          onAdd: () async {
+            final shouldRefresh = await context.push('/admin/coaches/new');
+            if (!mounted) {
+              return;
+            }
+            if (shouldRefresh == true) {
+              await _reloadKeepingScroll();
+            }
+          },
           addLabel: '감독 추가',
           onGenerator: () => context.go('/admin/coach-generator'),
           generatorLabel: '감독 생성기',
@@ -808,68 +889,60 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final coach = _coaches[index];
+                    final compact = AdminLayout.isCompact(context);
                     return ListTile(
-                      leading: CircleAvatar(
-                        child: Text('${coach.effectiveRank}'),
+                      isThreeLine: compact,
+                      contentPadding: compact
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            )
+                          : null,
+                      leading: PortraitDropAvatar(
+                        name: coach.name,
+                        portraitUrl: coach.portraitUrl,
+                        uploading: _portraitUploading.contains(coach.id),
+                        onImageDropped: (bytes, fileName) =>
+                            _uploadCoachPortrait(coach, bytes, fileName),
                       ),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              coach.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                      title: _AdminListTitle(
+                        name: coach.name,
+                        meta: [
+                          if (coach.fakeName != null &&
+                              coach.fakeName!.isNotEmpty)
+                            Text(
+                              '가명: ${coach.fakeName}',
+                              style: _adminListMetaStyle,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Wrap(
-                            spacing: 6,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              if (coach.fakeName != null &&
-                                  coach.fakeName!.isNotEmpty)
-                                Text(
-                                  '가명: ${coach.fakeName}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              if (coach.nationality != null &&
-                                  coach.nationality!.isNotEmpty)
-                                FutureBuilder<void>(
-                                  future: NationFlagService.instance
-                                      .ensureLoaded(),
-                                  builder: (context, snapshot) {
-                                    final nation = NationFlagService.instance
-                                        .resolve(coach.nationality);
-                                    if (nation.flagUrl != null &&
-                                        nation.flagUrl!.isNotEmpty) {
-                                      return Image.network(
-                                        nation.flagUrl!,
-                                        width: 22,
-                                        height: 16,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const SizedBox.shrink(),
-                                      );
-                                    }
-                                    return const SizedBox.shrink();
-                                  },
-                                ),
-                              Text(
-                                _coachPortraitExists[coach.id] == null
-                                    ? '이미지: 확인중'
-                                    : _coachPortraitExists[coach.id]!
-                                    ? '이미지: 있음'
-                                    : '이미지: 없음',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
+                          if (coach.nationality != null &&
+                              coach.nationality!.isNotEmpty)
+                            FutureBuilder<void>(
+                              future: NationFlagService.instance
+                                  .ensureLoaded(),
+                              builder: (context, snapshot) {
+                                final nation = NationFlagService.instance
+                                    .resolve(coach.nationality);
+                                if (nation.flagUrl != null &&
+                                    nation.flagUrl!.isNotEmpty) {
+                                  return Image.network(
+                                    nation.flagUrl!,
+                                    width: 22,
+                                    height: 16,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const SizedBox.shrink(),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          Text(
+                            _coachPortraitExists[coach.id] == null
+                                ? '이미지: 확인중'
+                                : _coachPortraitExists[coach.id]!
+                                ? '이미지: 있음'
+                                : '이미지: 없음',
+                            style: _adminListMetaStyle,
                           ),
                         ],
                       ),
@@ -886,8 +959,17 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
                           AdminRowAction(
                             label: '수정',
                             icon: Icons.edit,
-                            onPressed: () =>
-                                context.go('/admin/coaches/${coach.id}/edit'),
+                            onPressed: () async {
+                              final shouldRefresh = await context.push(
+                                '/admin/coaches/${coach.id}/edit',
+                              );
+                              if (!mounted) {
+                                return;
+                              }
+                              if (shouldRefresh == true) {
+                                await _reloadKeepingScroll();
+                              }
+                            },
                           ),
                           AdminRowAction(
                             label: '삭제',
@@ -1989,21 +2071,55 @@ class _AdminClubEmblemsTabState extends State<AdminClubEmblemsTab> {
 }
 
 String _toDataUrl(List<int> bytes, String extensionOrName) {
-  final lower = extensionOrName.toLowerCase();
-  String mime;
-  if (lower.endsWith('.png') || lower == 'png') {
-    mime = 'image/png';
-  } else if (lower.endsWith('.jpg') ||
-      lower.endsWith('.jpeg') ||
-      lower == 'jpg' ||
-      lower == 'jpeg') {
-    mime = 'image/jpeg';
-  } else if (lower.endsWith('.webp') || lower == 'webp') {
-    mime = 'image/webp';
-  } else {
-    mime = 'application/octet-stream';
+  return portraitDataUrlFromBytes(bytes, extensionOrName);
+}
+
+const _adminListMetaStyle = TextStyle(fontSize: 12, color: Colors.grey);
+
+class _AdminListTitle extends StatelessWidget {
+  const _AdminListTitle({required this.name, required this.meta});
+
+  final String name;
+  final List<Widget> meta;
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = AdminLayout.isCompact(context);
+    final nameWidget = Text(
+      name,
+      style: const TextStyle(fontWeight: FontWeight.w600),
+    );
+    if (meta.isEmpty) {
+      return nameWidget;
+    }
+
+    final metaWidget = Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: meta,
+    );
+
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          nameWidget,
+          const SizedBox(height: 4),
+          metaWidget,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: nameWidget),
+        const SizedBox(width: 8),
+        Flexible(child: metaWidget),
+      ],
+    );
   }
-  return 'data:$mime;base64,${base64Encode(bytes)}';
 }
 
 ({Map<int, int> byRank, int unranked}) _summarizeRanks(Iterable<int?> ranks) {
