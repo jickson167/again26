@@ -33,10 +33,7 @@ class StatBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 28,
-            child: Text('$value', textAlign: TextAlign.end),
-          ),
+          SizedBox(width: 28, child: Text('$value', textAlign: TextAlign.end)),
         ],
       ),
     );
@@ -66,10 +63,7 @@ class DualStatBar extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(labelLeft),
-            Text(labelRight),
-          ],
+          children: [Text(labelLeft), Text(labelRight)],
         ),
         const SizedBox(height: 4),
         Stack(
@@ -121,28 +115,52 @@ class PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = radius * 2;
+
     if (portraitUrl != null && portraitUrl!.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(portraitUrl!),
-        onBackgroundImageError: (_, _) {},
-        child: const SizedBox.shrink(),
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Image.network(
+            portraitUrl!,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
+            errorBuilder: (_, _, _) =>
+                _PlayerAvatarFallback(name: name, size: size),
+          ),
+        ),
       );
     }
 
-    return CircleAvatar(
-      radius: radius,
+    return _PlayerAvatarFallback(name: name, size: size);
+  }
+}
+
+class _PlayerAvatarFallback extends StatelessWidget {
+  const _PlayerAvatarFallback({required this.name, required this.size});
+
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      alignment: Alignment.center,
       child: Text(name.isNotEmpty ? name.characters.first : '?'),
     );
   }
 }
 
 class SectionCard extends StatelessWidget {
-  const SectionCard({
-    super.key,
-    required this.title,
-    required this.child,
-  });
+  const SectionCard({super.key, required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -187,11 +205,7 @@ class LoadingView extends StatelessWidget {
 }
 
 class ErrorView extends StatelessWidget {
-  const ErrorView({
-    super.key,
-    required this.message,
-    this.onRetry,
-  });
+  const ErrorView({super.key, required this.message, this.onRetry});
 
   final String message;
   final VoidCallback? onRetry;

@@ -1,16 +1,15 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/coach.dart';
 import '../../models/coach_master.dart';
 import '../../services/app_services.dart';
+import '../../utils/coach_portrait.dart';
+import '../../utils/portrait_upload_target.dart';
 
 class AdminCoachFormPage extends StatefulWidget {
-  const AdminCoachFormPage({
-    super.key,
-    required this.services,
-    this.coachId,
-  });
+  const AdminCoachFormPage({super.key, required this.services, this.coachId});
 
   final AppServices services;
   final String? coachId;
@@ -45,6 +44,8 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
   bool _initialLoading = false;
   bool _saving = false;
   String? _error;
+  String? _selectedPortraitFileName;
+  String? _portraitMappingHint;
 
   @override
   void initState() {
@@ -83,7 +84,8 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
       final results = await Future.wait([
         widget.services.coachMasterService.fetchAbilities(),
         widget.services.coachMasterService.fetchStyles(),
-        if (widget.isEditing) widget.services.coachService.fetchById(widget.coachId!),
+        if (widget.isEditing)
+          widget.services.coachService.fetchById(widget.coachId!),
       ]);
       if (!mounted) {
         return;
@@ -192,20 +194,46 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
       } else {
         await widget.services.coachService.create(coach);
       }
+
       if (mounted) {
         context.go('/admin');
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
       }
     } finally {
       if (mounted) {
         setState(() => _saving = false);
       }
     }
+  }
+
+  Future<void> _pickPortraitImage() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.single;
+    final entityId = _idController.text.trim().isEmpty
+        ? 'coach'
+        : _idController.text.trim();
+    final target = PortraitUploadTarget.forEntity(
+      entityId: entityId,
+      sourceFileName: file.name,
+      directory: 'coach_images',
+    );
+
+    setState(() {
+      _selectedPortraitFileName = file.name;
+      _portraitMappingHint = '선택한 파일: ${file.name} → ${target.fileName}';
+    });
   }
 
   Coach _buildCoach() {
@@ -217,7 +245,10 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
       age: _parseInt(_ageController.text),
       rank: _parseInt(_rankController.text)?.clamp(1, 5),
       coachType: _coachTypeController.text.trim(),
-      baseLeadership: (_parseInt(_baseLeadershipController.text) ?? 0).clamp(0, 100),
+      baseLeadership: (_parseInt(_baseLeadershipController.text) ?? 0).clamp(
+        0,
+        100,
+      ),
       abilityId: _abilityIdController.text.trim(),
       abilityName: _abilityNameController.text.trim(),
       abilityEffect: _abilityEffectController.text.trim(),
@@ -256,7 +287,11 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
                     enabled: !widget.isEditing,
                     validator: _requiredCoachId,
                   ),
-                  _TextField(controller: _nameController, label: '이름', validator: _required),
+                  _TextField(
+                    controller: _nameController,
+                    label: '이름',
+                    validator: _required,
+                  ),
                   _TextField(controller: _fakeNameController, label: '가명'),
                   _TextField(controller: _nationalityController, label: '국적'),
                   _TextField(
@@ -298,23 +333,62 @@ class _AdminCoachFormPageState extends State<AdminCoachFormPage> {
                     label: '고유능력 ID',
                     validator: _required,
                   ),
-                  _TextField(controller: _abilityNameController, label: '고유능력 이름', validator: _required),
+                  _TextField(
+                    controller: _abilityNameController,
+                    label: '고유능력 이름',
+                    validator: _required,
+                  ),
                   _TextField(
                     controller: _abilityEffectController,
                     label: '고유능력 효과',
                     maxLines: 2,
                     validator: _required,
                   ),
-                  _TextField(controller: _fitGoodController, label: '높은 적합 포메이션(| 구분)'),
-                  _TextField(controller: _fitNormalController, label: '보통 적합 포메이션(| 구분)'),
-                  _TextField(controller: _fitBadController, label: '낮은 적합 포메이션(| 구분)'),
+                  _TextField(
+                    controller: _fitGoodController,
+                    label: '높은 적합 포메이션(| 구분)',
+                  ),
+                  _TextField(
+                    controller: _fitNormalController,
+                    label: '보통 적합 포메이션(| 구분)',
+                  ),
+                  _TextField(
+                    controller: _fitBadController,
+                    label: '낮은 적합 포메이션(| 구분)',
+                  ),
                   _TextField(
                     controller: _leadershipCurveController,
                     label: '통솔력 곡선 18개(| 구분, 18기는 0)',
                     maxLines: 2,
                     validator: _validateCurve,
                   ),
-                  _TextField(controller: _commentController, label: '설명', maxLines: 4),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _saving ? null : _pickPortraitImage,
+                        icon: const Icon(Icons.image_outlined),
+                        label: const Text('감독 이미지 업로드'),
+                      ),
+                    ],
+                  ),
+                  if (_portraitMappingHint != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '선택한 파일: $_selectedPortraitFileName → ${_portraitMappingHint!.split(' → ').last}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    '매핑 대상: ${CoachPortrait.urlFor(_idController.text.trim().isEmpty ? 'coach' : _idController.text.trim())}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  _TextField(
+                    controller: _commentController,
+                    label: '설명',
+                    maxLines: 4,
+                  ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _saving ? null : _save,
@@ -460,10 +534,7 @@ class _CoachStylePicker extends StatelessWidget {
         ),
         items: [
           for (final style in styles)
-            DropdownMenuItem(
-              value: style.id,
-              child: Text(style.name),
-            ),
+            DropdownMenuItem(value: style.id, child: Text(style.name)),
         ],
         onChanged: (id) {
           if (id == null) return;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/player.dart';
@@ -21,7 +22,7 @@ class AdminPlayerPortraitGeneratorPage extends StatefulWidget {
 
 class _AdminPlayerPortraitGeneratorPageState
     extends State<AdminPlayerPortraitGeneratorPage> {
-  static const _maxSelection = 5;
+  static const _maxSelection = 6;
 
   List<Player> _players = [];
   final Set<String> _selectedIds = {};
@@ -80,6 +81,7 @@ class _AdminPlayerPortraitGeneratorPageState
     }
     setState(() => _portraitExists[player.id] = exists);
   }
+
   List<Player> get _selectedPlayers {
     final byId = {for (final player in _players) player.id: player};
     return _selectedIds
@@ -125,9 +127,9 @@ class _AdminPlayerPortraitGeneratorPageState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('조회 실패: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('조회 실패: $error')));
     }
   }
 
@@ -136,12 +138,23 @@ class _AdminPlayerPortraitGeneratorPageState
     if (prompt.isEmpty) {
       return;
     }
+    try {
+      await Clipboard.setData(ClipboardData(text: prompt));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('프롬프트 복사에 실패했습니다. 다시 시도해 주세요.')),
+      );
+      return;
+    }
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('복사할 텍스트가 준비되었습니다. 텍스트를 직접 선택해서 복사하세요.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('프롬프트를 클립보드에 복사했습니다.')));
   }
 
   @override
@@ -196,46 +209,46 @@ class _AdminPlayerPortraitGeneratorPageState
       body: _loading
           ? const LoadingView()
           : _error != null
-              ? ErrorView(message: _error!, onRetry: _load)
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final stacked =
-                        constraints.maxWidth < AdminLayout.stackedBreakpoint;
-                    final listPane = _PlayerListPane(
-                      players: _players,
-                      selectedIds: _selectedIds,
-                      portraitExists: _portraitExists,
-                      maxSelection: _maxSelection,
-                      onToggle: _toggleSelection,
-                      onRecheck: _checkPortrait,
-                    );
-                    final promptPane = _PromptPane(
-                      prompt: prompt,
-                      selectedCount: _selectedPlayers.length,
-                      maxSelection: _maxSelection,
-                      onCopy: _copyPrompt,
-                    );
+          ? ErrorView(message: _error!, onRetry: _load)
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked =
+                    constraints.maxWidth < AdminLayout.stackedBreakpoint;
+                final listPane = _PlayerListPane(
+                  players: _players,
+                  selectedIds: _selectedIds,
+                  portraitExists: _portraitExists,
+                  maxSelection: _maxSelection,
+                  onToggle: _toggleSelection,
+                  onRecheck: _checkPortrait,
+                );
+                final promptPane = _PromptPane(
+                  prompt: prompt,
+                  selectedCount: _selectedPlayers.length,
+                  maxSelection: _maxSelection,
+                  onCopy: _copyPrompt,
+                );
 
-                    if (stacked) {
-                      return Column(
-                        children: [
-                          Expanded(flex: 3, child: listPane),
-                          const Divider(height: 1),
-                          Expanded(flex: 2, child: promptPane),
-                        ],
-                      );
-                    }
+                if (stacked) {
+                  return Column(
+                    children: [
+                      Expanded(flex: 3, child: listPane),
+                      const Divider(height: 1),
+                      Expanded(flex: 2, child: promptPane),
+                    ],
+                  );
+                }
 
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(flex: 5, child: listPane),
-                        const VerticalDivider(width: 1),
-                        Expanded(flex: 4, child: promptPane),
-                      ],
-                    );
-                  },
-                ),
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 5, child: listPane),
+                    const VerticalDivider(width: 1),
+                    Expanded(flex: 4, child: promptPane),
+                  ],
+                );
+              },
+            ),
     );
   }
 }
@@ -270,13 +283,13 @@ class _PlayerListPane extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '선수 선택 (최대 $maxSelection명 · 5명씩 ChatGPT 수동 생성)',
+                '선수 선택 (최대 $maxSelection명 · 6명씩 ChatGPT 수동 생성)',
                 style: theme.textTheme.titleMedium,
               ),
               const SizedBox(height: 4),
               Text(
                 '선택한 선수마다 PNG 1장 = ${PlayerPortraitPath.storageDir}/{id}.png (투명 배경). '
-                '「다음 미생성」으로 portrait_url 비어 있는 선수 최대 5명 자동 선택.',
+                '「다음 미생성」으로 portrait_url 비어 있는 선수 최대 $maxSelection명 자동 선택.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.outline,
                 ),
@@ -415,10 +428,7 @@ class _PromptPane extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  '생성 프롬프트',
-                  style: theme.textTheme.titleMedium,
-                ),
+                child: Text('생성 프롬프트', style: theme.textTheme.titleMedium),
               ),
               FilledButton.icon(
                 onPressed: prompt.isEmpty ? null : onCopy,
@@ -445,14 +455,14 @@ class _PromptPane extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.35,
+                ),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: theme.dividerColor),
               ),
               child: prompt.isEmpty
-                  ? const Center(
-                      child: Text('선수를 1~5명 선택하세요.'),
-                    )
+                  ? Center(child: Text('선수를 1~$maxSelection명 선택하세요.'))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: SelectableText(

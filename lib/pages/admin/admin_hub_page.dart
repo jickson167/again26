@@ -1,10 +1,15 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/club_emblem.dart';
 import '../../models/coach.dart';
 import '../../models/formation.dart';
 import '../../models/key_position.dart';
 import '../../models/player.dart';
+import '../../models/player_position.dart';
 import '../../services/app_services.dart';
 import '../../services/coach_csv_service.dart';
 import '../../services/csv_service.dart';
@@ -12,7 +17,6 @@ import '../../services/formation_csv_service.dart';
 import '../../services/key_position_csv_service.dart';
 import '../../utils/admin_layout.dart';
 import '../../widgets/admin_row_actions.dart';
-import '../../widgets/csv_drop_import_zone.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/seed_name_chips.dart';
 import '../../utils/formation_display.dart';
@@ -32,13 +36,14 @@ class AdminHubPage extends StatefulWidget {
   State<AdminHubPage> createState() => _AdminHubPageState();
 }
 
-class _AdminHubPageState extends State<AdminHubPage> with SingleTickerProviderStateMixin {
+class _AdminHubPageState extends State<AdminHubPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -72,6 +77,8 @@ class _AdminHubPageState extends State<AdminHubPage> with SingleTickerProviderSt
             Tab(icon: Icon(Icons.sports), text: '감독'),
             Tab(icon: Icon(Icons.grid_view), text: '포메이션'),
             Tab(icon: Icon(Icons.star), text: '키포지션'),
+            Tab(icon: Icon(Icons.flag), text: '국기이미지'),
+            Tab(icon: Icon(Icons.shield), text: '클럽앰블럼'),
           ],
         ),
       ),
@@ -82,6 +89,8 @@ class _AdminHubPageState extends State<AdminHubPage> with SingleTickerProviderSt
           AdminCoachesTab(services: widget.services),
           AdminFormationsTab(services: widget.services),
           AdminKeyPositionsTab(services: widget.services),
+          AdminNationFlagsTab(services: widget.services),
+          AdminClubEmblemsTab(services: widget.services),
         ],
       ),
     );
@@ -97,14 +106,91 @@ class AdminPlayersTab extends StatefulWidget {
   State<AdminPlayersTab> createState() => _AdminPlayersTabState();
 }
 
+enum _PlayerSortType {
+  id('아이디순'),
+  rank('랭크순'),
+  nation('나라순'),
+  simplePosition('심플포지션순'),
+  seed('시드순');
+
+  const _PlayerSortType(this.label);
+  final String label;
+}
+
 class _AdminPlayersTabState extends State<AdminPlayersTab> {
   final _csvService = CsvService();
+  final _listScrollController = ScrollController();
   List<Player> _players = [];
   Map<String, KeyPosition> _keyPositions = {};
   Map<String, bool?> _portraitExists = {};
+  _PlayerSortType _sortType = _PlayerSortType.id;
   bool _loading = true;
-  bool _importing = false;
   String? _error;
+
+  List<Player> get _sortedPlayers {
+    final list = List<Player>.from(_players);
+
+    int idNumber(Player player) => int.tryParse(player.id) ?? 999999;
+    int positionOrder(Player player) {
+      return switch (player.position) {
+        PlayerPosition.fw => 0,
+        PlayerPosition.mf => 1,
+        PlayerPosition.df => 2,
+        PlayerPosition.gk => 3,
+      };
+    }
+
+    switch (_sortType) {
+      case _PlayerSortType.id:
+        list.sort((a, b) => idNumber(a).compareTo(idNumber(b)));
+      case _PlayerSortType.rank:
+        list.sort((a, b) {
+          final ar = a.rank ?? 99;
+          final br = b.rank ?? 99;
+          final rankCompare = ar.compareTo(br);
+          if (rankCompare != 0) {
+            return rankCompare;
+          }
+          return idNumber(a).compareTo(idNumber(b));
+        });
+      case _PlayerSortType.nation:
+        list.sort((a, b) {
+          final an = a.nationality?.trim() ?? '';
+          final bn = b.nationality?.trim() ?? '';
+          if (an.isEmpty && bn.isNotEmpty) {
+            return 1;
+          }
+          if (an.isNotEmpty && bn.isEmpty) {
+            return -1;
+          }
+          final nationCompare = an.compareTo(bn);
+          if (nationCompare != 0) {
+            return nationCompare;
+          }
+          return idNumber(a).compareTo(idNumber(b));
+        });
+      case _PlayerSortType.simplePosition:
+        list.sort((a, b) {
+          final posCompare = positionOrder(a).compareTo(positionOrder(b));
+          if (posCompare != 0) {
+            return posCompare;
+          }
+          return idNumber(a).compareTo(idNumber(b));
+        });
+      case _PlayerSortType.seed:
+        list.sort((a, b) {
+          final as = a.displaySeedNames.join(', ');
+          final bs = b.displaySeedNames.join(', ');
+          final seedCompare = as.compareTo(bs);
+          if (seedCompare != 0) {
+            return seedCompare;
+          }
+          return idNumber(a).compareTo(idNumber(b));
+        });
+    }
+
+    return list;
+  }
 
   @override
   void initState() {
@@ -112,11 +198,23 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    _listScrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _error = null;
+      });
+    }
     try {
       final results = await Future.wait([
         widget.services.playerService.fetchAll(),
@@ -130,7 +228,8 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
         _keyPositions = {
           for (final kp in results[1] as List<KeyPosition>) kp.id: kp,
         };
-        _portraitExists = {};
+        final validIds = _players.map((player) => player.id).toSet();
+        _portraitExists.removeWhere((id, _) => !validIds.contains(id));
         _loading = false;
       });
       _refreshPlayerPortraitStatus(_players);
@@ -169,7 +268,8 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
   Future<void> _showDetail(Player player) async {
     Player detail = player;
     try {
-      detail = await widget.services.playerService.fetchById(player.id) ?? player;
+      detail =
+          await widget.services.playerService.fetchById(player.id) ?? player;
     } catch (_) {
       detail = player;
     }
@@ -202,7 +302,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                     onSaveComment: (comment) async {
                       final updated = detail.copyWith(comment: comment);
                       await widget.services.playerService.update(updated);
-                      await _load();
+                      await _load(showLoading: false);
                     },
                   ),
                 ),
@@ -221,8 +321,14 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
         title: const Text('선수 삭제'),
         content: Text('${player.name} 선수를 삭제하시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
@@ -231,32 +337,6 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
     }
     await widget.services.playerService.delete(player.id);
     await _load();
-  }
-
-  Future<void> _importFromContent(String content) async {
-    setState(() => _importing = true);
-    try {
-      final players = _csvService.parseCsv(content);
-      if (players.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('가져올 선수 데이터가 없습니다.')),
-          );
-        }
-        return;
-      }
-      await widget.services.playerService.upsertMany(players);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${players.length}명 가져옴')),
-        );
-      }
-      await _load();
-    } finally {
-      if (mounted) {
-        setState(() => _importing = false);
-      }
-    }
   }
 
   void _exportCsv() {
@@ -272,6 +352,11 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
       return ErrorView(message: _error!, onRetry: _load);
     }
 
+    final rankCounts = _summarizeRanks(_players.map((player) => player.rank));
+    final totalCount =
+        rankCounts.byRank.values.fold<int>(0, (sum, count) => sum + count) +
+        rankCounts.unranked;
+
     return Column(
       children: [
         _AdminToolbar(
@@ -283,24 +368,74 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
               context.go('/admin/player-portrait-generator'),
           secondaryGeneratorLabel: '선수 이미지 생성',
         ),
-        _RankCountSummary(
-          entityLabel: '선수',
-          rankCounts: _summarizeRanks(_players.map((player) => player.rank)),
-        ),
-        CsvDropImportZone(
-          label: '선수 CSV 업로드',
-          busy: _importing,
-          onImport: _importFromContent,
+        Material(
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const Text('정렬:'),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 150,
+                    child: DropdownButton<_PlayerSortType>(
+                      value: _sortType,
+                      isExpanded: true,
+                      items: _PlayerSortType.values
+                          .map(
+                            (type) => DropdownMenuItem<_PlayerSortType>(
+                              value: type,
+                              child: Text(type.label),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setState(() => _sortType = value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    '선수 총 $totalCount명',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  for (var rank = 1; rank <= 5; rank++) ...[
+                    _RankCountChip(
+                      rank: rank,
+                      count: rankCounts.byRank[rank] ?? 0,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  if (rankCounts.unranked > 0)
+                    Text(
+                      '미지정 ${rankCounts.unranked}명',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
         Expanded(
-          child: _players.isEmpty
+          child: _sortedPlayers.isEmpty
               ? const Center(child: Text('등록된 선수가 없습니다.'))
               : ListView.separated(
+                  controller: _listScrollController,
                   padding: const EdgeInsets.all(16),
-                  itemCount: _players.length,
+                  itemCount: _sortedPlayers.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, index) {
-                    final player = _players[index];
+                    final player = _sortedPlayers[index];
                     return ListTile(
                       leading: PlayerAvatar(
                         name: player.name,
@@ -309,29 +444,52 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                       title: Row(
                         children: [
                           Expanded(
-                            child: Text(player.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            child: Text(
+                              player.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Wrap(
                             spacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (player.fakeName != null && player.fakeName!.isNotEmpty)
-                                Text('가명: ${player.fakeName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              if (player.fakeName != null &&
+                                  player.fakeName!.isNotEmpty)
+                                Text(
+                                  '가명: ${player.fakeName}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                               if (player.peakAge != null)
-                                Text('나이: ${player.peakAge}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                              if (player.nationality != null && player.nationality!.isNotEmpty)
+                                Text(
+                                  '나이: ${player.peakAge}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              if (player.nationality != null &&
+                                  player.nationality!.isNotEmpty)
                                 FutureBuilder<void>(
-                                  future: NationFlagService.instance.ensureLoaded(),
+                                  future: NationFlagService.instance
+                                      .ensureLoaded(),
                                   builder: (context, snapshot) {
-                                    final nation = NationFlagService.instance.resolve(player.nationality);
-                                    if (nation.flagUrl != null && nation.flagUrl!.isNotEmpty) {
+                                    final nation = NationFlagService.instance
+                                        .resolve(player.nationality);
+                                    if (nation.flagUrl != null &&
+                                        nation.flagUrl!.isNotEmpty) {
                                       return Image.network(
                                         nation.flagUrl!,
                                         width: 22,
                                         height: 16,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                        errorBuilder: (_, __, ___) =>
+                                            const SizedBox.shrink(),
                                       );
                                     }
                                     return const SizedBox.shrink();
@@ -341,9 +499,12 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                                 _portraitExists[player.id] == null
                                     ? '이미지: 확인중'
                                     : _portraitExists[player.id]!
-                                        ? '이미지: 있음'
-                                        : '이미지: 없음',
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ? '이미지: 있음'
+                                    : '이미지: 없음',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -372,8 +533,17 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                           AdminRowAction(
                             label: '수정',
                             icon: Icons.edit,
-                            onPressed: () =>
-                                context.go('/admin/${player.id}/edit'),
+                            onPressed: () async {
+                              final shouldRefresh = await context.push(
+                                '/admin/${player.id}/edit',
+                              );
+                              if (!mounted) {
+                                return;
+                              }
+                              if (shouldRefresh == true) {
+                                await _load(showLoading: false);
+                              }
+                            },
                           ),
                           AdminRowAction(
                             label: '삭제',
@@ -407,7 +577,6 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
   Map<String, Formation> _formations = {};
   Map<String, bool?> _coachPortraitExists = {};
   bool _loading = true;
-  bool _importing = false;
   String? _error;
 
   @override
@@ -466,7 +635,8 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
   }
 
   Future<void> _showDetail(Coach coach) async {
-    final fresh = await widget.services.coachService.fetchById(coach.id) ?? coach;
+    final fresh =
+        await widget.services.coachService.fetchById(coach.id) ?? coach;
     if (!mounted) {
       return;
     }
@@ -501,39 +671,6 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
     );
   }
 
-  Future<void> _importFromContent(String content) async {
-    setState(() => _importing = true);
-    try {
-      final coaches = _csvService.parseCsv(content);
-      if (coaches.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('가져올 감독 데이터가 없습니다.')),
-          );
-        }
-        return;
-      }
-      CoachCsvService.validateForDatabase(coaches);
-      await widget.services.coachService.upsertMany(coaches);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${coaches.length}명 감독 가져옴')),
-        );
-      }
-      await _load();
-    } on FormatException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _importing = false);
-      }
-    }
-  }
-
   void _exportCsv() {
     _csvService.downloadCsv(_csvService.exportCoaches(_coaches));
   }
@@ -545,8 +682,14 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
         title: const Text('감독 삭제'),
         content: Text('${coach.name} 감독을 삭제하시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('삭제')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
@@ -577,12 +720,9 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
         ),
         _RankCountSummary(
           entityLabel: '감독',
-          rankCounts: _summarizeRanks(_coaches.map((coach) => coach.effectiveRank)),
-        ),
-        CsvDropImportZone(
-          label: '감독 CSV 업로드',
-          busy: _importing,
-          onImport: _importFromContent,
+          rankCounts: _summarizeRanks(
+            _coaches.map((coach) => coach.effectiveRank),
+          ),
         ),
         Expanded(
           child: _coaches.isEmpty
@@ -594,31 +734,50 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
                   itemBuilder: (context, index) {
                     final coach = _coaches[index];
                     return ListTile(
-                      leading: CircleAvatar(child: Text('${coach.effectiveRank}')),
+                      leading: CircleAvatar(
+                        child: Text('${coach.effectiveRank}'),
+                      ),
                       title: Row(
                         children: [
                           Expanded(
-                            child: Text(coach.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            child: Text(
+                              coach.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Wrap(
                             spacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (coach.fakeName != null && coach.fakeName!.isNotEmpty)
-                                Text('가명: ${coach.fakeName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                              if (coach.nationality != null && coach.nationality!.isNotEmpty)
+                              if (coach.fakeName != null &&
+                                  coach.fakeName!.isNotEmpty)
+                                Text(
+                                  '가명: ${coach.fakeName}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              if (coach.nationality != null &&
+                                  coach.nationality!.isNotEmpty)
                                 FutureBuilder<void>(
-                                  future: NationFlagService.instance.ensureLoaded(),
+                                  future: NationFlagService.instance
+                                      .ensureLoaded(),
                                   builder: (context, snapshot) {
-                                    final nation = NationFlagService.instance.resolve(coach.nationality);
-                                    if (nation.flagUrl != null && nation.flagUrl!.isNotEmpty) {
+                                    final nation = NationFlagService.instance
+                                        .resolve(coach.nationality);
+                                    if (nation.flagUrl != null &&
+                                        nation.flagUrl!.isNotEmpty) {
                                       return Image.network(
                                         nation.flagUrl!,
                                         width: 22,
                                         height: 16,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                        errorBuilder: (_, __, ___) =>
+                                            const SizedBox.shrink(),
                                       );
                                     }
                                     return const SizedBox.shrink();
@@ -628,9 +787,12 @@ class _AdminCoachesTabState extends State<AdminCoachesTab> {
                                 _coachPortraitExists[coach.id] == null
                                     ? '이미지: 확인중'
                                     : _coachPortraitExists[coach.id]!
-                                        ? '이미지: 있음'
-                                        : '이미지: 없음',
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ? '이미지: 있음'
+                                    : '이미지: 없음',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
                               ),
                             ],
                           ),
@@ -683,7 +845,6 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
   List<Formation> _items = [];
   Map<String, KeyPosition> _keyPositions = {};
   bool _loading = true;
-  bool _importing = false;
   String? _error;
 
   @override
@@ -732,7 +893,8 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
   }
 
   Future<void> _showDetail(Formation item) async {
-    final fresh = await widget.services.formationService.fetchById(item.id) ?? item;
+    final fresh =
+        await widget.services.formationService.fetchById(item.id) ?? item;
     if (!mounted) {
       return;
     }
@@ -774,41 +936,6 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
     );
   }
 
-  Future<void> _importFromContent(String content) async {
-    setState(() => _importing = true);
-    try {
-      final items = _csvService.parseCsv(content);
-      if (items.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('가져올 포메이션 데이터가 없습니다.')),
-          );
-        }
-        return;
-      }
-      FormationCsvService.validateForDatabase(items);
-      final removed = await widget.services.formationService.deleteCorruptRecords();
-      await widget.services.formationService.upsertMany(items);
-      if (mounted) {
-        final suffix = removed > 0 ? ' (깨진 데이터 $removed개 제거)' : '';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${items.length}개 포메이션 가져옴$suffix')),
-        );
-      }
-      await _load();
-    } on FormatException catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _importing = false);
-      }
-    }
-  }
-
   void _exportCsv() {
     _csvService.downloadCsv(_csvService.exportFormations(_items));
   }
@@ -829,14 +956,7 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
 
     return Column(
       children: [
-        _AdminToolbar(
-          onExport: _exportCsv,
-        ),
-        CsvDropImportZone(
-          label: '포메이션 CSV 업로드',
-          busy: _importing,
-          onImport: _importFromContent,
-        ),
+        _AdminToolbar(onExport: _exportCsv),
         Expanded(
           child: _items.isEmpty
               ? const Center(child: Text('등록된 포메이션이 없습니다. CSV를 가져오세요.'))
@@ -850,7 +970,8 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
                     return ListTile(
                       leading: CircleAvatar(
                         child: Text(
-                          item.formationType?.toUpperCase() ?? display.name.split('-').first,
+                          item.formationType?.toUpperCase() ??
+                              display.name.split('-').first,
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -895,7 +1016,6 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
   final _csvService = KeyPositionCsvService();
   List<KeyPosition> _items = [];
   bool _loading = true;
-  bool _importing = false;
   String? _error;
 
   @override
@@ -976,33 +1096,6 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
     );
   }
 
-  Future<void> _importFromContent(String content) async {
-    setState(() => _importing = true);
-    try {
-      final items = _csvService.parseCsv(content);
-      if (items.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('가져올 키포지션 데이터가 없습니다.')),
-          );
-        }
-        return;
-      }
-      KeyPositionCsvService.validateForDatabase(items);
-      await widget.services.keyPositionService.upsertMany(items);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${items.length}개 키포지션 가져옴')),
-        );
-      }
-      await _load();
-    } finally {
-      if (mounted) {
-        setState(() => _importing = false);
-      }
-    }
-  }
-
   void _exportCsv() {
     _csvService.downloadCsv(_csvService.exportKeyPositions(_items));
   }
@@ -1023,14 +1116,7 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
 
     return Column(
       children: [
-        _AdminToolbar(
-          onExport: _exportCsv,
-        ),
-        CsvDropImportZone(
-          label: '키포지션 CSV 업로드',
-          busy: _importing,
-          onImport: _importFromContent,
-        ),
+        _AdminToolbar(onExport: _exportCsv),
         Expanded(
           child: _items.isEmpty
               ? const Center(child: Text('등록된 키포지션이 없습니다. CSV를 가져오세요.'))
@@ -1041,9 +1127,13 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
                   itemBuilder: (context, index) {
                     final item = _items[index];
                     return ListTile(
-                      leading: CircleAvatar(child: Text(item.simplePosition.code.toUpperCase())),
+                      leading: CircleAvatar(
+                        child: Text(item.simplePosition.code.toUpperCase()),
+                      ),
                       title: Text(item.name),
-                      subtitle: Text('${item.mainStat}/${item.subStat} · ${item.id}'),
+                      subtitle: Text(
+                        '${item.mainStat}/${item.subStat} · ${item.id}',
+                      ),
                       trailing: AdminRowActions(
                         actions: [
                           AdminRowAction(
@@ -1066,6 +1156,779 @@ class _AdminKeyPositionsTabState extends State<AdminKeyPositionsTab> {
       ],
     );
   }
+}
+
+class AdminNationFlagsTab extends StatefulWidget {
+  const AdminNationFlagsTab({super.key, required this.services});
+
+  final AppServices services;
+
+  @override
+  State<AdminNationFlagsTab> createState() => _AdminNationFlagsTabState();
+}
+
+class _AdminNationFlagsTabState extends State<AdminNationFlagsTab> {
+  List<String> _nations = [];
+  Map<String, String> _uploadedMap = {};
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final playersFuture = widget.services.playerService.fetchAll();
+      final coachesFuture = widget.services.coachService.fetchAll();
+      final uploadsFuture = widget.services.nationFlagImageService
+          .fetchImageMap();
+      await NationFlagService.instance.ensureLoaded();
+
+      final results = await Future.wait([
+        playersFuture,
+        coachesFuture,
+        uploadsFuture,
+      ]);
+
+      final players = results[0] as List<Player>;
+      final coaches = results[1] as List<Coach>;
+      final uploadedMap = Map<String, String>.from(
+        results[2] as Map<String, String>,
+      );
+
+      final nations = <String>{};
+      for (final player in players) {
+        final nation = player.nationality?.trim();
+        if (nation != null && nation.isNotEmpty) {
+          nations.add(nation);
+        }
+      }
+      for (final coach in coaches) {
+        final nation = coach.nationality?.trim();
+        if (nation != null && nation.isNotEmpty) {
+          nations.add(nation);
+        }
+      }
+
+      final sorted = nations.toList()..sort();
+
+      if (!mounted) {
+        return;
+      }
+      NationFlagService.instance.setOverrideUrls(uploadedMap);
+      setState(() {
+        _nations = sorted;
+        _uploadedMap = uploadedMap;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _uploadForNation(String nation) async {
+    final picked = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) {
+      return;
+    }
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이미지 파일을 읽을 수 없습니다.')));
+      return;
+    }
+
+    final dataUrl = _toDataUrl(bytes, file.extension ?? file.name);
+    try {
+      await widget.services.nationFlagImageService.upsert(
+        nationality: nation,
+        imageData: dataUrl,
+      );
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _uploadedMap[nation] = dataUrl;
+      });
+      NationFlagService.instance.setOverrideUrls(_uploadedMap);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$nation 국기 이미지를 저장했습니다.')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('업로드 실패: $error')));
+    }
+  }
+
+  Future<void> _showAddNationDialog() async {
+    final nationController = TextEditingController();
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('국가 추가'),
+        content: TextField(
+          controller: nationController,
+          decoration: const InputDecoration(
+            labelText: '국가명',
+            hintText: '예: 남아프리카공화국',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('다음'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved != true) {
+      nationController.dispose();
+      return;
+    }
+
+    final nation = nationController.text.trim();
+    nationController.dispose();
+    if (nation.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('국가명을 입력해 주세요.')));
+      return;
+    }
+
+    await _uploadForNation(nation);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      if (!_nations.contains(nation)) {
+        _nations.add(nation);
+        _nations.sort();
+      }
+    });
+  }
+
+  bool _hasFlag(String nation) {
+    if (_uploadedMap[nation]?.isNotEmpty == true) {
+      return true;
+    }
+    final resolved = NationFlagService.instance.resolve(nation);
+    return resolved.flagUrl?.isNotEmpty == true;
+  }
+
+  String? _flagUrl(String nation) {
+    return _uploadedMap[nation] ??
+        NationFlagService.instance.resolve(nation).flagUrl;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const LoadingView();
+    }
+    if (_error != null) {
+      return ErrorView(message: _error!, onRetry: _load);
+    }
+
+    return Column(
+      children: [
+        Material(
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '선수/감독 국가 목록 (${_nations.length}개) · 국기 있음/없음 확인 · 국가별 업로드',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '국가 추가',
+                  onPressed: _showAddNationDialog,
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+                IconButton(
+                  tooltip: '새로고침',
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: _nations.isEmpty
+              ? const Center(child: Text('선수/감독에 설정된 국가가 없습니다.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _nations.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final nation = _nations[index];
+                    final flagUrl = _flagUrl(nation);
+                    final hasFlag = _hasFlag(nation);
+                    return ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: SizedBox(
+                          width: 36,
+                          height: 24,
+                          child: flagUrl == null || flagUrl.isEmpty
+                              ? Container(
+                                  color: Colors.black12,
+                                  child: const Icon(
+                                    Icons.flag_outlined,
+                                    size: 16,
+                                  ),
+                                )
+                              : Image.network(
+                                  flagUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.black12,
+                                    child: const Icon(
+                                      Icons.broken_image,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
+                      title: Text(nation),
+                      subtitle: Text(hasFlag ? '국기 있음' : '국기 없음'),
+                      trailing: FilledButton.icon(
+                        onPressed: () => _uploadForNation(nation),
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('업로드'),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class AdminClubEmblemsTab extends StatefulWidget {
+  const AdminClubEmblemsTab({super.key, required this.services});
+
+  final AppServices services;
+
+  @override
+  State<AdminClubEmblemsTab> createState() => _AdminClubEmblemsTabState();
+}
+
+enum _ClubEmblemSortType {
+  id('ID순'),
+  grade('랭크순'),
+  seed('시드순');
+
+  const _ClubEmblemSortType(this.label);
+  final String label;
+}
+
+class _AdminClubEmblemsTabState extends State<AdminClubEmblemsTab> {
+  List<ClubEmblem> _items = [];
+  _ClubEmblemSortType _sortType = _ClubEmblemSortType.id;
+  bool _loading = true;
+  String? _error;
+
+  List<ClubEmblem> get _sortedItems {
+    final list = List<ClubEmblem>.from(_items);
+    int idNumber(ClubEmblem item) => int.tryParse(item.id) ?? 9999;
+
+    switch (_sortType) {
+      case _ClubEmblemSortType.id:
+        list.sort((a, b) => idNumber(a).compareTo(idNumber(b)));
+      case _ClubEmblemSortType.grade:
+        list.sort((a, b) {
+          final gradeCompare = a.grade.compareTo(b.grade);
+          if (gradeCompare != 0) {
+            return gradeCompare;
+          }
+          return idNumber(a).compareTo(idNumber(b));
+        });
+      case _ClubEmblemSortType.seed:
+        list.sort((a, b) {
+          final seedCompare = a.seedType.compareTo(b.seedType);
+          if (seedCompare != 0) {
+            return seedCompare;
+          }
+          return idNumber(a).compareTo(idNumber(b));
+        });
+    }
+    return list;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final items = await widget.services.clubEmblemService.fetchAll();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _uploadImage(ClubEmblem item) async {
+    final picked = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'],
+      withData: true,
+    );
+    if (picked == null || picked.files.isEmpty) {
+      return;
+    }
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이미지 파일을 읽을 수 없습니다.')));
+      return;
+    }
+
+    final dataUrl = _toDataUrl(bytes, file.extension ?? file.name);
+    try {
+      await widget.services.clubEmblemService.updateImage(
+        id: item.id,
+        imageData: dataUrl,
+      );
+      await _load();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('앰블럼 ${item.id} 이미지 저장 완료')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('이미지 저장 실패: $error')));
+    }
+  }
+
+  Future<void> _deleteItem(ClubEmblem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('앰블럼 삭제'),
+        content: Text('ID ${item.id} 앰블럼을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await widget.services.clubEmblemService.delete(item.id);
+      await _load();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('앰블럼 ${item.id}을(를) 삭제했습니다.')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('삭제 실패: $error')));
+    }
+  }
+
+  Future<void> _editMeta(ClubEmblem item) async {
+    var grade = item.grade;
+    final seedController = TextEditingController(text: item.seedType);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('앰블럼 ${item.id} 수정'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: grade,
+                decoration: const InputDecoration(labelText: '등급'),
+                items: const [1, 2, 3]
+                    .map(
+                      (value) => DropdownMenuItem<int>(
+                        value: value,
+                        child: Text('$value등급'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setDialogState(() => grade = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: seedController,
+                decoration: const InputDecoration(labelText: '시드종류'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('저장'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) {
+      seedController.dispose();
+      return;
+    }
+
+    final seedType = seedController.text.trim().isEmpty
+        ? '일반시드'
+        : seedController.text.trim();
+    seedController.dispose();
+
+    try {
+      await widget.services.clubEmblemService.updateMeta(
+        id: item.id,
+        grade: grade,
+        seedType: seedType,
+      );
+      await _load();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('앰블럼 ${item.id} 정보를 저장했습니다.')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('수정 실패: $error')));
+    }
+  }
+
+  Future<void> _showAddDialog() async {
+    final seedController = TextEditingController(text: '일반시드');
+    var grade = 1;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('클럽앰블럼 데이터 추가'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'ID는 자동으로 생성됩니다.\n(예: 061, 062, 063...)',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: grade,
+                decoration: const InputDecoration(labelText: '랭크(등급)'),
+                items: const [1, 2, 3]
+                    .map(
+                      (value) => DropdownMenuItem<int>(
+                        value: value,
+                        child: Text('$value등급'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setDialogState(() => grade = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: seedController,
+                decoration: const InputDecoration(labelText: '시드종류'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('추가'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) {
+      seedController.dispose();
+      return;
+    }
+
+    final seedType = seedController.text.trim().isEmpty
+        ? '일반시드'
+        : seedController.text.trim();
+
+    seedController.dispose();
+
+    try {
+      final createdId = await widget.services.clubEmblemService.createNext(
+        grade: grade,
+        seedType: seedType,
+      );
+      await _load();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('앰블럼 $createdId 데이터를 추가했습니다.')));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('추가 실패: $error')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const LoadingView();
+    }
+    if (_error != null) {
+      return ErrorView(message: _error!, onRetry: _load);
+    }
+
+    return Column(
+      children: [
+        Material(
+          elevation: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '클럽앰블럼 001~060 · 등급(1~3) · 이미지파일 · 시드종류 관리',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<_ClubEmblemSortType>(
+                      value: _sortType,
+                      isExpanded: true,
+                      items: _ClubEmblemSortType.values
+                          .map(
+                            (type) => DropdownMenuItem<_ClubEmblemSortType>(
+                              value: type,
+                              child: Text(type.label),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setState(() => _sortType = value);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: '데이터 추가',
+                  onPressed: _showAddDialog,
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+                IconButton(
+                  tooltip: '새로고침',
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: _sortedItems.isEmpty
+              ? const Center(child: Text('클럽앰블럼 데이터가 없습니다.'))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _sortedItems.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final item = _sortedItems[index];
+                    return ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: (item.imageData?.isNotEmpty ?? false)
+                              ? Image.network(
+                                  item.imageData!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: Colors.black12,
+                                    child: const Icon(
+                                      Icons.shield_outlined,
+                                      size: 16,
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  color: Colors.black12,
+                                  child: const Icon(
+                                    Icons.shield_outlined,
+                                    size: 16,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      title: Text('ID ${item.id} · ${item.grade}등급'),
+                      subtitle: Text('시드종류: ${item.seedType}'),
+                      trailing: Wrap(
+                        spacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _uploadImage(item),
+                            icon: const Icon(Icons.upload_file),
+                            label: const Text('업로드'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () => _editMeta(item),
+                            icon: const Icon(Icons.edit),
+                            label: const Text('수정'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _deleteItem(item),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('삭제'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+String _toDataUrl(List<int> bytes, String extensionOrName) {
+  final lower = extensionOrName.toLowerCase();
+  String mime;
+  if (lower.endsWith('.png') || lower == 'png') {
+    mime = 'image/png';
+  } else if (lower.endsWith('.jpg') ||
+      lower.endsWith('.jpeg') ||
+      lower == 'jpg' ||
+      lower == 'jpeg') {
+    mime = 'image/jpeg';
+  } else if (lower.endsWith('.webp') || lower == 'webp') {
+    mime = 'image/webp';
+  } else {
+    mime = 'application/octet-stream';
+  }
+  return 'data:$mime;base64,${base64Encode(bytes)}';
 }
 
 ({Map<int, int> byRank, int unranked}) _summarizeRanks(Iterable<int?> ranks) {
@@ -1092,7 +1955,8 @@ class _RankCountSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = rankCounts.byRank.values.fold<int>(0, (sum, count) => sum + count) +
+    final total =
+        rankCounts.byRank.values.fold<int>(0, (sum, count) => sum + count) +
         rankCounts.unranked;
     final theme = Theme.of(context);
 
@@ -1107,14 +1971,18 @@ class _RankCountSummary extends StatelessWidget {
           children: [
             Text(
               '$entityLabel 총 $total명',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             for (var rank = 1; rank <= 5; rank++)
               _RankCountChip(rank: rank, count: rankCounts.byRank[rank] ?? 0),
             if (rankCounts.unranked > 0)
               Text(
                 '미지정 ${rankCounts.unranked}명',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
               ),
           ],
         ),

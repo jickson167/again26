@@ -37,7 +37,9 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
   @override
   void initState() {
     super.initState();
-    _commentController = TextEditingController(text: widget.player.comment ?? '');
+    _commentController = TextEditingController(
+      text: widget.player.comment ?? '',
+    );
     _nationFlagsReady = NationFlagService.instance.ensureLoaded();
   }
 
@@ -63,9 +65,9 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
     try {
       await widget.onSaveComment!(_commentController.text.trim());
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('코멘트가 저장되었습니다.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('코멘트가 저장되었습니다.')));
       }
     } finally {
       if (mounted) {
@@ -83,8 +85,9 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
       future: _nationFlagsReady,
       builder: (context, snapshot) {
         final nation = NationFlagService.instance.resolve(player.nationality);
-        final nationalityLabel =
-            nation.displayName.isNotEmpty ? nation.displayName : null;
+        final nationalityLabel = nation.displayName.isNotEmpty
+            ? nation.displayName
+            : null;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -94,10 +97,7 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      Colors.red.shade800,
-                      Colors.red.shade900,
-                    ],
+                    colors: [Colors.red.shade800, Colors.red.shade900],
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -106,25 +106,28 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 88,
-                      height: 88,
+                      width: 220,
+                      height: 220,
                       decoration: BoxDecoration(
                         color: Colors.black26,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.white24),
                       ),
-                      child: player.portraitUrl != null && player.portraitUrl!.isNotEmpty
+                      child:
+                          player.portraitUrl != null &&
+                              player.portraitUrl!.isNotEmpty
                           ? ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(8),
                               child: Image.network(
                                 player.portraitUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => _PortraitFallback(name: player.name),
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) =>
+                                    _PortraitFallback(name: player.name),
                               ),
                             )
                           : _PortraitFallback(name: player.name),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,7 +140,10 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                           const SizedBox(height: 4),
                           Text(
                             displayPosition,
-                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
                           ),
                           Text(
                             player.name,
@@ -161,11 +167,16 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                           const SizedBox(height: 8),
                           _InfoTable(
                             rows: [
-                              if (nationalityLabel != null) ('국적', nationalityLabel),
-                              if (player.height != null) ('키', '${player.height} cm'),
-                              if (player.weight != null) ('몸무게', '${player.weight} kg'),
-                              if (player.ageStage != null) ('나이', '${player.ageStage}세'),
-                              if (player.peakAge != null) ('전성기 참고', '${player.peakAge}세'),
+                              if (nationalityLabel != null)
+                                ('국적', nationalityLabel),
+                              if (player.height != null)
+                                ('키', '${player.height} cm'),
+                              if (player.weight != null)
+                                ('몸무게', '${player.weight} kg'),
+                              if (player.ageStage != null)
+                                ('나이', '${player.ageStage}세'),
+                              if (player.peakAge != null)
+                                ('전성기 참고', '${player.peakAge}세'),
                             ],
                           ),
                         ],
@@ -184,193 +195,269 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
 
   List<Widget> _buildRest(Player player) {
     return [
-        _SectionHeader(
-          title: '능력치',
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : MediaQuery.sizeOf(context).width;
-              final compact = width < 640;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          '포지션 적정',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: compact ? 12 : 14,
+      _SectionHeader(
+        title: '능력치',
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : MediaQuery.sizeOf(context).width;
+            final compact = width < 640;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '포지션 적정',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: compact ? 12 : 14,
+                        ),
+                      ),
+                      SizedBox(height: compact ? 4 : 6),
+                      PositionFitGrid(
+                        positionFit: player.positionFit,
+                        compact: compact,
+                      ),
+                      SizedBox(height: compact ? 4 : 6),
+                      Wrap(
+                        spacing: compact ? 6 : 8,
+                        runSpacing: 4,
+                        children: [
+                          _LegendDot(
+                            color: positionFitColor(2),
+                            label: '낮음',
+                            compact: compact,
                           ),
-                        ),
-                        SizedBox(height: compact ? 4 : 6),
-                        PositionFitGrid(
-                          positionFit: player.positionFit,
-                          compact: compact,
-                        ),
-                        SizedBox(height: compact ? 4 : 6),
-                        Wrap(
-                          spacing: compact ? 6 : 8,
-                          runSpacing: 4,
-                          children: [
-                            _LegendDot(color: positionFitColor(2), label: '낮음', compact: compact),
-                            _LegendDot(color: positionFitColor(5), label: '중간', compact: compact),
-                            _LegendDot(color: positionFitColor(8), label: '높음', compact: compact),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: compact ? 6 : 16),
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      children: [
-                        GameStatBar(label: '스피드', value: player.speed, color: Colors.blue, compact: compact),
-                        GameStatBar(label: '기술', value: player.technique, color: Colors.green, compact: compact),
-                        GameStatBar(label: '파워', value: player.power, color: Colors.red, compact: compact),
-                        GameStatBar(label: '슈팅', value: player.shooting, color: Colors.deepOrange, compact: compact),
-                        GameStatBar(label: '패스', value: player.passing, color: Colors.teal, compact: compact),
-                        GameStatBar(label: '활동량', value: player.stamina, color: Colors.brown, compact: compact),
-                        if (player.position == PlayerPosition.gk || player.goalkeeper > 0)
-                          GameStatBar(label: 'GK', value: player.goalkeeper, color: Colors.purple, compact: compact),
-                        Divider(height: compact ? 12 : 16),
-                        GameStatBar(label: 'PK', value: player.pkAbility, color: Colors.orange, compact: compact),
-                        GameStatBar(label: 'FK', value: player.fkAbility, color: Colors.orange, compact: compact),
-                        GameStatBar(label: 'CK', value: player.ckAbility, color: Colors.orange, compact: compact),
-                        GameStatBar(label: '리더십', value: player.leadership, color: Colors.orange, compact: compact),
-                        SizedBox(height: compact ? 6 : 8),
-                        GameDualSlider(
-                          leftLabel: '지성',
-                          rightLabel: '감각',
-                          leftValue: player.intelligenceValue,
-                          rightValue: player.senseValue,
-                          compact: compact,
-                        ),
-                        SizedBox(height: compact ? 6 : 8),
-                        GameDualSlider(
-                          leftLabel: '개인',
-                          rightLabel: '조직',
-                          leftValue: player.individualValue,
-                          rightValue: player.organizationValue,
-                          compact: compact,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        if (player.recommendKeyPositions != null &&
-            player.recommendKeyPositions!.isNotEmpty)
-          _SectionHeader(
-            title: '추천 키포지션',
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _parseRecommendations(player.recommendKeyPositions!)
-                  .map((entry) {
-                final kp = widget.keyPositionsById[entry.id];
-                return Chip(
-                  avatar: CircleAvatar(
-                    backgroundColor: Colors.green.shade700,
-                    child: Text('${entry.score}', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                  ),
-                  label: Text(kp?.name ?? entry.id),
-                );
-              }).toList(),
-            ),
-          ),
-        _SectionHeader(
-          title: '코멘트',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.editableComment)
-                TextField(
-                  controller: _commentController,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    hintText: '선수 코멘트를 입력하세요',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                  ),
-                )
-              else
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Text(
-                    player.comment?.isNotEmpty == true
-                        ? player.comment!
-                        : '등록된 코멘트가 없습니다.',
-                    style: TextStyle(
-                      color: player.comment?.isNotEmpty == true
-                          ? Colors.black87
-                          : Colors.grey,
-                    ),
+                          _LegendDot(
+                            color: positionFitColor(5),
+                            label: '중간',
+                            compact: compact,
+                          ),
+                          _LegendDot(
+                            color: positionFitColor(8),
+                            label: '높음',
+                            compact: compact,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              if (widget.editableComment) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: _savingComment ? null : _saveComment,
-                    icon: _savingComment
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save),
-                    label: const Text('코멘트 저장'),
+                SizedBox(width: compact ? 6 : 16),
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    children: [
+                      GameStatBar(
+                        label: '스피드',
+                        value: player.speed,
+                        color: Colors.blue,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: '기술',
+                        value: player.technique,
+                        color: Colors.green,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: '파워',
+                        value: player.power,
+                        color: Colors.red,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: '슈팅',
+                        value: player.shooting,
+                        color: Colors.deepOrange,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: '패스',
+                        value: player.passing,
+                        color: Colors.teal,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: '활동량',
+                        value: player.stamina,
+                        color: Colors.brown,
+                        compact: compact,
+                      ),
+                      if (player.position == PlayerPosition.gk ||
+                          player.goalkeeper > 0)
+                        GameStatBar(
+                          label: 'GK',
+                          value: player.goalkeeper,
+                          color: Colors.purple,
+                          compact: compact,
+                        ),
+                      Divider(height: compact ? 12 : 16),
+                      GameStatBar(
+                        label: 'PK',
+                        value: player.pkAbility,
+                        color: Colors.orange,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: 'FK',
+                        value: player.fkAbility,
+                        color: Colors.orange,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: 'CK',
+                        value: player.ckAbility,
+                        color: Colors.orange,
+                        compact: compact,
+                      ),
+                      GameStatBar(
+                        label: '리더십',
+                        value: player.leadership,
+                        color: Colors.orange,
+                        compact: compact,
+                      ),
+                      SizedBox(height: compact ? 6 : 8),
+                      GameDualSlider(
+                        leftLabel: '지성',
+                        rightLabel: '감각',
+                        leftValue: player.intelligenceValue,
+                        rightValue: player.senseValue,
+                        compact: compact,
+                      ),
+                      SizedBox(height: compact ? 6 : 8),
+                      GameDualSlider(
+                        leftLabel: '개인',
+                        rightLabel: '조직',
+                        leftValue: player.individualValue,
+                        rightValue: player.organizationValue,
+                        compact: compact,
+                      ),
+                    ],
                   ),
                 ),
               ],
-            ],
+            );
+          },
+        ),
+      ),
+      if (player.recommendKeyPositions != null &&
+          player.recommendKeyPositions!.isNotEmpty)
+        _SectionHeader(
+          title: '추천 키포지션',
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _parseRecommendations(player.recommendKeyPositions!).map((
+              entry,
+            ) {
+              final kp = widget.keyPositionsById[entry.id];
+              return Chip(
+                avatar: CircleAvatar(
+                  backgroundColor: Colors.green.shade700,
+                  child: Text(
+                    '${entry.score}',
+                    style: const TextStyle(fontSize: 10, color: Colors.white),
+                  ),
+                ),
+                label: Text(kp?.name ?? entry.id),
+              );
+            }).toList(),
           ),
         ),
-        _SectionHeader(
-          title: '성장 곡선',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GrowthCurveChart(growthType: player.growthType),
+      _SectionHeader(
+        title: '코멘트',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.editableComment)
+              TextField(
+                controller: _commentController,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: '선수 코멘트를 입력하세요',
+                  border: OutlineInputBorder(),
+                  filled: true,
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Text(
+                  player.comment?.isNotEmpty == true
+                      ? player.comment!
+                      : '등록된 코멘트가 없습니다.',
+                  style: TextStyle(
+                    color: player.comment?.isNotEmpty == true
+                        ? Colors.black87
+                        : Colors.grey,
+                  ),
+                ),
+              ),
+            if (widget.editableComment) ...[
               const SizedBox(height: 8),
-              const Wrap(
-                spacing: 12,
-                children: [
-                  _CurveLegend(color: Colors.blue, label: '스피드'),
-                  _CurveLegend(color: Colors.green, label: '기술'),
-                  _CurveLegend(color: Colors.red, label: '파워'),
-                ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _savingComment ? null : _saveComment,
+                  icon: _savingComment
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  label: const Text('코멘트 저장'),
+                ),
               ),
             ],
-          ),
+          ],
         ),
-      ];
+      ),
+      _SectionHeader(
+        title: '성장 곡선',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GrowthCurveChart(growthType: player.growthType),
+            const SizedBox(height: 8),
+            const Wrap(
+              spacing: 12,
+              children: [
+                _CurveLegend(color: Colors.blue, label: '스피드'),
+                _CurveLegend(color: Colors.green, label: '기술'),
+                _CurveLegend(color: Colors.red, label: '파워'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   List<_RecommendEntry> _parseRecommendations(String raw) {
-    return raw.split('|').map((part) {
-      final pieces = part.split(':');
-      return _RecommendEntry(
-        id: pieces.first,
-        score: pieces.length > 1 ? int.tryParse(pieces[1]) ?? 0 : 0,
-      );
-    }).where((e) => e.id.isNotEmpty).toList();
+    return raw
+        .split('|')
+        .map((part) {
+          final pieces = part.split(':');
+          return _RecommendEntry(
+            id: pieces.first,
+            score: pieces.length > 1 ? int.tryParse(pieces[1]) ?? 0 : 0,
+          );
+        })
+        .where((e) => e.id.isNotEmpty)
+        .toList();
   }
 }
 
@@ -396,7 +483,10 @@ class _SectionHeader extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Text(
             title,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         Container(
@@ -423,8 +513,14 @@ class _InfoTable extends StatelessWidget {
           .map(
             (row) => TableRow(
               children: [
-                Text(row.$1, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                Text(row.$2, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                Text(
+                  row.$1,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                Text(
+                  row.$2,
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
               ],
             ),
           )
@@ -442,14 +538,22 @@ class _PortraitFallback extends StatelessWidget {
     return Center(
       child: Text(
         name.isNotEmpty ? name.characters.first : '?',
-        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
 }
 
 class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.color, required this.label, this.compact = false});
+  const _LegendDot({
+    required this.color,
+    required this.label,
+    this.compact = false,
+  });
   final Color color;
   final String label;
   final bool compact;

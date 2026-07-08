@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -5,6 +8,7 @@ import '../../models/player.dart';
 import '../../models/player_growth.dart';
 import '../../models/player_position.dart';
 import '../../services/player_service.dart';
+import '../../utils/portrait_upload_target.dart';
 import '../../widgets/common_widgets.dart';
 
 class AdminPlayerFormPage extends StatefulWidget {
@@ -52,6 +56,8 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   bool _loading = false;
   bool _initialLoading = false;
   String? _error;
+  String? _selectedPortraitDataUrl;
+  String? _portraitMappingHint;
 
   @override
   void initState() {
@@ -119,6 +125,8 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _weightController.text = player.weight?.toString() ?? '';
     _nationalityController.text = player.nationality ?? '';
     _portraitUrlController.text = player.portraitUrl ?? '';
+    _selectedPortraitDataUrl = null;
+    _portraitMappingHint = null;
     _seedNamesController.text = player.seedNames.join('; ');
     _position = player.position;
     _positionFit = Map<int, int>.from(player.positionFit);
@@ -132,6 +140,83 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _leadership = player.leadership;
     _intelligenceSense = player.intelligenceSense;
     _individualOrganization = player.individualOrganization;
+  }
+
+  Future<void> _pickPortraitImage() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이미지 바이트를 읽지 못했습니다. 다시 선택해 주세요.')),
+      );
+      return;
+    }
+
+    final entityId = widget.isEditing
+        ? (widget.playerId ?? '').trim()
+        : _nameController.text.trim();
+    final target = PortraitUploadTarget.forEntity(
+      entityId: entityId.isEmpty ? 'player' : entityId,
+      sourceFileName: file.name,
+      directory: 'player_images',
+    );
+
+    final mimeType = _mimeTypeFor(file.name, file.extension);
+    final dataUrl = 'data:$mimeType;base64,${base64Encode(bytes)}';
+
+    setState(() {
+      _selectedPortraitDataUrl = dataUrl;
+      _portraitMappingHint = '선택한 파일: ${file.name} → ${target.fileName}';
+    });
+  }
+
+  String _mimeTypeFor(String fileName, String? extension) {
+    final ext = (extension ?? '').toLowerCase();
+    if (ext == 'jpg' || ext == 'jpeg') {
+      return 'image/jpeg';
+    }
+    if (ext == 'webp') {
+      return 'image/webp';
+    }
+    if (ext == 'gif') {
+      return 'image/gif';
+    }
+    if (ext == 'bmp') {
+      return 'image/bmp';
+    }
+    if (ext == 'avif') {
+      return 'image/avif';
+    }
+
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    if (lower.endsWith('.bmp')) {
+      return 'image/bmp';
+    }
+    if (lower.endsWith('.avif')) {
+      return 'image/avif';
+    }
+    return 'image/png';
   }
 
   Player _buildPlayer({String? id}) {
@@ -163,9 +248,11 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       leadership: _leadership,
       intelligenceSense: _intelligenceSense,
       individualOrganization: _individualOrganization,
-      portraitUrl: _portraitUrlController.text.trim().isEmpty
-          ? null
-          : _portraitUrlController.text.trim(),
+      portraitUrl:
+          _selectedPortraitDataUrl ??
+          (_portraitUrlController.text.trim().isEmpty
+              ? null
+              : _portraitUrlController.text.trim()),
       seedNames: _seedNamesController.text
           .split(RegExp(r'[;；|]'))
           .map((item) => item.trim())
@@ -196,14 +283,18 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(widget.isEditing ? '수정되었습니다.' : '등록되었습니다.')),
       );
-      context.go('/admin');
+      if (Navigator.of(context).canPop()) {
+        context.pop(true);
+      } else {
+        context.go('/admin?refresh=${DateTime.now().millisecondsSinceEpoch}');
+      }
     } catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 실패: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 실패: $error')));
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -236,294 +327,324 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       body: _initialLoading
           ? const LoadingView()
           : _error != null
-              ? ErrorView(message: _error!, onRetry: _loadPlayer)
-              : Form(
-                  key: _formKey,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 960),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SectionCard(
-                              title: '기본 정보',
-                              child: Column(
+          ? ErrorView(message: _error!, onRetry: _loadPlayer)
+          : Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 960),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SectionCard(
+                          title: '기본 정보',
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: _nameController,
+                                decoration: const InputDecoration(
+                                  labelText: '이름 *',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return '이름을 입력하세요';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _fakeNameController,
+                                decoration: const InputDecoration(
+                                  labelText: '가명',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              DropdownButtonFormField<PlayerPosition>(
+                                initialValue: _position,
+                                decoration: const InputDecoration(
+                                  labelText: '포지션',
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: PlayerPosition.values
+                                    .map(
+                                      (position) => DropdownMenuItem(
+                                        value: position,
+                                        child: Text(position.label),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() => _position = value);
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
                                 children: [
-                                  TextFormField(
-                                    controller: _nameController,
-                                    decoration: const InputDecoration(
-                                      labelText: '이름 *',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
-                                        return '이름을 입력하세요';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _fakeNameController,
-                                    decoration: const InputDecoration(
-                                      labelText: '가명',
-                                      border: OutlineInputBorder(),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _ageStageController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: '현재나이',
+                                        border: OutlineInputBorder(),
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  DropdownButtonFormField<PlayerPosition>(
-                                    initialValue: _position,
-                                    decoration: const InputDecoration(
-                                      labelText: '포지션',
-                                      border: OutlineInputBorder(),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _peakAgeController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: '전성기 나이 (참고)',
+                                        border: OutlineInputBorder(),
+                                      ),
                                     ),
-                                    items: PlayerPosition.values
-                                        .map(
-                                          (position) => DropdownMenuItem(
-                                            value: position,
-                                            child: Text(position.label),
-                                          ),
-                                        )
-                                        .toList(),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _rankController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: '랭크',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _heightController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: '키 (cm)',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: _weightController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(
+                                        labelText: '몸무게 (kg)',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _nationalityController,
+                                decoration: const InputDecoration(
+                                  labelText: '국적',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _seedNamesController,
+                                decoration: const InputDecoration(
+                                  labelText: '시드 카테고리 (; 구분 · 여러 개 가능)',
+                                  hintText: '일반시드; 2026 월드컵 대한민국 선발',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: _loading
+                                        ? null
+                                        : _pickPortraitImage,
+                                    icon: const Icon(Icons.image_outlined),
+                                    label: const Text('이미지 업로드'),
+                                  ),
+                                ],
+                              ),
+                              if (_portraitMappingHint != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  _portraitMappingHint!,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _portraitUrlController,
+                                decoration: const InputDecoration(
+                                  labelText: 'portrait_url',
+                                  border: OutlineInputBorder(),
+                                  helperText:
+                                      '업로드한 파일은 선수 ID 기반 이미지로 자동 매핑됩니다.',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SectionCard(
+                          title: '능력치',
+                          child: Column(
+                            children: [
+                              StatSliderField(
+                                label: '스피드',
+                                value: _speed,
+                                onChanged: (value) =>
+                                    setState(() => _speed = value),
+                              ),
+                              StatSliderField(
+                                label: '파워',
+                                value: _power,
+                                onChanged: (value) =>
+                                    setState(() => _power = value),
+                              ),
+                              StatSliderField(
+                                label: '기술',
+                                value: _technique,
+                                onChanged: (value) =>
+                                    setState(() => _technique = value),
+                              ),
+                              StatSliderField(
+                                label: 'PK',
+                                value: _pkAbility,
+                                onChanged: (value) =>
+                                    setState(() => _pkAbility = value),
+                              ),
+                              StatSliderField(
+                                label: 'FK',
+                                value: _fkAbility,
+                                onChanged: (value) =>
+                                    setState(() => _fkAbility = value),
+                              ),
+                              StatSliderField(
+                                label: 'CK',
+                                value: _ckAbility,
+                                onChanged: (value) =>
+                                    setState(() => _ckAbility = value),
+                              ),
+                              StatSliderField(
+                                label: '리더십',
+                                value: _leadership,
+                                onChanged: (value) =>
+                                    setState(() => _leadership = value),
+                              ),
+                              StatSliderField(
+                                label: '지력↔감각 (0=지력10, 10=감각10)',
+                                value: _intelligenceSense,
+                                onChanged: (value) =>
+                                    setState(() => _intelligenceSense = value),
+                              ),
+                              StatSliderField(
+                                label: '개인↔조직 (0=개인10, 10=조직10)',
+                                value: _individualOrganization,
+                                onChanged: (value) => setState(
+                                  () => _individualOrganization = value,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SectionCard(
+                          title: '적정 포지션 (1~13)',
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (var i = 1; i <= Player.positionFitCount; i++)
+                                SizedBox(
+                                  width: 140,
+                                  child: TextFormField(
+                                    initialValue: '${_positionFit[i] ?? 0}',
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: 'P$i',
+                                      border: const OutlineInputBorder(),
+                                    ),
                                     onChanged: (value) {
-                                      if (value != null) {
-                                        setState(() => _position = value);
-                                      }
+                                      final parsed = int.tryParse(value) ?? 0;
+                                      _positionFit[i] = parsed.clamp(0, 10);
                                     },
                                   ),
-                                  const SizedBox(height: 12),
-                                  Row(
+                                ),
+                            ],
+                          ),
+                        ),
+                        SectionCard(
+                          title: '성장 타입 (1기~10기)',
+                          child: Column(
+                            children: [
+                              for (var i = 0; i < Player.growthPeriodCount; i++)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _ageStageController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: '현재나이',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _peakAgeController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: '전성기 나이 (참고)',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _rankController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: '랭크',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _heightController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: '키 (cm)',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _weightController,
-                                          keyboardType: TextInputType.number,
-                                          decoration: const InputDecoration(
-                                            labelText: '몸무게 (kg)',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _nationalityController,
-                                    decoration: const InputDecoration(
-                                      labelText: '국적',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _seedNamesController,
-                                    decoration: const InputDecoration(
-                                      labelText: '시드 카테고리 (; 구분 · 여러 개 가능)',
-                                      hintText: '일반시드; 2026 월드컵 대한민국 선발',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _portraitUrlController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'portrait_url',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SectionCard(
-                              title: '능력치',
-                              child: Column(
-                                children: [
-                                  StatSliderField(
-                                    label: '스피드',
-                                    value: _speed,
-                                    onChanged: (value) => setState(() => _speed = value),
-                                  ),
-                                  StatSliderField(
-                                    label: '파워',
-                                    value: _power,
-                                    onChanged: (value) => setState(() => _power = value),
-                                  ),
-                                  StatSliderField(
-                                    label: '기술',
-                                    value: _technique,
-                                    onChanged: (value) => setState(() => _technique = value),
-                                  ),
-                                  StatSliderField(
-                                    label: 'PK',
-                                    value: _pkAbility,
-                                    onChanged: (value) => setState(() => _pkAbility = value),
-                                  ),
-                                  StatSliderField(
-                                    label: 'FK',
-                                    value: _fkAbility,
-                                    onChanged: (value) => setState(() => _fkAbility = value),
-                                  ),
-                                  StatSliderField(
-                                    label: 'CK',
-                                    value: _ckAbility,
-                                    onChanged: (value) => setState(() => _ckAbility = value),
-                                  ),
-                                  StatSliderField(
-                                    label: '리더십',
-                                    value: _leadership,
-                                    onChanged: (value) => setState(() => _leadership = value),
-                                  ),
-                                  StatSliderField(
-                                    label: '지력↔감각 (0=지력10, 10=감각10)',
-                                    value: _intelligenceSense,
-                                    onChanged: (value) =>
-                                        setState(() => _intelligenceSense = value),
-                                  ),
-                                  StatSliderField(
-                                    label: '개인↔조직 (0=개인10, 10=조직10)',
-                                    value: _individualOrganization,
-                                    onChanged: (value) =>
-                                        setState(() => _individualOrganization = value),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SectionCard(
-                              title: '적정 포지션 (1~13)',
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (var i = 1; i <= Player.positionFitCount; i++)
-                                    SizedBox(
-                                      width: 140,
-                                      child: TextFormField(
-                                        initialValue: '${_positionFit[i] ?? 0}',
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText: 'P$i',
-                                          border: const OutlineInputBorder(),
-                                        ),
+                                      Text('${i + 1}기'),
+                                      StatSliderField(
+                                        label: '스피드',
+                                        value: _growthType[i].speed,
                                         onChanged: (value) {
-                                          final parsed = int.tryParse(value) ?? 0;
-                                          _positionFit[i] = parsed.clamp(0, 10);
+                                          setState(() {
+                                            _growthType[i] = _growthType[i]
+                                                .copyWith(speed: value);
+                                          });
                                         },
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            SectionCard(
-                              title: '성장 타입 (1기~10기)',
-                              child: Column(
-                                children: [
-                                  for (var i = 0; i < Player.growthPeriodCount; i++)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('${i + 1}기'),
-                                          StatSliderField(
-                                            label: '스피드',
-                                            value: _growthType[i].speed,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _growthType[i] =
-                                                    _growthType[i].copyWith(speed: value);
-                                              });
-                                            },
-                                          ),
-                                          StatSliderField(
-                                            label: '파워',
-                                            value: _growthType[i].power,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _growthType[i] =
-                                                    _growthType[i].copyWith(power: value);
-                                              });
-                                            },
-                                          ),
-                                          StatSliderField(
-                                            label: '기술',
-                                            value: _growthType[i].technique,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _growthType[i] =
-                                                    _growthType[i].copyWith(technique: value);
-                                              });
-                                            },
-                                          ),
-                                          const Divider(),
-                                        ],
+                                      StatSliderField(
+                                        label: '파워',
+                                        value: _growthType[i].power,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _growthType[i] = _growthType[i]
+                                                .copyWith(power: value);
+                                          });
+                                        },
                                       ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            FilledButton(
-                              onPressed: _loading ? null : _save,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Text(widget.isEditing ? '수정 저장' : '선수 등록'),
-                              ),
-                            ),
-                          ],
+                                      StatSliderField(
+                                        label: '기술',
+                                        value: _growthType[i].technique,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _growthType[i] = _growthType[i]
+                                                .copyWith(technique: value);
+                                          });
+                                        },
+                                      ),
+                                      const Divider(),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
+                        FilledButton(
+                          onPressed: _loading ? null : _save,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(widget.isEditing ? '수정 저장' : '선수 등록'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            ),
     );
   }
 }

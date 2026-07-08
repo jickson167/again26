@@ -26,7 +26,13 @@ Future<void> main() async {
       ),
     );
     services = AppServices(Supabase.instance.client);
-    NationFlagService.instance.ensureLoaded();
+    await NationFlagService.instance.ensureLoaded();
+    try {
+      final overrides = await services.nationFlagImageService.fetchImageMap();
+      NationFlagService.instance.setOverrideUrls(overrides);
+    } catch (_) {
+      // Keep static flag mapping even when override table is not ready.
+    }
   }
 
   runApp(Again26App(services: services));

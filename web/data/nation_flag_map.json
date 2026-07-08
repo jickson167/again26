@@ -1,43 +1,55 @@
 {
   "version": 1,
-  "updated_at": "2026-07-07T04:18:40.079844+00:00",
+  "updated_at": "2026-07-08T03:28:48.722235+00:00",
   "flags": [
     {
       "flag_id": "flags_03",
       "file": "flags_03.png",
-      "name_ko": "카타르",
+      "name_ko": "코트디부아르",
       "name_en": "",
       "aliases": [
-        "카타르"
+        "코트디부아르",
+        "코르티부아르",
+        "Ivory Coast",
+        "Cote d'Ivoire",
+        "Côte d'Ivoire"
       ]
     },
     {
       "flag_id": "flags_05",
       "file": "flags_05.png",
-      "name_ko": "에콰도르",
+      "name_ko": "남아프리카공화국",
       "name_en": "",
       "aliases": [
-        "에콰도르"
+        "남아프리카공화국",
+        "South Africa",
+        "RSA"
       ]
     },
     {
       "flag_id": "flags_07",
       "file": "flags_07.png",
-      "name_ko": "세네갈",
+      "name_ko": "튀르키예",
       "name_en": "",
       "aliases": [
-        "세네갈"
+        "튀르키예",
+        "터키",
+        "Turkey",
+        "Türkiye",
+        "TUR"
       ]
     },
     {
       "flag_id": "flags_09",
       "file": "flags_09.png",
-      "name_ko": "네델란드",
+      "name_ko": "체코",
       "name_en": "",
       "aliases": [
-        "네델란드",
-        "Netherlands",
-        "NED"
+        "체코",
+        "체코공화국",
+        "Czech",
+        "Czech Republic",
+        "CZE"
       ]
     },
     {
@@ -64,7 +76,9 @@
       "name_ko": "남아프리카공화국",
       "name_en": "",
       "aliases": [
-        "남아프리카공화국"
+        "남아프리카공화국",
+        "South Africa",
+        "RSA"
       ]
     },
     {
@@ -274,21 +288,50 @@
     {
       "flag_id": "flags_15",
       "file": "flags_15.png",
-      "name_ko": "미국",
+      "name_ko": "우크라이나",
       "name_en": "",
       "aliases": [
-        "미국",
-        "USA",
-        "United States"
+        "우크라이나",
+        "Ukraine",
+        "UKR"
+      ]
+    },
+    {
+      "flag_id": "flags_16",
+      "file": "flags_16.png",
+      "name_ko": "네덜란드",
+      "name_en": "",
+      "aliases": [
+        "네덜란드",
+        "네델란드",
+        "Netherlands",
+        "NED",
+        "Holland"
       ]
     },
     {
       "flag_id": "flags_17",
       "file": "flags_17.png",
-      "name_ko": "웨일스",
+      "name_ko": "보스니아 헤르체고비나",
       "name_en": "",
       "aliases": [
-        "웨일스"
+        "보스니아 헤르체고비나",
+        "보스니아-헤르체고비나",
+        "Bosnia and Herzegovina",
+        "Bosnia",
+        "BIH"
+      ]
+    },
+    {
+      "flag_id": "flags_18",
+      "file": "flags_18.png",
+      "name_ko": "기니",
+      "name_en": "",
+      "aliases": [
+        "기니",
+        "기니공화국",
+        "Guinea",
+        "GUI"
       ]
     },
     {
@@ -633,13 +676,12 @@
   ],
   "lookup": {
     "by_name_ko": {
-      "카타르": "flags_03",
-      "에콰도르": "flags_05",
-      "세네갈": "flags_07",
-      "네델란드": "flags_09",
+      "코트디부아르": "flags_03",
+      "남아프리카공화국": "flags_102",
+      "튀르키예": "flags_07",
+      "체코": "flags_09",
       "알제리": "flags_100",
       "코르티부아르": "flags_101",
-      "남아프리카공화국": "flags_102",
       "잉글랜드": "flags_11",
       "오스트리아": "flags_112",
       "바레인": "flags_113",
@@ -662,8 +704,10 @@
       "태국": "flags_140",
       "필리핀": "flags_141",
       "뉴질랜드": "flags_142",
-      "미국": "flags_15",
-      "웨일스": "flags_17",
+      "우크라이나": "flags_15",
+      "네덜란드": "flags_16",
+      "보스니아 헤르체고비나": "flags_17",
+      "기니": "flags_18",
       "아르헨티나": "flags_19",
       "사우디아라비아": "flags_21",
       "멕시코": "flags_33",
@@ -700,15 +744,25 @@
       "이집트": "flags_99"
     },
     "by_alias": {
-      "카타르": "flags_03",
-      "에콰도르": "flags_05",
-      "세네갈": "flags_07",
-      "네델란드": "flags_09",
-      "Netherlands": "flags_09",
-      "NED": "flags_09",
-      "알제리": "flags_100",
+      "코트디부아르": "flags_03",
       "코르티부아르": "flags_101",
+      "Ivory Coast": "flags_03",
+      "Cote d'Ivoire": "flags_03",
+      "Côte d'Ivoire": "flags_03",
       "남아프리카공화국": "flags_102",
+      "South Africa": "flags_102",
+      "RSA": "flags_102",
+      "튀르키예": "flags_07",
+      "터키": "flags_07",
+      "Turkey": "flags_07",
+      "Türkiye": "flags_07",
+      "TUR": "flags_07",
+      "체코": "flags_09",
+      "체코공화국": "flags_09",
+      "Czech": "flags_09",
+      "Czech Republic": "flags_09",
+      "CZE": "flags_09",
+      "알제리": "flags_100",
       "잉글랜드": "flags_11",
       "England": "flags_11",
       "ENG": "flags_11",
@@ -737,10 +791,23 @@
       "태국": "flags_140",
       "필리핀": "flags_141",
       "뉴질랜드": "flags_142",
-      "미국": "flags_15",
-      "USA": "flags_15",
-      "United States": "flags_15",
-      "웨일스": "flags_17",
+      "우크라이나": "flags_15",
+      "Ukraine": "flags_15",
+      "UKR": "flags_15",
+      "네덜란드": "flags_16",
+      "네델란드": "flags_16",
+      "Netherlands": "flags_16",
+      "NED": "flags_16",
+      "Holland": "flags_16",
+      "보스니아 헤르체고비나": "flags_17",
+      "보스니아-헤르체고비나": "flags_17",
+      "Bosnia and Herzegovina": "flags_17",
+      "Bosnia": "flags_17",
+      "BIH": "flags_17",
+      "기니": "flags_18",
+      "기니공화국": "flags_18",
+      "Guinea": "flags_18",
+      "GUI": "flags_18",
       "아르헨티나": "flags_19",
       "사우디아라비아": "flags_21",
       "멕시코": "flags_33",

@@ -13,12 +13,17 @@ class NationFlagService {
 
   NationFlagMap? _map;
   Future<void>? _loading;
+  Map<String, String> _overrideUrls = const {};
 
   Future<void> ensureLoaded() {
     return _loading ??= _load();
   }
 
   bool get isLoaded => _map != null;
+
+  void setOverrideUrls(Map<String, String> overrides) {
+    _overrideUrls = Map<String, String>.from(overrides);
+  }
 
   Future<void> _load() async {
     try {
@@ -39,6 +44,8 @@ class NationFlagService {
       return ResolvedNation.empty;
     }
 
+    final overrideUrl = _overrideUrls[raw];
+
     final map = _map;
     if (map == null) {
       return ResolvedNation(displayName: raw);
@@ -46,17 +53,17 @@ class NationFlagService {
 
     final flagId = map.lookup.byAlias[raw] ?? map.lookup.byNameKo[raw];
     if (flagId == null) {
-      return ResolvedNation(displayName: raw);
+      return ResolvedNation(displayName: raw, flagUrl: overrideUrl);
     }
 
     final entry = map.byFlagId[flagId];
     if (entry == null || entry.nameKo.isEmpty) {
-      return ResolvedNation(displayName: raw);
+      return ResolvedNation(displayName: raw, flagUrl: overrideUrl);
     }
 
     return ResolvedNation(
       displayName: entry.nameKo,
-      flagUrl: nationFlagImageUrl(entry.file),
+      flagUrl: overrideUrl ?? nationFlagImageUrl(entry.file),
     );
   }
 }
