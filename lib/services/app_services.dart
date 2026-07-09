@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_service.dart';
 import 'club_emblem_service.dart';
 import 'dev_test_user_service.dart';
+import 'player_style_service.dart';
 import 'coach_master_service.dart';
 import 'coach_service.dart';
 import 'formation_service.dart';
@@ -22,7 +23,8 @@ class AppServices {
       nationFlagImageService = NationFlagImageService(client),
       clubEmblemService = ClubEmblemService(client),
       authService = AuthService(client),
-      devTestUserService = DevTestUserService();
+      devTestUserService = DevTestUserService(),
+      playerStyleService = PlayerStyleService(client);
 
   final PlayerService playerService;
   final KeyPositionService keyPositionService;
@@ -34,4 +36,5 @@ class AppServices {
   final ClubEmblemService clubEmblemService;
   final AuthService authService;
   final DevTestUserService devTestUserService;
+  final PlayerStyleService playerStyleService;
 }

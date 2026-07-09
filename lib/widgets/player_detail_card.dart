@@ -9,6 +9,7 @@ import 'game_stat_bar.dart';
 import 'profile_header_badges.dart';
 import 'growth_curve_chart.dart';
 import 'position_fit_grid.dart';
+import 'player_style_chips.dart';
 import 'seed_name_chips.dart';
 
 class PlayerDetailCard extends StatefulWidget {
@@ -16,12 +17,14 @@ class PlayerDetailCard extends StatefulWidget {
     super.key,
     required this.player,
     this.keyPositionsById = const {},
+    this.styleLabels = const [],
     this.editableComment = false,
     this.onSaveComment,
   });
 
   final Player player;
   final Map<String, KeyPosition> keyPositionsById;
+  final List<String> styleLabels;
   final bool editableComment;
   final Future<void> Function(String comment)? onSaveComment;
 
@@ -79,7 +82,6 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
   @override
   Widget build(BuildContext context) {
     final player = widget.player;
-    final displayPosition = player.detailPosition ?? player.position.label;
 
     return FutureBuilder<void>(
       future: _nationFlagsReady,
@@ -138,12 +140,9 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                             rank: player.rank,
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            displayPosition,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
+                          PlayerStyleChips(
+                            styleLabels: widget.styleLabels,
+                            onDarkBackground: true,
                           ),
                           Text(
                             player.name,

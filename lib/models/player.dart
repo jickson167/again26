@@ -34,6 +34,7 @@ class Player {
     this.recommendKeyPositions,
     this.portraitUrl,
     this.seedNames = const [],
+    this.styleIds = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -69,10 +70,12 @@ class Player {
   final String? recommendKeyPositions;
   final String? portraitUrl;
   final List<String> seedNames;
+  final List<String> styleIds;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
   static const defaultSeedName = '일반시드';
+  static const maxStyleCount = 5;
 
   static const positionFitCount = 13;
   static const growthPeriodCount = 10;
@@ -130,6 +133,7 @@ class Player {
       recommendKeyPositions: json['recommend_key_positions'] as String?,
       portraitUrl: json['portrait_url'] as String?,
       seedNames: _parseSeedNames(json['seed_names']),
+      styleIds: _parseStyleIds(json['style_ids']),
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
     );
@@ -168,6 +172,7 @@ class Player {
       'recommend_key_positions': recommendKeyPositions,
       'portrait_url': portraitUrl,
       'seed_names': seedNames,
+      'style_ids': styleIds,
     };
   }
 
@@ -203,6 +208,7 @@ class Player {
     String? recommendKeyPositions,
     String? portraitUrl,
     List<String>? seedNames,
+    List<String>? styleIds,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -240,6 +246,7 @@ class Player {
           recommendKeyPositions ?? this.recommendKeyPositions,
       portraitUrl: portraitUrl ?? this.portraitUrl,
       seedNames: seedNames ?? this.seedNames,
+      styleIds: styleIds ?? this.styleIds,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -323,6 +330,25 @@ class Player {
           .split(RegExp(r'[;；|]'))
           .map((item) => item.trim())
           .where((item) => item.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
+
+  static List<String> _parseStyleIds(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .take(maxStyleCount)
+          .toList();
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw
+          .split(RegExp(r'[;,|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .take(maxStyleCount)
           .toList();
     }
     return const [];

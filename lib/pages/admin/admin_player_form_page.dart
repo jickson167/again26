@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../models/player.dart';
 import '../../models/player_growth.dart';
 import '../../models/player_position.dart';
+import '../../models/player_style.dart';
 import '../../services/player_service.dart';
+import '../../services/player_style_service.dart';
 import '../../utils/portrait_upload_target.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -15,10 +17,12 @@ class AdminPlayerFormPage extends StatefulWidget {
   const AdminPlayerFormPage({
     super.key,
     required this.playerService,
+    required this.playerStyleService,
     this.playerId,
   });
 
   final PlayerService playerService;
+  final PlayerStyleService playerStyleService;
   final String? playerId;
 
   bool get isEditing => playerId != null;
@@ -59,12 +63,33 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   String? _selectedPortraitDataUrl;
   String? _portraitMappingHint;
   Player? _baselinePlayer;
+  List<PlayerStyle> _allStyles = [];
+  List<String> _selectedStyleIds = [];
+  bool _stylesLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadStyles();
     if (widget.isEditing) {
       _loadPlayer();
+    }
+  }
+
+  Future<void> _loadStyles() async {
+    try {
+      final styles = await widget.playerStyleService.fetchAll();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _allStyles = styles;
+        _stylesLoading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _stylesLoading = false);
+      }
     }
   }
 
@@ -130,6 +155,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _selectedPortraitDataUrl = null;
     _portraitMappingHint = null;
     _seedNamesController.text = player.seedNames.join('; ');
+    _selectedStyleIds = List<String>.from(player.styleIds);
     _position = player.position;
     _positionFit = Map<int, int>.from(player.positionFit);
     _growthType = List<PlayerGrowth>.from(player.growthType);
@@ -263,6 +289,7 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
         individualOrganization: _individualOrganization,
         portraitUrl: portraitUrl,
         seedNames: seedNames,
+        styleIds: _selectedStyleIds,
       );
     }
 
@@ -296,6 +323,110 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       individualOrganization: _individualOrganization,
       portraitUrl: portraitUrl,
       seedNames: seedNames,
+      styleIds: _selectedStyleIds,
+    );
+  }
+
+  Map<String, PlayerStyle> get _stylesById {
+    return {for (final style in _allStyles) style.id: style};
+  }
+
+  void _addStyle(String? styleId) {
+    if (styleId == null || styleId.isEmpty || styleId.startsWith('__header_')) {
+      return;
+    }
+    if (_selectedStyleIds.contains(styleId)) {
+      return;
+    }
+    if (_selectedStyleIds.length >= Player.maxStyleCount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('스타일은 최대 ${Player.maxStyleCount}개까지 추가할 수 있습니다.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _selectedStyleIds = [..._selectedStyleIds, styleId]);
+  }
+
+  void _removeStyle(String styleId) {
+    setState(
+      () => _selectedStyleIds = _selectedStyleIds
+          .where((id) => id != styleId)
+          .toList(),
+    );
+  }
+
+  Widget _buildStylePicker() {
+    final stylesById = _stylesById;
+    final selectedLabels = resolveStyleLabels(
+      styleIds: _selectedStyleIds,
+      stylesById: stylesById,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '플레이 스타일 (최대 ${Player.maxStyleCount}개)',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        if (selectedLabels.isNotEmpty)
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final id in _selectedStyleIds)
+                InputChip(
+                  label: Text(stylesById[id]?.labelKo ?? id),
+                  onDeleted: () => _removeStyle(id),
+                ),
+            ],
+          )
+        else
+          const Text('선택된 스타일이 없습니다.'),
+        const SizedBox(height: 8),
+        if (_stylesLoading)
+          const LinearProgressIndicator()
+        else
+          InputDecorator(
+            decoration: const InputDecoration(
+              labelText: '스타일 추가',
+              border: OutlineInputBorder(),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: null,
+                hint: const Text('스타일 선택'),
+                items: [
+                  for (final category in PlayerStyleCategory.ordered) ...[
+                    DropdownMenuItem<String>(
+                      enabled: false,
+                      value: '__header_${category.code}',
+                      child: Text(
+                        category.labelKo,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    for (final style in _allStyles.where(
+                      (item) => item.category == category,
+                    ))
+                      if (!_selectedStyleIds.contains(style.id))
+                        DropdownMenuItem<String>(
+                          value: style.id,
+                          child: Text(style.labelKo),
+                        ),
+                  ],
+                ],
+                onChanged: _selectedStyleIds.length >= Player.maxStyleCount
+                    ? null
+                    : _addStyle,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -503,6 +634,8 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
                                   border: OutlineInputBorder(),
                                 ),
                               ),
+                              const SizedBox(height: 12),
+                              _buildStylePicker(),
                               const SizedBox(height: 12),
                               Row(
                                 children: [

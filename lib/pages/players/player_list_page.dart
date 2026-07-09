@@ -3,17 +3,25 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/player.dart';
 import '../../models/player_position.dart';
+import '../../models/player_style.dart';
 import '../../services/player_service.dart';
+import '../../services/player_style_service.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/player_style_chips.dart';
 import '../../widgets/seed_name_chips.dart';
 import '../../utils/country_flag.dart';
 import '../../utils/player_portrait.dart';
 import '../../utils/portrait_image_check.dart';
 
 class PlayerListPage extends StatefulWidget {
-  const PlayerListPage({super.key, required this.playerService});
+  const PlayerListPage({
+    super.key,
+    required this.playerService,
+    required this.playerStyleService,
+  });
 
   final PlayerService playerService;
+  final PlayerStyleService playerStyleService;
 
   @override
   State<PlayerListPage> createState() => _PlayerListPageState();
@@ -22,6 +30,7 @@ class PlayerListPage extends StatefulWidget {
 class _PlayerListPageState extends State<PlayerListPage> {
   final _searchController = TextEditingController();
   List<Player> _players = [];
+  Map<String, PlayerStyle> _stylesById = {};
   final Map<String, bool?> _portraitExists = {};
   bool _loading = true;
   String? _error;
@@ -69,21 +78,25 @@ class _PlayerListPageState extends State<PlayerListPage> {
               (item) => item.code == _positionFilter!.code,
             );
 
-      final players = await widget.playerService.fetchAll(
-        search: _searchController.text,
-        position: filter,
-      );
+      final results = await Future.wait([
+        widget.playerService.fetchAll(
+          search: _searchController.text,
+          position: filter,
+        ),
+        widget.playerStyleService.fetchByIdMap(),
+      ]);
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _players = players;
+        _players = results[0] as List<Player>;
+        _stylesById = results[1] as Map<String, PlayerStyle>;
         _portraitExists.clear();
         _loading = false;
       });
-      _refreshPortraitStatus(players);
+      _refreshPortraitStatus(_players);
     } catch (error) {
       if (!mounted) {
         return;
@@ -209,13 +222,28 @@ class _PlayerListPageState extends State<PlayerListPage> {
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      [
-                                        player.position.label,
-                                        if (player.fakeName != null)
-                                          '가명: ${player.fakeName}',
-                                        if (player.rank != null) '랭크 ${player.rank}',
-                                      ].join(' · '),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            [
+                                              player.position.label,
+                                              if (player.fakeName != null)
+                                                '가명: ${player.fakeName}',
+                                              if (player.rank != null)
+                                                '랭크 ${player.rank}',
+                                            ].join(' · '),
+                                          ),
+                                        ),
+                                        PlayerStyleChips(
+                                          styleLabels: resolveStyleLabels(
+                                            styleIds: player.styleIds,
+                                            stylesById: _stylesById,
+                                          ),
+                                          dense: true,
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     SeedNameChips(

@@ -95,7 +95,10 @@ GoRouter createRouter({required AppServices? services}) {
       GoRoute(
         path: '/players',
         builder: (context, state) =>
-            PlayerListPage(playerService: services.playerService),
+            PlayerListPage(
+              playerService: services.playerService,
+              playerStyleService: services.playerStyleService,
+            ),
         routes: [
           GoRoute(
             path: ':id',
@@ -161,6 +164,7 @@ GoRouter createRouter({required AppServices? services}) {
             path: 'new',
             builder: (context, state) => AdminPlayerFormPage(
               playerService: services.playerService,
+              playerStyleService: services.playerStyleService,
             ),
           ),
           GoRoute(
@@ -169,6 +173,7 @@ GoRouter createRouter({required AppServices? services}) {
               final id = state.pathParameters['id']!;
               return AdminPlayerFormPage(
                 playerService: services.playerService,
+                playerStyleService: services.playerStyleService,
                 playerId: id,
               );
             },

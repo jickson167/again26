@@ -8,6 +8,7 @@ import '../../models/formation.dart';
 import '../../models/key_position.dart';
 import '../../models/player.dart';
 import '../../models/player_position.dart';
+import '../../models/player_style.dart';
 import '../../services/app_services.dart';
 import '../../services/coach_csv_service.dart';
 import '../../services/csv_service.dart';
@@ -16,6 +17,7 @@ import '../../services/key_position_csv_service.dart';
 import '../../utils/admin_layout.dart';
 import '../../widgets/admin_row_actions.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/player_style_chips.dart';
 import '../../widgets/seed_name_chips.dart';
 import '../../utils/formation_display.dart';
 import '../../widgets/coach_detail_card.dart';
@@ -50,7 +52,7 @@ class _AdminHubPageState extends State<AdminHubPage>
   void initState() {
     super.initState();
     final initialIndex = widget.initialTab == 'coach' ? 1 : 0;
-    _tabController = TabController(length: 6, vsync: this, initialIndex: initialIndex);
+    _tabController = TabController(length: 7, vsync: this, initialIndex: initialIndex);
   }
 
   @override
@@ -86,6 +88,7 @@ class _AdminHubPageState extends State<AdminHubPage>
             Tab(icon: Icon(Icons.star), text: '키포지션'),
             Tab(icon: Icon(Icons.flag), text: '국기이미지'),
             Tab(icon: Icon(Icons.shield), text: '클럽앰블럼'),
+            Tab(icon: Icon(Icons.style), text: '선수스타일'),
           ],
         ),
       ),
@@ -101,6 +104,7 @@ class _AdminHubPageState extends State<AdminHubPage>
           AdminKeyPositionsTab(services: widget.services),
           AdminNationFlagsTab(services: widget.services),
           AdminClubEmblemsTab(services: widget.services),
+          AdminPlayerStylesTab(services: widget.services),
         ],
       ),
     );
@@ -132,6 +136,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
   final _listScrollController = ScrollController();
   List<Player> _players = [];
   Map<String, KeyPosition> _keyPositions = {};
+  Map<String, PlayerStyle> _stylesById = {};
   Map<String, bool?> _portraitExists = {};
   final Set<String> _portraitUploading = {};
   _PlayerSortType _sortType = _PlayerSortType.id;
@@ -230,6 +235,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
       final results = await Future.wait([
         widget.services.playerService.fetchAll(),
         widget.services.keyPositionService.fetchAll(),
+        widget.services.playerStyleService.fetchByIdMap(),
       ]);
       if (!mounted) {
         return;
@@ -239,6 +245,7 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
         _keyPositions = {
           for (final kp in results[1] as List<KeyPosition>) kp.id: kp,
         };
+        _stylesById = results[2] as Map<String, PlayerStyle>;
         final validIds = _players.map((player) => player.id).toSet();
         _portraitExists.removeWhere((id, _) => !validIds.contains(id));
         _loading = false;
@@ -351,6 +358,10 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                   child: PlayerDetailCard(
                     player: detail,
                     keyPositionsById: _keyPositions,
+                    styleLabels: resolveStyleLabels(
+                      styleIds: detail.styleIds,
+                      stylesById: _stylesById,
+                    ),
                     editableComment: true,
                     onSaveComment: (comment) async {
                       await widget.services.playerService.patch(
@@ -556,8 +567,22 @@ class _AdminPlayersTabState extends State<AdminPlayersTab> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '${player.detailPosition ?? player.position.label} · 랭크 ${player.rank ?? '-'}',
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${player.detailPosition ?? player.position.label} · 랭크 ${player.rank ?? '-'}',
+                                ),
+                              ),
+                              PlayerStyleChips(
+                                styleLabels: resolveStyleLabels(
+                                  styleIds: player.styleIds,
+                                  stylesById: _stylesById,
+                                ),
+                                dense: true,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           SeedNameChips(
@@ -2070,6 +2095,187 @@ class _AdminClubEmblemsTabState extends State<AdminClubEmblemsTab> {
                     );
                   },
                 ),
+        ),
+      ],
+    );
+  }
+}
+
+class AdminPlayerStylesTab extends StatefulWidget {
+  const AdminPlayerStylesTab({super.key, required this.services});
+
+  final AppServices services;
+
+  @override
+  State<AdminPlayerStylesTab> createState() => _AdminPlayerStylesTabState();
+}
+
+class _AdminPlayerStylesTabState extends State<AdminPlayerStylesTab> {
+  List<PlayerStyle> _items = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final items = await widget.services.playerStyleService.fetchAll();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  List<PlayerStyle> _itemsForCategory(PlayerStyleCategory category) {
+    return _items.where((item) => item.category == category).toList();
+  }
+
+  Future<void> _editLabel(PlayerStyle item) async {
+    final controller = TextEditingController(text: item.labelKo);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('스타일 수정 · ${item.id}'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '표시 이름',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (saved != true || !mounted) {
+      controller.dispose();
+      return;
+    }
+    final labelKo = controller.text.trim();
+    controller.dispose();
+    if (labelKo.isEmpty) {
+      return;
+    }
+    try {
+      await widget.services.playerStyleService.updateLabel(
+        id: item.id,
+        labelKo: labelKo,
+      );
+      await _load();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('저장 실패: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const LoadingView(message: '선수 스타일 불러오는 중...');
+    }
+    if (_error != null) {
+      return ErrorView(message: _error!, onRetry: _load);
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '랭크별 스타일 개수 가이드',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('1랭크 ~ 2랭크 · 스타일 1~2개'),
+                  const Text('3랭크 ~ 4랭크 · 스타일 2~3개'),
+                  const Text('5랭크 ~ 6랭크 · 스타일 3~4개'),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: '새로고침',
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              for (final category in PlayerStyleCategory.ordered) ...[
+                Card(
+                  child: ExpansionTile(
+                    initiallyExpanded: true,
+                    title: Text(
+                      category.labelKo,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text('${_itemsForCategory(category).length}개'),
+                    children: [
+                      for (final item in _itemsForCategory(category))
+                        ListTile(
+                          dense: true,
+                          title: Text(item.labelKo),
+                          subtitle: Text(item.id),
+                          trailing: IconButton(
+                            tooltip: '이름 수정',
+                            onPressed: () => _editLabel(item),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ],
+          ),
         ),
       ],
     );

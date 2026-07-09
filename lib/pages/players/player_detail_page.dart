@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../models/key_position.dart';
 import '../../models/player.dart';
+import '../../models/player_style.dart';
 import '../../services/app_services.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/player_detail_card.dart';
@@ -26,6 +27,7 @@ class PlayerDetailPage extends StatefulWidget {
 class _PlayerDetailPageState extends State<PlayerDetailPage> {
   Player? _player;
   Map<String, KeyPosition> _keyPositions = {};
+  List<String> _styleLabels = const [];
   bool _loading = true;
   String? _error;
 
@@ -45,17 +47,25 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
       final results = await Future.wait([
         widget.services.playerService.fetchById(widget.playerId),
         widget.services.keyPositionService.fetchAll(),
+        widget.services.playerStyleService.fetchByIdMap(),
       ]);
       if (!mounted) {
         return;
       }
 
       final player = results[0] as Player?;
+      final stylesById = results[2] as Map<String, PlayerStyle>;
       setState(() {
         _player = player;
         _keyPositions = {
           for (final kp in results[1] as List<KeyPosition>) kp.id: kp,
         };
+        _styleLabels = player == null
+            ? const []
+            : resolveStyleLabels(
+                styleIds: player.styleIds,
+                stylesById: stylesById,
+              );
         _loading = false;
         if (player == null) {
           _error = '선수를 찾을 수 없습니다.';
@@ -104,6 +114,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
                           child: PlayerDetailCard(
                             player: _player!,
                             keyPositionsById: _keyPositions,
+                            styleLabels: _styleLabels,
                             editableComment: widget.editableComment,
                             onSaveComment: widget.editableComment
                                 ? (comment) async {

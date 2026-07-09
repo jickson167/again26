@@ -50,6 +50,7 @@ class CsvService {
         'recommend_key_positions',
         'portrait_url',
         'seed_names',
+        'style_ids',
       ];
 
   String exportPlayers(List<Player> players) {
@@ -141,6 +142,7 @@ class CsvService {
       player.recommendKeyPositions ?? '',
       player.portraitUrl ?? '',
       player.seedNames.join(';'),
+      player.styleIds.join(';'),
     ];
   }
 
@@ -232,7 +234,27 @@ class CsvService {
       portraitUrl:
           readString('portrait_url').isEmpty ? null : readString('portrait_url'),
       seedNames: _readSeedNames(readString, headerIndex),
+      styleIds: _readStyleIds(readString, headerIndex),
     );
+  }
+
+  static List<String> _readStyleIds(
+    String Function(String key, {String defaultValue}) readString,
+    Map<String, int> headerIndex,
+  ) {
+    if (!headerIndex.containsKey('style_ids')) {
+      return const [];
+    }
+    final raw = readString('style_ids');
+    if (raw.isEmpty) {
+      return const [];
+    }
+    return raw
+        .split(RegExp(r'[;；|,]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .take(Player.maxStyleCount)
+        .toList();
   }
 
   static List<String> _readSeedNames(
