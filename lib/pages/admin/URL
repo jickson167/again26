@@ -1,0 +1,12 @@
+http://localhost:8080/ 
+http://localhost:8080/admin
+
+
+
+git add .
+git commit -m "update"
+git push origin main
+
+
+
+git pull origin main
