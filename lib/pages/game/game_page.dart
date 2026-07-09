@@ -29,6 +29,7 @@ class _GamePageState extends State<GamePage> {
   bool _bootstrapping = true;
   bool _loadingClub = false;
   bool _signedIn = false;
+  bool _isDevTestMode = false;
   bool _signingIn = false;
   bool _showUserSettings = false;
   bool _settingsProcessing = false;
@@ -66,6 +67,7 @@ class _GamePageState extends State<GamePage> {
       case AuthChangeEvent.signedOut:
         setState(() {
           _signedIn = false;
+          _isDevTestMode = false;
           _club = null;
           _error = null;
           _bootstrapping = false;
@@ -82,6 +84,10 @@ class _GamePageState extends State<GamePage> {
   Future<void> _bootstrapSession() async {
     if (widget.services.authService.currentSession != null) {
       await _loadUserClub();
+      return;
+    }
+    if (await widget.services.devTestUserService.isLoggedIn()) {
+      await _loadDevTestClub();
       return;
     }
     if (mounted) {
@@ -111,6 +117,74 @@ class _GamePageState extends State<GamePage> {
       setState(() {
         _error = error.toString();
         _signingIn = false;
+      });
+    }
+  }
+
+  Future<void> _devTestLogin() async {
+    setState(() {
+      _signingIn = true;
+      _error = null;
+    });
+    try {
+      await widget.services.devTestUserService.signIn();
+      await _loadDevTestClub();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString();
+        _signingIn = false;
+      });
+    }
+  }
+
+  Future<void> _devTestReset() async {
+    await widget.services.devTestUserService.reset();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isDevTestMode = false;
+      _club = null;
+      _error = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('개발테스트 유저 데이터가 초기화되었습니다.')),
+    );
+  }
+
+  Future<void> _loadDevTestClub() async {
+    setState(() {
+      _bootstrapping = false;
+      _isDevTestMode = true;
+      _signedIn = false;
+      _loadingClub = true;
+      _error = null;
+      _signingIn = false;
+    });
+
+    try {
+      final club = await widget.services.devTestUserService.fetchClub(
+        playerService: widget.services.playerService,
+        coachService: widget.services.coachService,
+        formationService: widget.services.formationService,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _club = club;
+        _loadingClub = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString();
+        _loadingClub = false;
       });
     }
   }
@@ -162,6 +236,13 @@ class _GamePageState extends State<GamePage> {
   }
 
   Future<void> _createClub(GameClub club) async {
+    if (_isDevTestMode) {
+      final saved = await widget.services.devTestUserService.createClub(
+        club: club,
+      );
+      setState(() => _club = saved);
+      return;
+    }
     final user = widget.services.authService.currentUser;
     if (user == null) {
       throw StateError('로그인이 필요합니다.');
@@ -174,6 +255,18 @@ class _GamePageState extends State<GamePage> {
   }
 
   Future<void> _signOut() async {
+    if (_isDevTestMode) {
+      await widget.services.devTestUserService.signOut();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isDevTestMode = false;
+        _club = null;
+        _error = null;
+      });
+      return;
+    }
     await widget.services.authService.signOut();
   }
 
@@ -229,7 +322,9 @@ class _GamePageState extends State<GamePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_bootstrapping || (_signedIn && _loadingClub && !_showUserSettings)) {
+    final inGameSession = _signedIn || _isDevTestMode;
+
+    if (_bootstrapping || (inGameSession && _loadingClub && !_showUserSettings)) {
       return const Scaffold(
         body: LoadingView(message: '구단 정보 불러오는 중...'),
       );
@@ -243,22 +338,30 @@ class _GamePageState extends State<GamePage> {
         onWithdraw: _withdrawAccount,
       );
     }
-    if (!_signedIn) {
+    if (!inGameSession) {
       return _GameLoginView(
         signingIn: _signingIn,
         error: _error,
         onGoogleLogin: _signInWithGoogle,
         onNaverLogin: _signInWithNaver,
+        onDevTestLogin: _devTestLogin,
+        onDevTestReset: _devTestReset,
       );
     }
     if (_error != null) {
-      return ErrorView(message: _error!, onRetry: _loadUserClub);
+      return ErrorView(
+        message: _error!,
+        onRetry: _isDevTestMode ? _loadDevTestClub : _loadUserClub,
+      );
     }
     if (_club == null) {
       return _GameSetupView(
         services: widget.services,
         onCreateClub: _createClub,
-        onOpenUserSettings: () => setState(() => _showUserSettings = true),
+        onOpenUserSettings: _isDevTestMode
+            ? _signOut
+            : () => setState(() => _showUserSettings = true),
+        userSettingsLabel: _isDevTestMode ? '개발테스트 로그아웃' : '사용자 설정',
       );
     }
 
@@ -266,7 +369,9 @@ class _GamePageState extends State<GamePage> {
       club: _club!,
       onReset: () => setState(() => _club = null),
       onLogout: _signOut,
-      onOpenUserSettings: () => setState(() => _showUserSettings = true),
+      onOpenUserSettings: _isDevTestMode
+          ? _signOut
+          : () => setState(() => _showUserSettings = true),
     );
   }
 }
@@ -277,12 +382,16 @@ class _GameLoginView extends StatelessWidget {
     required this.onNaverLogin,
     this.signingIn = false,
     this.error,
+    this.onDevTestLogin,
+    this.onDevTestReset,
   });
 
   final VoidCallback onGoogleLogin;
   final VoidCallback onNaverLogin;
   final bool signingIn;
   final String? error;
+  final VoidCallback? onDevTestLogin;
+  final VoidCallback? onDevTestReset;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +465,33 @@ class _GameLoginView extends StatelessWidget {
                       icon: const Icon(Icons.chat_bubble_outline),
                       label: const Text('네이버로 로그인'),
                     ),
+                    if (onDevTestLogin != null || onDevTestReset != null) ...[
+                      const SizedBox(height: 20),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Text(
+                        '개발테스트',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (onDevTestLogin != null)
+                        OutlinedButton.icon(
+                          onPressed: signingIn ? null : onDevTestLogin,
+                          icon: const Icon(Icons.bug_report_outlined),
+                          label: const Text('개발테스트 로그인'),
+                        ),
+                      if (onDevTestReset != null) ...[
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: signingIn ? null : onDevTestReset,
+                          icon: const Icon(Icons.restart_alt),
+                          label: const Text('개발테스트 초기화'),
+                        ),
+                      ],
+                    ],
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () => context.go('/home'),
@@ -377,11 +513,13 @@ class _GameSetupView extends StatefulWidget {
     required this.services,
     required this.onCreateClub,
     required this.onOpenUserSettings,
+    this.userSettingsLabel = '사용자 설정',
   });
 
   final AppServices services;
   final Future<void> Function(GameClub club) onCreateClub;
   final VoidCallback onOpenUserSettings;
+  final String userSettingsLabel;
 
   @override
   State<_GameSetupView> createState() => _GameSetupViewState();
@@ -615,7 +753,7 @@ class _GameSetupViewState extends State<_GameSetupView> {
         actions: [
           TextButton(
             onPressed: widget.onOpenUserSettings,
-            child: const Text('사용자 설정'),
+            child: Text(widget.userSettingsLabel),
           ),
         ],
       ),
