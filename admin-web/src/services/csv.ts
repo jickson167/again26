@@ -50,7 +50,12 @@ function parseGrowth(row: Record<string, string>): PlayerGrowth[] {
 
 function parseSeeds(raw: string): string[] {
   if (!raw?.trim()) return [];
-  return raw.split(/[;；|]/).map((s) => s.trim()).filter(Boolean);
+  const items = raw.split(/[;；|]/).map((s) => s.trim()).filter(Boolean);
+  if (items.length <= 1) return items;
+  const nonGeneral = items.filter(
+    (s) => s !== '일반시드' && s !== '일반 시드',
+  );
+  return [nonGeneral[0] ?? items[0]];
 }
 
 export function parsePlayersCsv(content: string): Player[] {

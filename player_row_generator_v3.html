@@ -100,6 +100,7 @@ details.legacy{margin-top:12px}
   <textarea id="seedInput" rows="4" placeholder="손흥민, 대한민국, fw, 5, 일반시드&#10;김민재, 대한민국, df, 5, 일반시드&#10;황인범, 대한민국, mf, 4, 2026 월드컵 대한민국 선발&#10;이동경, 대한민국, mf, 2"></textarea>
   <div class="step-actions">
     <button class="secondary" type="button" onclick="copySeedList()">시드 목록 복사</button>
+    <button class="secondary" type="button" onclick="copySeedCatalog()">시드 카테고리 전체 복사</button>
     <button class="secondary" type="button" onclick="refreshAllStepPrompts()">프롬프트 새로고침</button>
   </div>
 
@@ -168,7 +169,7 @@ details.legacy{margin-top:12px}
 
 <div id="tabEdit" class="tab-panel" hidden>
   <h3 style="margin-top:0">기존 선수 편집/추가</h3>
-  <p class="small">DB 등록 선수를 체크(최대 10명) → 아래 <b>단계 목록</b>에서 원하는 단계만 선택 → 프롬프트 복사 · 결과 붙여넣기 → [적용]</p>
+  <p class="small">DB 등록 선수를 체크(최대 20명) → 아래 <b>단계 목록</b>에서 원하는 단계만 선택 → 프롬프트 복사 · 결과 붙여넣기 → [적용]</p>
 
   <div class="edit-layout">
     <div>
@@ -177,7 +178,7 @@ details.legacy{margin-top:12px}
       <div id="editPlayerPicker" class="player-picker"><p class="small" style="padding:12px">DB 목록 새로고침 후 표시됩니다.</p></div>
     </div>
     <div>
-      <label class="small">선택된 선수 (<span id="editSelectedCount">0</span>/10)</label>
+      <label class="small">선택된 선수 (<span id="editSelectedCount">0</span>/20)</label>
       <div id="editSelectedList" class="edit-selected-list"><span class="small" style="color:#64748b">왼쪽에서 체크하세요</span></div>
       <div class="step-actions" style="margin-top:8px">
         <button class="secondary" type="button" onclick="clearEditSelection()">선택 초기화</button>
@@ -195,6 +196,7 @@ details.legacy{margin-top:12px}
     <div class="step-pick" data-step="3" onclick="selectEditStep(3)"><span class="num">3</span>코멘트</div>
     <div class="step-pick" data-step="4" onclick="selectEditStep(4)"><span class="num">4</span>성장곡선</div>
     <div class="step-pick" data-step="5" onclick="selectEditStep(5)"><span class="num">5</span>시너지·키포지션</div>
+    <div class="step-pick" data-step="6" onclick="selectEditStep(6)"><span class="num">6</span>시드 배정</div>
   </div>
 
   <div class="step" id="editStepPanel">
@@ -258,7 +260,7 @@ details.legacy{margin-top:12px}
   <div><label>지성↔감각</label><input id="intel" type="number" min="0" max="10"></div>
   <div><label>개인↔조직</label><input id="org" type="number" min="0" max="10"></div>
   <div><label>국적</label><input id="nation"></div>
-  <div><label>시드 카테고리 (; 구분 · 여러 개)</label><input id="seedNames" placeholder="일반시드;2026 월드컵 대한민국 선발"></div>
+  <div><label>시드 카테고리 (1개)</label><input id="seedNames" placeholder="일반시드 또는 2026 월드컵 대한민국"></div>
   <div><label>플레이 스타일 id (; 구분 · 최대 5개 · 랭크별 자동)</label><input id="styleIds" placeholder="speed;finisher"></div>
   <div><label>코멘트</label><input id="comment"></div>
   <div><label>portrait_url</label><input id="portrait" placeholder="비우면 자동"></div>
@@ -728,6 +730,57 @@ function synergyTier(v){
 }
 
 const DEFAULT_SEED_NAME="일반시드";
+const PLAYER_SEED_CATALOG=[
+  "일반시드",
+  "2026 월드컵 대한민국",
+  "2026 월드컵 멕시코",
+  "2026 월드컵 남아프리카공화국",
+  "2026 월드컵 체코",
+  "2026 월드컵 캐나다",
+  "2026 월드컵 보스니아 헤르체고비나",
+  "2026 월드컵 카타르",
+  "2026 월드컵 스위스",
+  "2026 월드컵 브라질",
+  "2026 월드컵 모로코",
+  "2026 월드컵 아이티",
+  "2026 월드컵 스코틀랜드",
+  "2026 월드컵 미국",
+  "2026 월드컵 파라과이",
+  "2026 월드컵 호주",
+  "2026 월드컵 튀르키예",
+  "2026 월드컵 독일",
+  "2026 월드컵 퀴라소",
+  "2026 월드컵 코트디부아르",
+  "2026 월드컵 에콰도르",
+  "2026 월드컵 네덜란드",
+  "2026 월드컵 일본",
+  "2026 월드컵 스웨덴",
+  "2026 월드컵 튀니지",
+  "2026 월드컵 벨기에",
+  "2026 월드컵 이집트",
+  "2026 월드컵 이란",
+  "2026 월드컵 뉴질랜드",
+  "2026 월드컵 스페인",
+  "2026 월드억 카보베르데",
+  "2026 월드컵 사우디아라비아",
+  "2026 월드컵 우루과이",
+  "2026 월드컵 프랑스",
+  "2026 월드컵 세네갈",
+  "2026 월드컵 이라크",
+  "2026 월드컵 노르웨이",
+  "2026 월드컵 아르헨티나",
+  "2026 월드컵 알제리",
+  "2026 월드컵 오스트리아",
+  "2026 월드컵 요르단",
+  "2026 월드컵 포르투갈",
+  "2026 월드컵 콩고민주공화국",
+  "2026 월드컵 우즈베키스탄",
+  "2026 월드컵 콜롬비아",
+  "2026 월드컵 잉글랜드",
+  "2026 월드컵 크로아티아",
+  "2026 월드컵 가나",
+  "2026 월드컵 파나마",
+];
 const SEED_AGE_RULE_TEXT=`=== 시드별 age·peak_age 책정 (필수) ===
 게임 age=CSV **1기(영입 시점) 나이**. 시드 카테고리마다 그 시점의 나이를 넣을 것:
 
@@ -751,6 +804,54 @@ const SEED_AGE_RULE_TEXT=`=== 시드별 age·peak_age 책정 (필수) ===
 function isGeneralSeed(seedName){
   const t=String(seedName||"").trim();
   return !t||t===DEFAULT_SEED_NAME||t==="일반 시드";
+}
+function buildSeedCatalogPromptBlock(){
+  return `=== 시드 카테고리 전체 목록 (${PLAYER_SEED_CATALOG.length}개) ===\n`+
+    PLAYER_SEED_CATALOG.map((s,i)=>`${i+1}. ${s}`).join("\n");
+}
+function playerHasOnlyGeneralSeed(seedNames){
+  const seeds=parseSeedCategories(seedNames);
+  if(!seeds.length) return true;
+  return seeds.every(isGeneralSeed);
+}
+function getFullPlayerByName(name){
+  for(const id of editSelectedIds){
+    const p=fullPlayersById.get(id);
+    if(p?.name===name) return p;
+  }
+  return playersByName.get(name);
+}
+function getEditSeedStepEligibleNames(){
+  syncEditToBatchStore();
+  return getEditBatchNames().filter(name=>{
+    const p=getFullPlayerByName(name);
+    const seeds=p?.seed_names||batchStore[name]?.seed_names||[];
+    return playerHasOnlyGeneralSeed(seeds);
+  });
+}
+function buildEditSeedStepPlayerBlock(names){
+  return names.map((name,i)=>{
+    const p=getFullPlayerByName(name);
+    const b=batchStore[name]||{};
+    const age=p?.age_stage??b.age??"?";
+    const nat=b.nationality||p?.nationality||"?";
+    const rank=b.rank??p?.rank??"?";
+    return `${i+1}. name=${name} | nationality=${nat} | age=${age} | rank=${rank}`;
+  }).join("\n");
+}
+function normalizeSingleSeed(raw){
+  const t=String(raw||"").trim();
+  if(!t) return DEFAULT_SEED_NAME;
+  return t.split(/[;；|]/).map(s=>s.trim()).filter(Boolean)[0]||DEFAULT_SEED_NAME;
+}
+function buildEditSeedExcludedBlock(excluded){
+  if(!excluded.length) return "";
+  return `\n=== 제외 대상 (${excluded.length}명 · 일반시드 외 시드 보유 · 이번 단계 CSV에 포함 ❌) ===\n`+
+    excluded.map((name,i)=>{
+      const p=getFullPlayerByName(name);
+      const seeds=parseSeedCategories(p?.seed_names||batchStore[name]?.seed_names);
+      return `${i+1}. ${name} | 현재 시드: ${seeds.join("; ")||"—"}`;
+    }).join("\n");
 }
 function hasYearInSeed(seedName){
   return /\b(19|20)\d{2}\b/.test(String(seedName||""));
@@ -928,9 +1029,12 @@ const STEP_HEADERS={
   5:["name",...POS_KEYS,"recommend_key_positions"],
 };
 const STEP_KEYS=["","profile","stats","comment","growth","synergy"];
+const EDIT_STEP_HEADERS={...STEP_HEADERS,6:["name","nationality","seed"]};
+const EDIT_STEP_KEYS=[...STEP_KEYS,"seed"];
 let batchStore={};
 let fullPlayersById=new Map();
 let editSelectedIds=[];
+const EDIT_PLAYER_SELECT_MAX = 20;
 let editActiveStep=1;
 const EDIT_STEP_TITLES={
   1:"1️⃣ 프로필 — id·가명·상세포지션·랭크·나이·성장스타일·신체",
@@ -938,6 +1042,7 @@ const EDIT_STEP_TITLES={
   3:"3️⃣ 코멘트 — 100자+ 재미있는 프로필",
   4:"4️⃣ 성장곡선 — growth 30개만",
   5:"5️⃣ 포지션 시너지 + 추천 키포지션",
+  6:"6️⃣ 시드 배정 — name·nationality·seed (1개만)",
 };
 const DB_SELECT_FIELDS=[
   "id","name","fake_name","nationality","position","detail_position","rank","age_stage","peak_age",
@@ -1292,7 +1397,7 @@ function dbRecordToBatchEntry(p){
     growth_style:inferGrowthStyleFromDb(p),
     seed_names:Array.isArray(p.seed_names)?[...p.seed_names]:[],
     style_ids:Array.isArray(p.style_ids)?[...p.style_ids]:[],
-    _steps:{profile:true,stats:!!p.speed,comment:!!p.comment,growth:Array.isArray(p.growth_type)&&p.growth_type.length>=10,synergy:!!p.recommend_key_positions},
+    _steps:{profile:true,stats:!!p.speed,comment:!!p.comment,growth:Array.isArray(p.growth_type)&&p.growth_type.length>=10,synergy:!!p.recommend_key_positions,seed:(p.seed_names||[]).some(s=>String(s).includes("2026 월드컵"))},
     _fromDb:true,
   };
   POS_KEYS.forEach((k,i)=>{ ent[k]=pos12[i]; });
@@ -1331,8 +1436,8 @@ function editPlayerSummary(p){
 function toggleEditPlayer(id,checked){
   const idx=editSelectedIds.indexOf(id);
   if(checked){
-    if(editSelectedIds.length>=10){
-      alert("최대 10명까지 선택할 수 있습니다.");
+    if(editSelectedIds.length>=EDIT_PLAYER_SELECT_MAX){
+      alert(`최대 ${EDIT_PLAYER_SELECT_MAX}명까지 선택할 수 있습니다.`);
       renderEditPlayerPicker();
       return;
     }
@@ -1400,6 +1505,10 @@ function renderEditSelectedList(){
       <button type="button" title="제거" onclick="removeEditPlayer('${id}')">×</button></span>`;
   }).join("");
 }
+function editBatchStepDone(name,key){
+  if(key==="seed") return !!batchStore[name]?._steps?.seed;
+  return batchStepDone(name,key);
+}
 function renderEditBatchStatus(){
   const wrap=$("editBatchStatusWrap");
   const pick=$("editBatchPick");
@@ -1412,10 +1521,10 @@ function renderEditBatchStatus(){
   }
   syncEditToBatchStore();
   const chk=(ok)=>ok?'<span class="chk-yes">✓</span>':'<span class="chk-no">·</span>';
-  let html='<table class="batch-table"><tr><th>이름</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>id</th></tr>';
+  let html='<table class="batch-table"><tr><th>이름</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>id</th></tr>';
   names.forEach(n=>{
     const b=batchStore[n]||{};
-    html+=`<tr><td>${n}</td><td>${chk(batchStepDone(n,"profile"))}</td><td>${chk(batchStepDone(n,"stats"))}</td><td>${chk(batchStepDone(n,"comment"))}</td><td>${chk(batchStepDone(n,"growth"))}</td><td>${chk(batchStepDone(n,"synergy"))}</td><td>${b.id||resolveBatchId(n)}</td></tr>`;
+    html+=`<tr><td>${n}</td><td>${chk(editBatchStepDone(n,"profile"))}</td><td>${chk(editBatchStepDone(n,"stats"))}</td><td>${chk(editBatchStepDone(n,"comment"))}</td><td>${chk(editBatchStepDone(n,"growth"))}</td><td>${chk(editBatchStepDone(n,"synergy"))}</td><td>${chk(editBatchStepDone(n,"seed"))}</td><td>${b.id||resolveBatchId(n)}</td></tr>`;
   });
   html+='</table>';
   wrap.innerHTML=html;
@@ -1426,7 +1535,7 @@ function renderEditBatchStatus(){
   }
 }
 function selectEditStep(n){
-  editActiveStep=clamp(n,1,5);
+  editActiveStep=clamp(n,1,6);
   document.querySelectorAll("#editStepList .step-pick").forEach(el=>{
     el.classList.toggle("active",Number(el.dataset.step)===editActiveStep);
   });
@@ -1448,7 +1557,43 @@ function buildEditProfileContextBlock(names){
 function buildEditStepPrompt(n){
   syncEditToBatchStore();
   const names=getEditBatchNames();
-  if(!names.length) return "(선수를 1~10명 선택하세요)";
+  if(!names.length) return `(선수를 1~${EDIT_PLAYER_SELECT_MAX}명 선택하세요)`;
+  if(n===6){
+    const allNames=getEditBatchNames();
+    const eligible=getEditSeedStepEligibleNames();
+    const excluded=allNames.filter(nm=>!eligible.includes(nm));
+    if(!eligible.length){
+      return excluded.length
+        ? `시드 배정 대상 없음.\n선택 ${allNames.length}명 모두 일반시드 외 시드 보유:\n${buildEditSeedExcludedBlock(excluded)}`
+        : `(선수를 1~${EDIT_PLAYER_SELECT_MAX}명 선택하세요)`;
+    }
+    const count=eligible.length;
+    const lineRule=count===1?"CSV **1줄**만 (헤더 없음)":`CSV **${count}줄** — 선수 1명=1줄, 헤더 없음`;
+    const hdr=EDIT_STEP_HEADERS[6].join(",");
+    return `Again26 **기존 선수 시드 배정** — **6단계만** 출력. 설명·마크다운·코드블록 ❌
+${lineRule}
+컬럼 순서: ${hdr}
+
+${buildSeedCatalogPromptBlock()}
+
+=== 대상 선수 (${count}명 · 일반시드만 · 아래 정보만 참고) ===
+${buildEditSeedStepPlayerBlock(eligible)}
+${buildEditSeedExcludedBlock(excluded)}
+
+=== 배정 규칙 (시드 1개만 · 세미콜론 금지) ===
+1) 선수는 **seed를 하나만** 가진다 — CSV 컬럼 \`seed\`에 **값 1개만**
+2) **2026 월드컵** 시드: **2026 월드컵 최종 26인 명단에 실제 포함된 선수만** 해당 월드컵 시드 부여 → seed=2026 월드컵 ○○○
+   · **명단에 없으면** → seed=일반시드
+   · **나이 오차(±2세)·랭크는 동명이인 확인용으로만 사용** — 시드 부여 판단 기준 ❌
+3) 대상이 아니면 → seed=일반시드
+4) **세미콜론(;)·복수 시드 사용 금지** — 일반시드와 월드컵 시드를 동시에 넣지 않음
+5) **제외 대상 선수는 CSV에 출력하지 않음**
+
+=== 출력 예시 ===
+손흥민,대한민국,2026 월드컵 대한민국
+이동경,대한민국,일반시드
+`;
+  }
   if(n===2){
     names.forEach(name=>ensurePlayerStyles(ensureBatchEntry(name)));
   }
@@ -1485,9 +1630,13 @@ function applyEditStepRows(step,rows){
     if(row.id) ent.id=padId(parseNumericId(row.id)||row.id);
     else if(dbRec?.id) ent.id=padId(parseNumericId(dbRec.id)||dbRec.id);
     if(row.style_ids!=null&&row.style_ids!=="") ent.style_ids=parseStyleIds(row.style_ids);
+    if(step===6){
+      const single=normalizeSingleSeed(row.seed||row.seed_names||"");
+      ent.seed_names=[single];
+    }
     if(step===2&&!ent.style_ids?.length) ensurePlayerStyles(ent);
     ent._steps=ent._steps||{};
-    ent._steps[STEP_KEYS[step]]=true;
+    ent._steps[EDIT_STEP_KEYS[step]]=true;
     ent._fromDb=true;
   });
   renderEditBatchStatus();
@@ -1499,7 +1648,7 @@ function applyEditStepPaste(){
   try{
     const step=editActiveStep;
     const text=$("editPasteStep")?.value||"";
-    const rows=parseStepCsv(text,STEP_HEADERS[step]);
+    const rows=parseStepCsv(text,EDIT_STEP_HEADERS[step]);
     applyEditStepRows(step,rows);
   }catch(e){ setStatus(`편집 단계 실패: ${e.message}`,"err"); }
 }
@@ -1519,7 +1668,7 @@ async function saveEditSelectedToDb(){
   for(const n of names){
     try{
       applyEditBatchPick(n);
-      await saveToDb();
+      await saveToDb({replaceSeeds:true});
       ok++;
     }catch(e){ setStatus(`${n} 저장 실패: ${e.message}`,"err"); return; }
   }
@@ -1529,6 +1678,10 @@ function refreshPromptBox(){ $("chatgptPrompt").textContent=buildPrompt(); }
 function copyStepPrompt(n){
   navigator.clipboard.writeText(buildStepPrompt(n));
   alert(`${n}단계 프롬프트 복사됨`);
+}
+function copySeedCatalog(){
+  navigator.clipboard.writeText(buildSeedCatalogPromptBlock());
+  alert(`시드 카테고리 ${PLAYER_SEED_CATALOG.length}개 복사됨`);
 }
 function copySeedList(){
   const t=parseSeedInput().map(s=>`${s.name}\t${s.nation}\t${s.simple}\t${s.rank??""}\t${(s.seedNames||[]).join(";")}`).join("\n");
@@ -1848,7 +2001,9 @@ function applyCsvMap(m){
   $("nation").value=m.nationality||"";
   const seedArr=Array.isArray(m.seed_names)?m.seed_names:parseSeedCategories(m.seed_names||m.seedNames||"");
   $("seedNames").value=seedArr.join("; ");
-  if(name&&seedArr.length) ensureBatchEntry(name).seed_names=mergeSeedNames(batchStore[name]?.seed_names,seedArr);
+  if(name&&seedArr.length){
+    ensureBatchEntry(name).seed_names=[normalizeSingleSeed(seedArr.join(";"))];
+  }
   const styleArr=Array.isArray(m.style_ids)?m.style_ids:parseStyleIds(m.style_ids||m.styleIds||"");
   if(!styleArr.length&&name){
     const ent=ensureBatchEntry(name);
@@ -2112,13 +2267,20 @@ function refreshVisuals(){
   renderRecs();
 }
 
-function collectForm(){
+function collectForm(opts={}){
   const playerName=$("playerName").value.trim();
   if(!playerName) throw new Error("이름 없음");
   const formSeeds=parseSeedCategories($("seedNames")?.value||"");
   const batchSeeds=batchStore[playerName]?.seed_names||[];
   const dbSeeds=(playersByName.get(playerName)||playersById.get(resolvePlayerId(playerName)))?.seed_names||[];
-  const seedNames=mergeSeedNames(mergeSeedNames(dbSeeds,batchSeeds),formSeeds);
+  let seedNames;
+  if(opts.replaceSeeds){
+    const raw=batchSeeds.length?batchSeeds[0]:(formSeeds[0]||dbSeeds[0]||DEFAULT_SEED_NAME);
+    seedNames=[normalizeSingleSeed(raw)];
+  }else{
+    const merged=mergeSeedNames(mergeSeedNames(dbSeeds,batchSeeds),formSeeds);
+    seedNames=[normalizeSingleSeed(merged.join(";"))];
+  }
   const formStyles=parseStyleIds($("styleIds")?.value||"");
   const batchStyles=batchStore[playerName]?.style_ids||[];
   const dbStyles=(playersByName.get(playerName)||playersById.get(resolvePlayerId(playerName)))?.style_ids||[];
@@ -2200,12 +2362,10 @@ function buildDbPayload(d){
     style_ids:d.styleIds||[]
   };
 }
-function resolveDbPayload(d){
+function resolveDbPayload(d,opts={}){
   const payload=buildDbPayload(d);
+  payload.seed_names=[normalizeSingleSeed((d.seedNames||[]).join(";"))];
   const existing=playersByName.get(d.name)||playersById.get(d.id);
-  if(existing?.seed_names?.length){
-    payload.seed_names=mergeSeedNames(existing.seed_names,d.seedNames||[]);
-  }
   if(existing?.style_ids?.length&&!d.styleIds?.length){
     payload.style_ids=existing.style_ids;
   }
@@ -2220,10 +2380,10 @@ function syncOutFromForm(){
   }catch(_){}
 }
 
-async function saveToDb(){
+async function saveToDb(opts={}){
   try{
     if(!dbReady&&!initDb()) return;
-    const d=collectForm();
+    const d=collectForm(opts);
     $("playerId").value=d.id;
     $("fake").value=d.fake;
     $("portrait").value=d.portrait;
@@ -2233,7 +2393,7 @@ async function saveToDb(){
     await dbRequest("players?on_conflict=id",{
       method:"POST",
       headers:{"Content-Type":"application/json",Prefer:"resolution=merge-duplicates,return=minimal"},
-      body:JSON.stringify(resolveDbPayload(d))
+      body:JSON.stringify(resolveDbPayload(d,opts))
     });
     if(batchStore[d.name]){
       batchStore[d.name].seed_names=d.seedNames||[];

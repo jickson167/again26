@@ -75,6 +75,7 @@ class Player {
   final DateTime? updatedAt;
 
   static const defaultSeedName = '일반시드';
+  static const maxSeedCount = 1;
   static const maxStyleCount = 5;
 
   static const positionFitCount = 13;
@@ -171,7 +172,7 @@ class Player {
       'individual_organization': individualOrganization,
       'recommend_key_positions': recommendKeyPositions,
       'portrait_url': portraitUrl,
-      'seed_names': seedNames,
+      'seed_names': normalizeSeedNames(seedNames),
       'style_ids': styleIds,
     };
   }
@@ -319,6 +320,10 @@ class Player {
   }
 
   static List<String> _parseSeedNames(dynamic raw) {
+    return normalizeSeedNames(_rawSeedList(raw));
+  }
+
+  static List<String> _rawSeedList(dynamic raw) {
     if (raw is List) {
       return raw
           .map((item) => '$item'.trim())
@@ -333,6 +338,27 @@ class Player {
           .toList();
     }
     return const [];
+  }
+
+  static bool isGeneralSeedName(String name) {
+    final trimmed = name.trim();
+    return trimmed.isEmpty ||
+        trimmed == defaultSeedName ||
+        trimmed == '일반 시드';
+  }
+
+  /// DB·CSV·폼 입력을 선수당 시드 1개 규칙으로 정규화.
+  static List<String> normalizeSeedNames(List<String> raw) {
+    final items = raw.map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+    if (items.isEmpty) {
+      return const [];
+    }
+    if (items.length == 1) {
+      return [items.first];
+    }
+    final nonGeneral =
+        items.where((item) => !isGeneralSeedName(item)).toList();
+    return [nonGeneral.isNotEmpty ? nonGeneral.first : items.first];
   }
 
   static List<String> _parseStyleIds(dynamic raw) {

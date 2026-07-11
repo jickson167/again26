@@ -1,5 +1,31 @@
 import 'package:flutter/material.dart';
 
+/// 랭크별 플레이 스타일 개수 가이드 (한 줄, 공간 부족 시 글자 축소).
+class PlayerStyleRankGuide extends StatelessWidget {
+  const PlayerStyleRankGuide({super.key});
+
+  static const _guideText =
+      '랭크별 스타일 개수 · 1~2랭크 1~2개 · 3~4랭크 2~3개 · 5~6랭크 3~4개';
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey[700],
+            ) ??
+        TextStyle(fontSize: 12, color: Colors.grey[700]);
+
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        _guideText,
+        style: baseStyle,
+        maxLines: 1,
+      ),
+    );
+  }
+}
+
 class PlayerStyleChips extends StatelessWidget {
   const PlayerStyleChips({
     super.key,

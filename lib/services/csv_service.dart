@@ -268,11 +268,13 @@ class CsvService {
     if (raw.isEmpty) {
       return const [];
     }
-    return raw
-        .split(RegExp(r'[;；|]'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    return Player.normalizeSeedNames(
+      raw
+          .split(RegExp(r'[;；|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(),
+    );
   }
 
   static String? _readCurrentAge(

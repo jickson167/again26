@@ -1,0 +1,70 @@
+================================================================================
+Again26 — 개발 명령어 · URL 모음
+================================================================================
+
+■ 로컬 실행 (개발 서버 · macOS / Linux)
+--------------------------------------------------------------------------------
+# 프로젝트 루트(again26)에서 실행
+flutter pub get
+# env.json 설정 (env.example.json 참고)
+
+# 로컬 서버 실행 (8080 포트 · Chrome에서 관리자 페이지 자동 열림)
+./run_local.sh
+
+# 터미널 단축키: r = hot reload · R = hot restart · q = 종료
+
+
+■ 로컬 빌드 (릴리즈 산출물만 생성 · build/web/)
+--------------------------------------------------------------------------------
+# 프로젝트 루트에서 실행
+bash scripts/write_web_env.sh
+bash scripts/sync_web_tools.sh
+
+SUPABASE_URL="$(python3 -c "import json; print(json.load(open('env.json'))['SUPABASE_URL'])")"
+SUPABASE_ANON_KEY="$(python3 -c "import json; print(json.load(open('env.json'))['SUPABASE_ANON_KEY'])")"
+
+flutter build web --release --base-href="/again26/" --pwa-strategy=none \
+  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+
+■ 웹페이지 배포 빌드 (GitHub Pages · GitHub Actions)
+--------------------------------------------------------------------------------
+# 프로젝트 루트에서 실행
+git add .
+git commit -m "업데이트"
+git push origin main
+
+# 또는 배포 스크립트 (커밋 + Actions 재실행)
+./deploy.sh
+
+
+■ URL 주소
+--------------------------------------------------------------------------------
+[로컬]
+  게임:         http://localhost:8080/
+  관리자:       http://localhost:8080/admin
+  기존 홈:      http://localhost:8080/home
+  선수 생성기:  http://localhost:8080/tools/player_row_generator_v3.html
+
+[웹 (GitHub Pages)]
+  게임:         https://jickson167.github.io/again26/
+  관리자:       https://jickson167.github.io/again26/admin
+  기존 홈:      https://jickson167.github.io/again26/home
+
+
+■ Git — 푸시 (로컬 → GitHub)
+--------------------------------------------------------------------------------
+# 프로젝트 루트에서 실행
+git add .
+git commit -m "커밋 메시지"
+git push origin main
+
+
+■ Git — 풀 (GitHub → 로컬)
+--------------------------------------------------------------------------------
+# 프로젝트 루트에서 실행
+
+git pull origin main
+
+================================================================================

@@ -154,7 +154,9 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _portraitUrlController.text = player.portraitUrl ?? '';
     _selectedPortraitDataUrl = null;
     _portraitMappingHint = null;
-    _seedNamesController.text = player.seedNames.join('; ');
+    _seedNamesController.text = player.seedNames.isEmpty
+        ? Player.defaultSeedName
+        : player.seedNames.first;
     _selectedStyleIds = List<String>.from(player.styleIds);
     _position = player.position;
     _positionFit = Map<int, int>.from(player.positionFit);
@@ -253,11 +255,13 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
         (_portraitUrlController.text.trim().isEmpty
             ? null
             : _portraitUrlController.text.trim());
-    final seedNames = _seedNamesController.text
-        .split(RegExp(r'[;；|]'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
+    final seedNames = Player.normalizeSeedNames(
+      _seedNamesController.text
+          .split(RegExp(r'[;；|]'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(),
+    );
 
     if (widget.isEditing && _baselinePlayer != null) {
       return _baselinePlayer!.copyWith(
@@ -629,8 +633,8 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
                               TextFormField(
                                 controller: _seedNamesController,
                                 decoration: const InputDecoration(
-                                  labelText: '시드 카테고리 (; 구분 · 여러 개 가능)',
-                                  hintText: '일반시드; 2026 월드컵 대한민국 선발',
+                                  labelText: '시드 카테고리 (1개)',
+                                  hintText: '일반시드 또는 2026 월드컵 대한민국',
                                   border: OutlineInputBorder(),
                                 ),
                               ),

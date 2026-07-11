@@ -2214,22 +2214,10 @@ class _AdminPlayerStylesTabState extends State<AdminPlayerStylesTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Card(
+          child: const Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '랭크별 스타일 개수 가이드',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('1랭크 ~ 2랭크 · 스타일 1~2개'),
-                  const Text('3랭크 ~ 4랭크 · 스타일 2~3개'),
-                  const Text('5랭크 ~ 6랭크 · 스타일 3~4개'),
-                ],
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: PlayerStyleRankGuide(),
             ),
           ),
         ),
