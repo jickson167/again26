@@ -235,10 +235,14 @@ a:hover { text-decoration: underline; }
 }
 .pitch-cell.empty { visibility: hidden; }
 .pitch-cell small { display: block; opacity: .85; }
-.pitch-cell.fit-high { background: rgba(234,88,12,.92); }
-.pitch-cell.fit-mid { background: rgba(234,88,12,.62); }
-.pitch-cell.fit-low { background: rgba(234,88,12,.32); }
-.pitch-cell.fit-min { background: rgba(234,88,12,.12); color: #fff; }
+.pitch-cell.fit-67 { background: rgba(234,88,12,.80); }
+.pitch-cell.fit-5 { background: rgba(234,88,12,.60); }
+.pitch-cell.fit-4 { background: rgba(234,88,12,.40); }
+.pitch-cell.fit-3 { background: rgba(234,88,12,.20); }
+.pitch-cell.fit-2 { background: rgba(234,88,12,.10); }
+.pitch-cell.fit-1,
+.pitch-cell.fit-none,
+.pitch-cell.fit-min { background: transparent; color: rgba(255,255,255,.35); }
 
 .stat-list {
   display: grid;

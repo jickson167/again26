@@ -23,7 +23,7 @@ const SYSTEM_PROMPT = `You generate fictional football manager player data for t
 Return ONLY valid JSON matching the schema. No markdown.
 
 Rules:
-- Stats are integers 0-10 (goalkeeper 0 for outfield players).
+- Stats are integers 0-10.
 - rank: 1-5 (5 = world class).
 - simple_position: one of fw, mf, df, gk.
 - detail_position: e.g. LW/ST, CB, GK (Korean game uses slash combos).
@@ -50,9 +50,9 @@ const JSON_SCHEMA = `{
   "weight": 75,
   "nationality": "대한민국",
   "speed": 7, "power": 7, "technique": 7,
-  "shooting": 6, "passing": 6, "defense": 5, "stamina": 6, "goalkeeper": 0,
+  "shooting": 6, "passing": 6, "stamina": 6,
   "pk_ability": 5, "fk_ability": 5, "ck_ability": 5,
-  "leadership": 5, "intelligence_sense": 5, "individual_organization": 5,
+  "leadership": 5,
   "recommend_key_positions": ["kp_poacher", "kp_classic_striker", "kp_second_striker", "kp_pressing_forward", "kp_wing_forward_l"],
   "pos_1": 1, "pos_2": 1, "pos_3": 1, "pos_4": 1, "pos_5": 1, "pos_6": 1,
   "pos_7": 1, "pos_8": 1, "pos_9": 1, "pos_10": 1, "pos_11": 1, "pos_12": 1, "pos_13": 1
@@ -133,9 +133,12 @@ function normalizePlayer(p: Record<string, unknown>) {
   const stat = (k: string, d = 0) => {
     p[k] = clamp(Number(p[k] ?? d), 0, 10);
   };
-  ["speed", "power", "technique", "shooting", "passing", "defense", "stamina",
-    "goalkeeper", "pk_ability", "fk_ability", "ck_ability", "leadership",
-    "intelligence_sense", "individual_organization"].forEach((k) => stat(k));
+  ["speed", "power", "technique", "shooting", "passing", "stamina",
+    "pk_ability", "fk_ability", "ck_ability", "leadership"].forEach((k) => stat(k));
+  delete p.defense;
+  delete p.goalkeeper;
+  delete p.intelligence_sense;
+  delete p.individual_organization;
   p.rank = clamp(Number(p.rank ?? 3), 1, 5);
   p.current_age = clamp(Number(p.current_age ?? 25), 16, 40);
   p.height = clamp(Number(p.height ?? 180), 150, 220);

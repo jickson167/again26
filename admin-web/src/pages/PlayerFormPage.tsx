@@ -14,15 +14,11 @@ const emptyPlayer = (): Player => ({
   technique: 0,
   shooting: 0,
   passing: 0,
-  defense: 0,
   stamina: 0,
-  goalkeeper: 0,
   pk_ability: 0,
   fk_ability: 0,
   ck_ability: 0,
   leadership: 0,
-  intelligence_sense: 5,
-  individual_organization: 5,
   seed_names: [],
 });
 

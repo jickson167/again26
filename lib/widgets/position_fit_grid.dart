@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/field_position_layout.dart';
+import '../utils/position_fit_display.dart';
 
+/// 레거시 호환 — 범례 등에 사용. 투명도 포함 주황.
 Color positionFitColor(int value) {
-  if (value >= 7) {
-    return const Color(0xFFB91C1C);
-  }
-  if (value >= 4) {
-    return const Color(0xFFEA580C);
-  }
-  return const Color(0xFF16A34A);
+  return PositionFitDisplay.fillColor(value) ??
+      PositionFitDisplay.baseOrange.withValues(alpha: 0);
 }
 
 class PositionFitGrid extends StatelessWidget {
@@ -131,15 +128,20 @@ class _PositionCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = positionFitColor(value);
+    final shown = PositionFitDisplay.normalize(value);
+    final fill = PositionFitDisplay.fillColor(value);
+    final hidden = fill == null;
+
     return SizedBox(
       width: PositionFitGrid._cellWidth,
       height: PositionFitGrid._cellHeight,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: color,
+          color: fill ?? Colors.black.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.black26),
+          border: Border.all(
+            color: hidden ? Colors.white12 : Colors.black26,
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -147,15 +149,15 @@ class _PositionCell extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: hidden ? 0.35 : 1),
                 fontSize: compact ? 9 : 10,
                 fontWeight: FontWeight.bold,
               ),
             ),
             Text(
-              '$value',
+              '$shown',
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: hidden ? 0.35 : 1),
                 fontSize: compact ? 12 : 13,
                 fontWeight: FontWeight.w900,
               ),

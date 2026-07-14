@@ -126,7 +126,7 @@ details.legacy{margin-top:12px}
   </div>
 
   <div class="step" id="step2">
-    <h4>2️⃣ 능력치 + 플레이 스타일 — speed~org, 세트피스, style_ids</h4>
+    <h4>2️⃣ 능력치 + 플레이 스타일 — speed~leadership, 세트피스, style_ids</h4>
     <div id="promptStep2" class="prompt-box"></div>
     <div class="step-actions"><button class="secondary" type="button" onclick="copyStepPrompt(2)">프롬프트 복사</button></div>
     <textarea id="pasteStep2" rows="3" placeholder="name,speed,power,technique,..."></textarea>
@@ -153,7 +153,7 @@ details.legacy{margin-top:12px}
     <h4>5️⃣ 포지션 시너지 + 추천 키포지션</h4>
     <div id="promptStep5" class="prompt-box"></div>
     <div class="step-actions"><button class="secondary" type="button" onclick="copyStepPrompt(5)">프롬프트 복사</button></div>
-    <textarea id="pasteStep5" rows="3" placeholder="name,pos_gk,...,recommend_key_positions"></textarea>
+    <textarea id="pasteStep5" rows="3" placeholder="name,pos_gk,...,pos_lm,pos_rm,...,pos_st,recommend_key_positions"></textarea>
     <button type="button" onclick="applyStepPaste(5)">5단계 적용</button>
   </div>
 
@@ -257,8 +257,6 @@ details.legacy{margin-top:12px}
   <div><label>활동량 0~10</label><input id="stamina" type="number" min="0" max="10"></div>
   <div><label>PK/FK/CK</label><input id="setpiece" placeholder="5,5,5"></div>
   <div><label>리더십</label><input id="leadership" type="number" min="0" max="10"></div>
-  <div><label>지성↔감각</label><input id="intel" type="number" min="0" max="10"></div>
-  <div><label>개인↔조직</label><input id="org" type="number" min="0" max="10"></div>
   <div><label>국적</label><input id="nation"></div>
   <div><label>시드 카테고리 (1개)</label><input id="seedNames" placeholder="일반시드 또는 2026 월드컵 대한민국"></div>
   <div><label>플레이 스타일 id (; 구분 · 최대 5개 · 랭크별 자동)</label><input id="styleIds" placeholder="speed;finisher"></div>
@@ -318,11 +316,11 @@ details.legacy{margin-top:12px}
 <script src="key_positions_v2.js"></script>
 <script>
 const keyPositions = window.KEY_POSITIONS_V2;
-const POS_KEYS = ["pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lw","pos_rw","pos_st"];
+const POS_KEYS = ["pos_gk","pos_lb","pos_cb","pos_rb","pos_lwb","pos_cdm","pos_cm","pos_cam","pos_rwb","pos_lm","pos_rm","pos_lw","pos_rw","pos_st"];
 // pos_* → 필드 슬롯 1(LW)…13(GK) — FieldPositionLayout과 동일
 const CSV_POS_TO_FIELD_SLOT = {
   pos_gk:13, pos_lb:7, pos_cb:11, pos_rb:9, pos_lwb:10, pos_cdm:8,
-  pos_cm:5, pos_cam:5, pos_rwb:12, pos_lw:1, pos_rw:3, pos_st:2
+  pos_cm:5, pos_cam:5, pos_rwb:12, pos_lm:4, pos_rm:6, pos_lw:1, pos_rw:3, pos_st:2
 };
 // 필드 13슬롯 — Flutter FieldPositionLayout과 동일
 const FIELD_SLOT_LABELS = {
@@ -336,23 +334,25 @@ const FIELD_GRID_ROWS = [
   [10, 11, 12],
   [null, 13, null],
 ];
-function pos13FromPos12(pos12){
+function pos13FromPosKeys(posValues){
   const slots={};
   for(let s=1;s<=13;s++) slots[s]=1;
   POS_KEYS.forEach((key,i)=>{
     const slot=CSV_POS_TO_FIELD_SLOT[key];
     if(!slot) return;
-    const v=clamp(pos12[i]??1,0,10);
+    const v=clamp(posValues[i]??1,0,10);
     slots[slot]=Math.max(slots[slot]??0,v);
   });
   return slots;
 }
+/** @deprecated use pos13FromPosKeys */
+function pos13FromPos12(pos12){ return pos13FromPosKeys(pos12); }
 const GROWTH_COLS = Array.from({length:10},(_,i)=>[`growth_${i+1}_speed`,`growth_${i+1}_power`,`growth_${i+1}_technique`]).flat();
 const INPUT_HEADERS = [
   "name","fake_name","position","rank","age","peak_age","height","weight","nationality",
   ...POS_KEYS, ...GROWTH_COLS,
   "speed","power","technique","shooting","passing","stamina",
-  "pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization",
+  "pk_ability","fk_ability","ck_ability","leadership",
   "detail_position","comment","recommend_key_positions","portrait_url","growth_style","style_ids"
 ];
 const EXPORT_HEADERS = ["id", ...INPUT_HEADERS];
@@ -361,7 +361,7 @@ let playersById = new Map();
 let playersByName = new Map();
 let nextNumericId = 1;
 let dbReady = false;
-let parsedPos12 = Array(12).fill(1);
+let parsedPos12 = Array(POS_KEYS.length).fill(1);
 let parsedGrowth = null;
 let parsedRecs = "";
 let parsedPeakAge = null;
@@ -954,10 +954,9 @@ shooting, passing, stamina = **전성기 수준** (FW는 shooting↑, CM은 pass
 성장 스타일 growth_style (CSV 맨 끝): develop|early|mid|late — 선수별 실제 기록·잠재력 기반
 
 === [D] 시너지·기타 ===
-pos_gk~pos_st: 1~10 (12개)
+pos_gk~pos_st: 1~10 (14개, pos_lm·pos_rm 포함)
 pk_ability, fk_ability, ck_ability, leadership: 0~10
-intelligence_sense: 0=지성, 10=감각
-individual_organization: 0=개인, 10=조직
+❌ defense, goalkeeper, intelligence_sense, individual_organization 컬럼/값 생성 금지 (폐기됨)
 comment=한줄 (쉼표 있으면 따옴표) — **장점·강점 위주**로 선수 **특징·별명**과 **연혁·프로필 스토리**(축구 지식을 재미있게 푼 내용)를 재미있게 서술. ❌ 단점·약점 언급 금지. rank5·손흥민·김민재·이강인급 **월드클래스**는 **「월드클래스」**라고 명시. ❌ 특정 팀명·등번호·실명·사건을 너무 정확히 알 수 있는 코멘트 (누구인지 바로 특정되는 수준 금지)
 recommend_key_positions=kp_id:점수|… 5개 (예: kp_poacher:92|kp_target_forward:88|…)
 portrait_url=비워도 됨
@@ -1023,7 +1022,7 @@ function buildPrompt(){
 // ── 다단계 배치 생성 ──
 const STEP_HEADERS={
   1:["id","name","fake_name","nationality","position","detail_position","rank","age","peak_age","growth_style","height","weight"],
-  2:["name","speed","power","technique","shooting","passing","stamina","pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization","style_ids"],
+  2:["name","speed","power","technique","shooting","passing","stamina","pk_ability","fk_ability","ck_ability","leadership","style_ids"],
   3:["name","comment"],
   4:["name",...GROWTH_COLS],
   5:["name",...POS_KEYS,"recommend_key_positions"],
@@ -1038,7 +1037,7 @@ const EDIT_PLAYER_SELECT_MAX = 20;
 let editActiveStep=1;
 const EDIT_STEP_TITLES={
   1:"1️⃣ 프로필 — id·가명·상세포지션·랭크·나이·성장스타일·신체",
-  2:"2️⃣ 능력치 + 플레이 스타일 — speed~org, 세트피스, style_ids",
+  2:"2️⃣ 능력치 + 플레이 스타일 — speed~leadership, 세트피스, style_ids",
   3:"3️⃣ 코멘트 — 100자+ 재미있는 프로필",
   4:"4️⃣ 성장곡선 — growth 30개만",
   5:"5️⃣ 포지션 시너지 + 추천 키포지션",
@@ -1047,7 +1046,7 @@ const EDIT_STEP_TITLES={
 const DB_SELECT_FIELDS=[
   "id","name","fake_name","nationality","position","detail_position","rank","age_stage","peak_age",
   "height","weight","speed","power","technique","shooting","passing","stamina",
-  "pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization",
+  "pk_ability","fk_ability","ck_ability","leadership",
   "growth_type","position_fit","comment","recommend_key_positions","portrait_url","seed_names","style_ids"
 ].join(",");
 
@@ -1176,7 +1175,131 @@ function buildAssignedStylesBlock(names){
 const RANK_RULES_SHORT=`2026 국대 고정 랭크표(목박):
 rank5: 손흥민·김민재·이강인 | rank4: 황인범·이재성·황희찬(박하게3)
 rank3: 조현우·설영우·백승호·배준호 | rank2: 김태현·박진섭·이태석·조위제·이기혁·이동경·김진규·엄지성·양현준 등
-rank5 1기 앵커: 손흥민 9/8/9 · 김민재 8/9/8 · 이강인 9/8/9 · ❌8/8/8`;
+
+rank5 1기 앵커:
+손흥민 9/8/9
+김민재 8/9/8
+이강인 9/8/9
+❌8/8/8`;
+
+/** 5단계 시너지·키포지션 — 포지션 적정도 생성 규칙 */
+const SYNERGY_STEP5_RULES=`★ 포지션 적정도 생성 규칙 (매우 중요)
+
+점수는 1~7만 사용
+
+7=전문
+6=매우 적합
+5=적합
+4=가능
+3=비상
+2=비추천
+1=불가
+
+■ 생성 원칙
+
+- 실제 축구 선수처럼 부드러운 그라데이션 형태로 생성한다.
+- 인접 포지션이 1~2점으로 급락하면 안 된다.
+- 역할이 가까울수록 1단계 정도씩만 감소한다.
+- 좌우 대칭(LW↔RW, LB↔RB, LWB↔RWB)은 최대 1~2점 차이만 허용한다.
+- LM은 pos_lm, RM은 pos_rm 컬럼에 직접 점수를 넣는다 (다른 포지션에서 계산·고정 금지).
+- recommend_key_positions는 적정도 상위 3~5개를 높은 순으로 작성한다.
+  예시: LW;RW;ST / CM;CAM;CDM / CB;CDM / LB;LWB;RB
+
+■ 포지션 연결
+
+GK
+
+GK
+
+ST
+
+ST ↔ LW ↔ RW ↔ CAM ↔ CM
+
+LW
+
+LW ↔ LM ↔ CAM ↔ ST ↔ RW
+
+RW
+
+RW ↔ RM ↔ CAM ↔ ST ↔ LW
+
+CAM
+
+CAM ↔ CM ↔ CDM ↔ LM ↔ RM ↔ ST
+
+CM
+
+CM ↔ CAM ↔ CDM ↔ LM ↔ RM
+
+CDM
+
+CDM ↔ CM ↔ CB ↔ CAM
+
+CB
+
+CB ↔ CDM ↔ LB ↔ RB
+
+LB
+
+LB ↔ LWB ↔ LM ↔ CB ↔ RB
+
+RB
+
+RB ↔ RWB ↔ RM ↔ CB ↔ LB
+
+LWB
+
+LWB ↔ LB ↔ LM ↔ LW
+
+RWB
+
+RWB ↔ RB ↔ RM ↔ RW
+
+■ 전문성과 멀티성
+
+전문화 선수
+- 최고점 7
+- 인접 포지션 5~6
+
+멀티 선수
+- 최고점 6
+- 여러 포지션에 5~6을 넓게 분포
+- 최고점 7 사용 금지
+
+멀티 선수 기준
+- detail_position이 2개 이상
+- 실제 여러 포지션을 자주 소화하는 선수
+
+최고점 7은 전문 포지션 선수에게만 사용한다.
+
+실제 출전 포지션보다 실제 소화 가능한 포지션 범위를 우선 반영한다.
+
+detail_position에 실제 소화 가능한 포지션을 실제 선수 데이터를 기반으로 여러 개 까지 조사해본다.`;
+
+function buildSynergyStep5Prompt({mode, count, lineRule, hdr, playersBlock, skipNote=""}){
+  const title=mode==="edit"
+    ? "Again26 기존 선수 수정 — 5단계만 출력. 설명·마크다운·코드블록 ❌"
+    : "Again26 선수 생성 — 5단계만 출력. 설명·마크다운·코드블록 ❌";
+  const idRule=mode==="edit"
+    ? `★ id는 반드시 아래 값 유지 (변경·신규 id ❌)
+★ 기존 DB 데이터 참고 · 해당 단계 컬럼만 갱신`
+    : `★ 해당 단계 컬럼만 출력 · name으로 선수 매칭`;
+  return `${title}
+
+${lineRule}
+
+컬럼 순서:
+${hdr}
+
+${idRule}
+${skipNote}
+⸻
+
+${SYNERGY_STEP5_RULES}
+
+${playersBlock}
+`;
+}
 
 function parseSeedRank(v){
   if(v==null||v==="") return null;
@@ -1307,10 +1430,33 @@ function buildStepPrompt(n){
   const common=`Again26 선수 생성 — **${n}단계만** 출력. 설명·마크다운·코드블록 ❌\n${stepOutputRule(n)}\n컬럼 순서: ${hdr}\n\n${RANK_RULES_SHORT}${skipNote}\n`;
   const players=`=== ${n}단계 대상 (${count}명) ===\n${n===1?buildProfileContextBlock(pending):roster}\n`;
   if(n===1) return common+`\n${players}\n\n${SEED_AGE_RULE_TEXT}\n\n각 선수 조사 → id·fake_name·detail_position·**rank(시드값 고정)**·age(1기)·peak_age·growth_style(develop|early|mid|late)·height·weight\n· fake_name=패러디 가명 · detail_position=LW/ST,CB,GK 등\n· **rank=시드에 적힌 값 그대로** (변경·임의 부여 ❌)\n· **age=위 시드별 규칙** (일반시드→2026 현재 / 연도시드→그 해 당시 / 클럽·리그→전성기 나이)\n· peak_age=전성기 나이 — age+(전성기기수-1)=peak_age\n· growth_style=실제 커리어 기반 (rank5 월드클래스 develop❌)\n`;
-  if(n===2) return common+`\n${players}\n\n${buildStyleCatalogPromptBlock()}\n\n=== 선수별 자동 배정 style_ids (그대로 출력 · 능력치에 맞게 미세 조정 가능) ===\n${buildAssignedStylesBlock(pending)}\n\n1기 speed/power/technique + shooting/passing/stamina + pk/fk/ck + leadership + intelligence_sense(0지성~10감각) + individual_organization(0개인~10조직) + **style_ids**\n· speed/power/technique=1기(영입) · rank5 손흥민 9/8/9 목박\n· FW shooting↑ CM passing↑ GK는 relevant 낮춤\n· style_ids=위 배정 id를 ; 로 연결 (랭크별 개수 준수)\n· **위 ${count}명만** CSV 출력 (2단계 이미 적용된 선수 제외)\n`;
+  if(n===2) return common+`
+${players}
+
+${buildStyleCatalogPromptBlock()}
+
+=== 선수별 자동 배정 style_ids (그대로 출력 · 능력치에 맞게 미세 조정 가능) ===
+${buildAssignedStylesBlock(pending)}
+
+1기 speed/power/technique + shooting/passing/stamina + pk/fk/ck + leadership + **style_ids**
+· speed/power/technique=1기(영입) · rank5 손흥민 9/8/9 목박
+· FW shooting↑ CM passing↑
+· ❌ defense / goalkeeper / intelligence_sense / individual_organization 출력 금지
+· style_ids=위 배정 id를 ; 로 연결 (랭크별 개수 준수)
+· **위 ${count}명만** CSV 출력 (2단계 이미 적용된 선수 제외)
+`;
   if(n===3) return common+`\n${players}\n\ncomment **한 줄** — **100자 이상** · 장점·강점·별명·연혁 스토리 · 읽는 재미\n· 단점·약점 ❌ · rank5는 「월드클래스」 명시 · 특정팀·등번호·실명특정 ❌\n· 쉼표 있으면 따옴표로 감싸기\n`;
   if(n===4) return common+`\n${players}\n\n**growth 30개만** (growth_1_speed…growth_10_technique)\n· growth_1=speed/power/technique(1기) · develop:2~4기 성장 / mid·late·early:2~4기=1기\n· 기수당+1이하 · rank5 전성 +3 · 10기=1,1,1 · 하락 전 평균 rank5≥8\n· growth_style에 맞는 전성 기수 · CSV growth 값 정확히 30개\n`;
-  if(n===5) return common+`\n${players}\n\npos_gk~pos_st 12개(1~10) + recommend_key_positions=kp_id:점수|… 5개\n· 주포지션 8~10 · 비주포지션 1~5 · kp는 ${(keyPositions||[]).slice(0,3).map(k=>k.id).join(",")} 등\n`;
+  if(n===5){
+    return buildSynergyStep5Prompt({
+      mode:"new",
+      count,
+      lineRule:stepOutputRule(n),
+      hdr,
+      playersBlock:players,
+      skipNote,
+    });
+  }
   return "";
 }
 function refreshAllStepPrompts(){
@@ -1339,7 +1485,7 @@ function switchGeneratorTab(tab){
   }
 }
 function positionFitToPos12(fit){
-  const pos12=Array(12).fill(1);
+  const pos12=Array(POS_KEYS.length).fill(1);
   const f=fit||{};
   POS_KEYS.forEach((key,i)=>{
     const slot=CSV_POS_TO_FIELD_SLOT[key];
@@ -1389,8 +1535,6 @@ function dbRecordToBatchEntry(p){
     fk_ability:p.fk_ability,
     ck_ability:p.ck_ability,
     leadership:p.leadership,
-    intelligence_sense:p.intelligence_sense,
-    individual_organization:p.individual_organization,
     comment:p.comment||"",
     recommend_key_positions:p.recommend_key_positions||"",
     portrait_url:p.portrait_url||"",
@@ -1604,10 +1748,18 @@ ${buildEditSeedExcludedBlock(excluded)}
   const common=`Again26 **기존 선수 수정** — **${n}단계만** 출력. 설명·마크다운·코드블록 ❌\n${lineRule}\n컬럼 순서: ${hdr}\n\n★ **id는 반드시 아래 값 유지** (변경·신규 id ❌)\n★ 기존 DB 데이터 참고 · 해당 단계 컬럼만 갱신\n\n${RANK_RULES_SHORT}\n`;
   const players=`=== ${n}단계 대상 (${count}명 · 기존 선수) ===\n${n===1?buildEditProfileContextBlock(names):roster}\n`;
   if(n===1) return common+`\n${players}\n\n${SEED_AGE_RULE_TEXT}\n\n각 선수 조사 → **id 유지** · fake_name·detail_position·rank·age(1기)·peak_age·growth_style·height·weight\n· 시드가 있으면 age 규칙 준수 · rank는 기존값 유지 또는 실제에 맞게 조정\n`;
-  if(n===2) return common+`\n${players}\n\n${buildStyleCatalogPromptBlock()}\n\n=== 선수별 style_ids (없으면 배정·있으면 유지·조정 가능) ===\n${buildAssignedStylesBlock(names)}\n\n1기 speed/power/technique + shooting/passing/stamina + 세트피스 + style_ids\n· **위 ${count}명만** CSV 출력\n`;
+  if(n===2) return common+`\n${players}\n\n${buildStyleCatalogPromptBlock()}\n\n=== 선수별 style_ids (없으면 배정·있으면 유지·조정 가능) ===\n${buildAssignedStylesBlock(names)}\n\n1기 speed/power/technique + shooting/passing/stamina + pk/fk/ck + leadership + style_ids\n· ❌ defense / goalkeeper / intelligence_sense / individual_organization 출력 금지\n· **위 ${count}명만** CSV 출력\n`;
   if(n===3) return common+`\n${players}\n\ncomment **한 줄** — **100자 이상** · 장점·강점·별명·연혁 스토리\n`;
   if(n===4) return common+`\n${players}\n\n**growth 30개만** · growth_1=현재 1기 능력치와 일치\n`;
-  if(n===5) return common+`\n${players}\n\npos_gk~pos_st 12개 + recommend_key_positions 5개\n`;
+  if(n===5){
+    return buildSynergyStep5Prompt({
+      mode:"edit",
+      count,
+      lineRule,
+      hdr,
+      playersBlock:players,
+    });
+  }
   return "";
 }
 function refreshEditStepPrompt(){
@@ -1848,7 +2000,7 @@ function parseCsvLine(line){
   return out.map(s=>s.trim());
 }
 
-const STAT_KEYS=["speed","power","technique","shooting","passing","stamina","pk_ability","fk_ability","ck_ability","leadership","intelligence_sense","individual_organization"];
+const STAT_KEYS=["speed","power","technique","shooting","passing","stamina","pk_ability","fk_ability","ck_ability","leadership"];
 const TAIL_KEYS=["detail_position","comment","recommend_key_positions","portrait_url","growth_style","style_ids"];
 
 function isGrowthStyleValue(s){
@@ -1922,12 +2074,6 @@ function repairMisalignedMap(map,cells){
     if(!map.recommend_key_positions) map.recommend_key_positions=map.comment;
     map.comment="";
   }
-  if(map.individual_organization&&!/^\d+$/.test(String(map.individual_organization))){
-    map.individual_organization="";
-  }
-  if(map.intelligence_sense&&!/^\d+$/.test(String(map.intelligence_sense))){
-    map.intelligence_sense="";
-  }
   const tail=parseTailFields(cells.slice(-TAIL_KEYS.length));
   if(!map.detail_position&&tail.detail_position) map.detail_position=tail.detail_position;
   if(!map.comment&&tail.comment) map.comment=tail.comment;
@@ -1935,18 +2081,6 @@ function repairMisalignedMap(map,cells){
   if(!map.portrait_url&&tail.portrait_url) map.portrait_url=tail.portrait_url;
   if(!map.growth_style&&tail.growth_style) map.growth_style=tail.growth_style;
   if(!map.style_ids&&tail.style_ids) map.style_ids=tail.style_ids;
-  if(!map.intelligence_sense||!map.individual_organization){
-    const nums=[];
-    for(let j=cells.length-1;j>=0&&nums.length<5;j--){
-      const v=cells[j];
-      if(/^\d+$/.test(v)&&Number(v)<=10) nums.unshift(v);
-    }
-    if(nums.length>=3){
-      if(!map.leadership||!/^\d+$/.test(String(map.leadership))) map.leadership=nums[nums.length-3];
-      if(!map.intelligence_sense) map.intelligence_sense=nums[nums.length-2];
-      if(!map.individual_organization) map.individual_organization=nums[nums.length-1];
-    }
-  }
   return map;
 }
 function parseCsvPaste(text){
@@ -2030,8 +2164,6 @@ function applyCsvMap(m){
   $("stamina").value=m.stamina||"";
   $("setpiece").value=[m.pk_ability,m.fk_ability,m.ck_ability].filter(x=>x!==undefined&&x!=="").join(",")||"5,5,5";
   $("leadership").value=m.leadership||"";
-  $("intel").value=m.intelligence_sense||"";
-  $("org").value=m.individual_organization||"";
   $("comment").value=m.comment||"";
   parsedRecs=m.recommend_key_positions||"";
   parsedPeakAge=m.peak_age?Number(m.peak_age):null;
@@ -2100,9 +2232,10 @@ function getStats(){
   const shooting=clamp($("shooting").value,0,10), passing=clamp($("passing").value,0,10);
   return {
     speed, power, technique:tech, stamina, shooting, passing,
+    // KP 추천 점수용 alias (DB 저장 안 함)
     defense:power,
     goalkeeper: simple==="gk"?Math.max(power,tech):0,
-    intel:clamp($("intel").value,0,10), org:clamp($("org").value,0,10), simple
+    intel:5, org:5, simple  // KP 점수용 중립값 (스탯 폐기)
   };
 }
 function scoreKP(k,st){
@@ -2308,7 +2441,7 @@ function collectForm(opts={}){
     speed:clamp($("speed").value,0,10), power:clamp($("power").value,0,10), tech:clamp($("tech").value,0,10),
     shooting:clamp($("shooting").value,0,10), passing:clamp($("passing").value,0,10),
     stamina:clamp($("stamina").value,0,10),
-    sp, leadership:clamp($("leadership").value,0,10), intel:clamp($("intel").value,0,10), org:clamp($("org").value,0,10),
+    sp, leadership:clamp($("leadership").value,0,10), intel:5, org:5,
     comment:$("comment").value.trim(), portrait:portraitVal,
     growthStyle:($("peakPattern")?.value||"mid"),
     seedNames,
@@ -2322,7 +2455,7 @@ function buildCsvRow(d){
     d.id,d.name,d.fake,d.simple,d.rank,d.age,d.peakAge,d.height,d.weight,d.nation,
     ...d.pos12,...d.growthFlat,
     d.speed,d.power,d.tech,d.shooting,d.passing,d.stamina,
-    d.sp[0]??5,d.sp[1]??5,d.sp[2]??5,d.leadership,d.intel,d.org,
+    d.sp[0]??5,d.sp[1]??5,d.sp[2]??5,d.leadership,
     d.position,d.comment,d.recs,d.portrait,d.growthStyle||"mid",formatStyleIds(d.styleIds)
   ];
 }
@@ -2354,9 +2487,9 @@ function buildDbPayload(d){
     growth_type:growthTypeJson(d.matrix),
     speed:d.speed, power:d.power, technique:d.tech,
     shooting:d.shooting, passing:d.passing,
-    defense:0, stamina:d.stamina, goalkeeper:0,
+    stamina:d.stamina,
     pk_ability:d.sp[0]??5, fk_ability:d.sp[1]??5, ck_ability:d.sp[2]??5,
-    leadership:d.leadership, intelligence_sense:d.intel, individual_organization:d.org,
+    leadership:d.leadership,
     comment:d.comment||null, recommend_key_positions:d.recs, portrait_url:d.portrait,
     seed_names:d.seedNames||[],
     style_ids:d.styleIds||[]
@@ -2443,7 +2576,7 @@ function copyOut(){ navigator.clipboard.writeText($("out").value); alert("복사
 function copyPrompt(){ navigator.clipboard.writeText(buildPrompt()); alert("프롬프트 복사됨"); }
 function copyHeader(){ navigator.clipboard.writeText(INPUT_HEADERS.join(",")); alert("헤더 복사됨"); }
 
-document.querySelectorAll("#playerName,#fake,#position,#simple_position,#rank,#age,#peakAge,#height,#weight,#speed,#power,#tech,#shooting,#passing,#stamina,#setpiece,#leadership,#intel,#org,#nation,#seedNames,#styleIds,#comment,#portrait").forEach(el=>{
+document.querySelectorAll("#playerName,#fake,#position,#simple_position,#rank,#age,#peakAge,#height,#weight,#speed,#power,#tech,#shooting,#passing,#stamina,#setpiece,#leadership,#nation,#seedNames,#styleIds,#comment,#portrait").forEach(el=>{
   el.addEventListener("input",()=>{
     parsedRecs="";
     if(el.id==="rank"||el.id==="simple_position"){

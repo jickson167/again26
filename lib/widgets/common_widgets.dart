@@ -107,25 +107,54 @@ class PlayerAvatar extends StatelessWidget {
     required this.name,
     this.portraitUrl,
     this.radius = 28,
+    this.clipPortrait = true,
+    this.portraitScale = 1.0,
   });
 
   final String name;
   final String? portraitUrl;
   final double radius;
 
+  /// false면 아이콘 밖으로 넘어가는 이미지를 자르지 않습니다.
+  final bool clipPortrait;
+
+  /// 아이콘 한 변 대비 초상화 표시 배율.
+  /// [clipPortrait]가 false일 때는 높이 기준으로 통일합니다 (가로는 비율 유지, 폭 맞춤 없음).
+  final double portraitScale;
+
   @override
   Widget build(BuildContext context) {
     final size = radius * 2;
 
     if (portraitUrl != null && portraitUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: SizedBox(
-          width: size,
-          height: size,
+      if (clipPortrait) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Image.network(
+              portraitUrl!,
+              fit: BoxFit.fitWidth,
+              alignment: Alignment.topCenter,
+              errorBuilder: (_, _, _) =>
+                  _PlayerAvatarFallback(name: name, size: size),
+            ),
+          ),
+        );
+      }
+
+      // 높이를 일괄 통일. 가로는 원본 비율(폭에 맞추지 않음, 마스크 없음).
+      return SizedBox(
+        width: size,
+        height: size,
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          maxWidth: double.infinity,
+          maxHeight: double.infinity,
           child: Image.network(
             portraitUrl!,
-            fit: BoxFit.fitWidth,
+            height: size * portraitScale,
             alignment: Alignment.topCenter,
             errorBuilder: (_, _, _) =>
                 _PlayerAvatarFallback(name: name, size: size),

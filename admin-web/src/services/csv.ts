@@ -2,10 +2,30 @@ import Papa from 'papaparse';
 import type { Formation, KeyPosition, Player, PlayerGrowth, PlayerPosition } from '../types';
 import { clampStat } from '../lib/utils';
 
+/** Flutter `playerPositionFitCsvColumns` 와 동일 순서 */
 const POS_FIT_COLS = [
-  'pos_lw', 'pos_st', 'pos_rw', 'pos_lm', 'pos_cam', 'pos_rm',
-  'pos_lb', 'pos_dm', 'pos_rb', 'pos_lwb', 'pos_cb', 'pos_rwb', 'pos_gk',
+  'pos_gk', 'pos_lb', 'pos_cb', 'pos_rb', 'pos_lwb', 'pos_cdm', 'pos_cm',
+  'pos_cam', 'pos_rwb', 'pos_lm', 'pos_rm', 'pos_lw', 'pos_rw', 'pos_st',
 ];
+
+/** pos_* → 필드 슬롯 1(LW)…13(GK) — FieldPositionLayout과 동일 */
+const POS_FIT_COL_TO_SLOT: Record<string, number> = {
+  pos_gk: 13,
+  pos_lb: 7,
+  pos_cb: 11,
+  pos_rb: 9,
+  pos_lwb: 10,
+  pos_cdm: 8,
+  pos_dm: 8, // legacy alias
+  pos_cm: 5,
+  pos_cam: 5,
+  pos_rwb: 12,
+  pos_lm: 4,
+  pos_rm: 6,
+  pos_lw: 1,
+  pos_rw: 3,
+  pos_st: 2,
+};
 
 export const PLAYER_CSV_HEADERS = [
   'id', 'name', 'fake_name', 'position', 'rank', 'current_age', 'peak_age',
@@ -14,9 +34,9 @@ export const PLAYER_CSV_HEADERS = [
     `growth_${i + 1}_speed`, `growth_${i + 1}_power`, `growth_${i + 1}_technique`,
   ]).flat(),
   'speed', 'power', 'technique', 'pk_ability', 'fk_ability', 'ck_ability',
-  'leadership', 'intelligence_sense', 'individual_organization',
-  'detail_position', 'comment', 'shooting', 'passing', 'defense', 'stamina',
-  'goalkeeper', 'recommend_key_positions', 'portrait_url', 'seed_names',
+  'leadership',
+  'detail_position', 'comment', 'shooting', 'passing', 'stamina',
+  'recommend_key_positions', 'portrait_url', 'seed_names',
 ];
 
 function defaultFit(): Record<string, number> {
@@ -27,12 +47,13 @@ function defaultFit(): Record<string, number> {
 
 function parseFit(row: Record<string, string>): Record<string, number> {
   const fit = defaultFit();
-  POS_FIT_COLS.forEach((col, idx) => {
-    const slotMap = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-    const v = clampStat(row[col]);
-    const slot = String(slotMap[idx]);
-    fit[slot] = Math.max(fit[slot] ?? 0, v);
-  });
+  for (const [col, slot] of Object.entries(POS_FIT_COL_TO_SLOT)) {
+    const raw = row[col];
+    if (raw === undefined || raw === '') continue;
+    const v = clampStat(raw);
+    const key = String(slot);
+    fit[key] = Math.max(fit[key] ?? 0, v);
+  }
   for (let i = 1; i <= 13; i++) {
     const legacy = row[`pos_${i}`];
     if (legacy) fit[String(i)] = clampStat(legacy);
@@ -87,24 +108,24 @@ export function parsePlayersCsv(content: string): Player[] {
       technique: clampStat(row.technique),
       shooting: clampStat(row.shooting),
       passing: clampStat(row.passing),
-      defense: clampStat(row.defense),
       stamina: clampStat(row.stamina),
-      goalkeeper: clampStat(row.goalkeeper),
       pk_ability: clampStat(row.pk_ability),
       fk_ability: clampStat(row.fk_ability),
       ck_ability: clampStat(row.ck_ability),
       leadership: clampStat(row.leadership),
-      intelligence_sense: clampStat(row.intelligence_sense, 5),
-      individual_organization: clampStat(row.individual_organization, 5),
       recommend_key_positions: row.recommend_key_positions?.trim() || null,
       portrait_url: row.portrait_url?.trim() || null,
       seed_names: parseSeeds(row.seed_names ?? ''),
     }));
 }
 
-function fitToCols(fit: Record<string, number>): string[] {
-  const slotMap = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-  return slotMap.map((s) => String(fit[String(s)] ?? 0));
+function fitToCols(fit: Record<string, number>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const col of POS_FIT_COLS) {
+    const slot = POS_FIT_COL_TO_SLOT[col];
+    out[col] = String(fit[String(slot)] ?? 0);
+  }
+  return out;
 }
 
 export function exportPlayersCsv(players: Player[]): string {
@@ -119,7 +140,7 @@ export function exportPlayersCsv(players: Player[]): string {
     height: p.height ?? '',
     weight: p.weight ?? '',
     nationality: p.nationality ?? '',
-    ...Object.fromEntries(POS_FIT_COLS.map((col, i) => [col, fitToCols(p.position_fit)[i]])),
+    ...fitToCols(p.position_fit),
     ...Object.fromEntries(
       p.growth_type.flatMap((g, i) => [
         [`growth_${i + 1}_speed`, g.speed],
@@ -134,15 +155,11 @@ export function exportPlayersCsv(players: Player[]): string {
     fk_ability: p.fk_ability,
     ck_ability: p.ck_ability,
     leadership: p.leadership,
-    intelligence_sense: p.intelligence_sense,
-    individual_organization: p.individual_organization,
     detail_position: p.detail_position ?? '',
     comment: p.comment ?? '',
     shooting: p.shooting,
     passing: p.passing,
-    defense: p.defense,
     stamina: p.stamina,
-    goalkeeper: p.goalkeeper,
     recommend_key_positions: p.recommend_key_positions ?? '',
     portrait_url: p.portrait_url ?? '',
     seed_names: (p.seed_names ?? []).join(';'),

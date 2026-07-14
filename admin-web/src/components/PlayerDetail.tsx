@@ -2,11 +2,20 @@ import type { Player } from '../types';
 import { FIELD_SLOTS, POSITION_LABELS } from '../types';
 import { SeedChips, Stars } from './Common';
 
+function normalizeFit(v: number): number {
+  if (v <= 0) return 1;
+  if (v > 7) return 7;
+  return v;
+}
+
 function fitColor(v: number): string {
-  if (v >= 8) return 'fit-high';
-  if (v >= 6) return 'fit-mid';
-  if (v >= 4) return 'fit-low';
-  return 'fit-min';
+  const n = normalizeFit(v);
+  if (n <= 1) return 'fit-1';
+  if (n === 2) return 'fit-2';
+  if (n === 3) return 'fit-3';
+  if (n === 4) return 'fit-4';
+  if (n === 5) return 'fit-5';
+  return 'fit-67';
 }
 
 export function PositionFitGrid({ fit }: { fit: Record<string, number> }) {
@@ -25,9 +34,12 @@ export function PositionFitGrid({ fit }: { fit: Record<string, number> }) {
             slot == null ? (
               <div key={ci} className="pitch-cell empty" />
             ) : (
-              <div key={slot} className={`pitch-cell ${fitColor(fit[String(slot)] ?? 0)}`}>
+              <div
+                key={slot}
+                className={`pitch-cell ${fitColor(fit[String(slot)] ?? 0)}`}
+              >
                 <small>{FIELD_SLOTS[slot]}</small>
-                <strong>{fit[String(slot)] ?? 0}</strong>
+                <strong>{normalizeFit(fit[String(slot)] ?? 0)}</strong>
               </div>
             ),
           )}

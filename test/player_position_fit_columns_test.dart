@@ -8,6 +8,22 @@ void main() {
     expect(playerPositionFitSlotForColumn('pos_lw'), 1);
   });
 
+  test('pos_lm and pos_rm map to LM/RM field slots', () {
+    expect(playerPositionFitSlotForColumn('pos_lm'), 4);
+    expect(playerPositionFitSlotForColumn('pos_rm'), 6);
+  });
+
+  test('CSV columns include pos_lm and pos_rm in expected order', () {
+    expect(playerPositionFitCsvColumns, containsAll(['pos_lm', 'pos_rm']));
+    final rwb = playerPositionFitCsvColumns.indexOf('pos_rwb');
+    final lm = playerPositionFitCsvColumns.indexOf('pos_lm');
+    final rm = playerPositionFitCsvColumns.indexOf('pos_rm');
+    final lw = playerPositionFitCsvColumns.indexOf('pos_lw');
+    expect(lm, rwb + 1);
+    expect(rm, lm + 1);
+    expect(lw, rm + 1);
+  });
+
   test('every CSV column maps to a valid field slot', () {
     for (final column in playerPositionFitCsvColumns) {
       final slot = playerPositionFitSlotForColumn(column);

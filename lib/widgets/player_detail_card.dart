@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../models/key_position.dart';
 import '../models/player.dart';
-import '../models/player_position.dart';
 import '../services/nation_flag_service.dart';
 import '../utils/profile_badge_labels.dart';
+import '../utils/position_fit_display.dart';
 import 'game_stat_bar.dart';
 import 'profile_header_badges.dart';
 import 'growth_curve_chart.dart';
@@ -228,18 +228,28 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                         runSpacing: 4,
                         children: [
                           _LegendDot(
-                            color: positionFitColor(2),
-                            label: '낮음',
+                            color: PositionFitDisplay.fillColor(2)!,
+                            label: '2',
                             compact: compact,
                           ),
                           _LegendDot(
-                            color: positionFitColor(5),
-                            label: '중간',
+                            color: PositionFitDisplay.fillColor(3)!,
+                            label: '3',
                             compact: compact,
                           ),
                           _LegendDot(
-                            color: positionFitColor(8),
-                            label: '높음',
+                            color: PositionFitDisplay.fillColor(4)!,
+                            label: '4',
+                            compact: compact,
+                          ),
+                          _LegendDot(
+                            color: PositionFitDisplay.fillColor(5)!,
+                            label: '5',
+                            compact: compact,
+                          ),
+                          _LegendDot(
+                            color: PositionFitDisplay.fillColor(6)!,
+                            label: '6~7',
                             compact: compact,
                           ),
                         ],
@@ -288,14 +298,6 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                         color: Colors.brown,
                         compact: compact,
                       ),
-                      if (player.position == PlayerPosition.gk ||
-                          player.goalkeeper > 0)
-                        GameStatBar(
-                          label: 'GK',
-                          value: player.goalkeeper,
-                          color: Colors.purple,
-                          compact: compact,
-                        ),
                       Divider(height: compact ? 12 : 16),
                       GameStatBar(
                         label: 'PK',
@@ -319,22 +321,6 @@ class _PlayerDetailCardState extends State<PlayerDetailCard> {
                         label: '리더십',
                         value: player.leadership,
                         color: Colors.orange,
-                        compact: compact,
-                      ),
-                      SizedBox(height: compact ? 6 : 8),
-                      GameDualSlider(
-                        leftLabel: '지성',
-                        rightLabel: '감각',
-                        leftValue: player.intelligenceValue,
-                        rightValue: player.senseValue,
-                        compact: compact,
-                      ),
-                      SizedBox(height: compact ? 6 : 8),
-                      GameDualSlider(
-                        leftLabel: '개인',
-                        rightLabel: '조직',
-                        leftValue: player.individualValue,
-                        rightValue: player.organizationValue,
                         compact: compact,
                       ),
                     ],

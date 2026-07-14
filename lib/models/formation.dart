@@ -1,3 +1,5 @@
+import '../utils/formation_layout_grid.dart';
+
 class Formation {
   const Formation({
     required this.id,
@@ -13,6 +15,7 @@ class Formation {
     this.keyPos3,
     this.keyPos3Slot,
     this.comment,
+    this.layoutOutfield,
     this.createdAt,
     this.updatedAt,
   });
@@ -30,6 +33,8 @@ class Formation {
   final String? keyPos3;
   final int? keyPos3Slot;
   final String? comment;
+  /// 필드 10명 레이아웃. null이면 FormationPitchLayout 폴백.
+  final List<OutfieldLayoutPoint>? layoutOutfield;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -60,6 +65,14 @@ class Formation {
     return entries;
   }
 
+  /// 편집/표시용 필드 10점.
+  /// DB 레이아웃만 신뢰. 없으면 슬롯 매핑 기본(패널 중앙 cell=1).
+  List<OutfieldLayoutPoint> resolvedLayoutOutfield() {
+    final saved = layoutOutfield;
+    if (saved != null && saved.length == 10) return List.of(saved);
+    return FormationLayoutGrid.defaultFromFormationName(name);
+  }
+
   String? get formationTypeLabel {
     return switch (formationType?.toUpperCase()) {
       'S' => 'Speed',
@@ -84,6 +97,7 @@ class Formation {
       keyPos3: json['key_pos_3'] as String?,
       keyPos3Slot: _parseSlot(json['key_pos_3_slot']),
       comment: json['comment'] as String?,
+      layoutOutfield: FormationLayoutGrid.parseLayout(json['layout_outfield']),
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
     );
@@ -104,6 +118,9 @@ class Formation {
       'key_pos_3': keyPos3,
       'key_pos_3_slot': keyPos3Slot,
       'comment': comment,
+      'layout_outfield': layoutOutfield == null
+          ? null
+          : FormationLayoutGrid.layoutToJson(layoutOutfield!),
     };
   }
 
@@ -121,6 +138,8 @@ class Formation {
     String? keyPos3,
     int? keyPos3Slot,
     String? comment,
+    List<OutfieldLayoutPoint>? layoutOutfield,
+    bool clearLayoutOutfield = false,
   }) {
     return Formation(
       id: id ?? this.id,
@@ -136,6 +155,8 @@ class Formation {
       keyPos3: keyPos3 ?? this.keyPos3,
       keyPos3Slot: keyPos3Slot ?? this.keyPos3Slot,
       comment: comment ?? this.comment,
+      layoutOutfield:
+          clearLayoutOutfield ? null : (layoutOutfield ?? this.layoutOutfield),
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

@@ -1170,6 +1170,13 @@ class _AdminFormationsTabState extends State<AdminFormationsTab> {
                       trailing: AdminRowActions(
                         actions: [
                           AdminRowAction(
+                            label: '수정',
+                            icon: Icons.edit_outlined,
+                            onPressed: () => context.push(
+                              '/admin/formations/${item.id}/layout',
+                            ),
+                          ),
+                          AdminRowAction(
                             label: '자세히',
                             icon: Icons.search,
                             onPressed: () => _showDetail(item),

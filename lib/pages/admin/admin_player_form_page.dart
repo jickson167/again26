@@ -54,8 +54,6 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
   int _fkAbility = 0;
   int _ckAbility = 0;
   int _leadership = 0;
-  int _intelligenceSense = 5;
-  int _individualOrganization = 5;
 
   bool _loading = false;
   bool _initialLoading = false;
@@ -168,8 +166,6 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
     _fkAbility = player.fkAbility;
     _ckAbility = player.ckAbility;
     _leadership = player.leadership;
-    _intelligenceSense = player.intelligenceSense;
-    _individualOrganization = player.individualOrganization;
   }
 
   Future<void> _pickPortraitImage() async {
@@ -289,8 +285,6 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
         fkAbility: _fkAbility,
         ckAbility: _ckAbility,
         leadership: _leadership,
-        intelligenceSense: _intelligenceSense,
-        individualOrganization: _individualOrganization,
         portraitUrl: portraitUrl,
         seedNames: seedNames,
         styleIds: _selectedStyleIds,
@@ -323,8 +317,6 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
       fkAbility: _fkAbility,
       ckAbility: _ckAbility,
       leadership: _leadership,
-      intelligenceSense: _intelligenceSense,
-      individualOrganization: _individualOrganization,
       portraitUrl: portraitUrl,
       seedNames: seedNames,
       styleIds: _selectedStyleIds,
@@ -717,19 +709,6 @@ class _AdminPlayerFormPageState extends State<AdminPlayerFormPage> {
                                 value: _leadership,
                                 onChanged: (value) =>
                                     setState(() => _leadership = value),
-                              ),
-                              StatSliderField(
-                                label: '지력↔감각 (0=지력10, 10=감각10)',
-                                value: _intelligenceSense,
-                                onChanged: (value) =>
-                                    setState(() => _intelligenceSense = value),
-                              ),
-                              StatSliderField(
-                                label: '개인↔조직 (0=개인10, 10=조직10)',
-                                value: _individualOrganization,
-                                onChanged: (value) => setState(
-                                  () => _individualOrganization = value,
-                                ),
                               ),
                             ],
                           ),

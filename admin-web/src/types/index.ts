@@ -26,15 +26,11 @@ export interface Player {
   technique: number;
   shooting: number;
   passing: number;
-  defense: number;
   stamina: number;
-  goalkeeper: number;
   pk_ability: number;
   fk_ability: number;
   ck_ability: number;
   leadership: number;
-  intelligence_sense: number;
-  individual_organization: number;
   recommend_key_positions?: string | null;
   portrait_url?: string | null;
   seed_names: string[];

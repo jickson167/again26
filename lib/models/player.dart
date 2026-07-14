@@ -22,15 +22,11 @@ class Player {
     required this.technique,
     this.shooting = 0,
     this.passing = 0,
-    this.defense = 0,
     this.stamina = 0,
-    this.goalkeeper = 0,
     required this.pkAbility,
     required this.fkAbility,
     required this.ckAbility,
     required this.leadership,
-    required this.intelligenceSense,
-    required     this.individualOrganization,
     this.recommendKeyPositions,
     this.portraitUrl,
     this.seedNames = const [],
@@ -58,15 +54,11 @@ class Player {
   final int technique;
   final int shooting;
   final int passing;
-  final int defense;
   final int stamina;
-  final int goalkeeper;
   final int pkAbility;
   final int fkAbility;
   final int ckAbility;
   final int leadership;
-  final int intelligenceSense;
-  final int individualOrganization;
   final String? recommendKeyPositions;
   final String? portraitUrl;
   final List<String> seedNames;
@@ -95,8 +87,6 @@ class Player {
       fkAbility: 0,
       ckAbility: 0,
       leadership: 0,
-      intelligenceSense: 5,
-      individualOrganization: 5,
     );
   }
 
@@ -121,16 +111,11 @@ class Player {
       technique: _clampStat(json['technique']),
       shooting: _clampStat(json['shooting']),
       passing: _clampStat(json['passing']),
-      defense: _clampStat(json['defense']),
       stamina: _clampStat(json['stamina']),
-      goalkeeper: _clampStat(json['goalkeeper']),
       pkAbility: _clampStat(json['pk_ability']),
       fkAbility: _clampStat(json['fk_ability']),
       ckAbility: _clampStat(json['ck_ability']),
       leadership: _clampStat(json['leadership']),
-      intelligenceSense: _clampStat(json['intelligence_sense'], defaultValue: 5),
-      individualOrganization:
-          _clampStat(json['individual_organization'], defaultValue: 5),
       recommendKeyPositions: json['recommend_key_positions'] as String?,
       portraitUrl: json['portrait_url'] as String?,
       seedNames: _parseSeedNames(json['seed_names']),
@@ -161,15 +146,11 @@ class Player {
       'technique': technique,
       'shooting': shooting,
       'passing': passing,
-      'defense': defense,
       'stamina': stamina,
-      'goalkeeper': goalkeeper,
       'pk_ability': pkAbility,
       'fk_ability': fkAbility,
       'ck_ability': ckAbility,
       'leadership': leadership,
-      'intelligence_sense': intelligenceSense,
-      'individual_organization': individualOrganization,
       'recommend_key_positions': recommendKeyPositions,
       'portrait_url': portraitUrl,
       'seed_names': normalizeSeedNames(seedNames),
@@ -197,15 +178,11 @@ class Player {
     int? technique,
     int? shooting,
     int? passing,
-    int? defense,
     int? stamina,
-    int? goalkeeper,
     int? pkAbility,
     int? fkAbility,
     int? ckAbility,
     int? leadership,
-    int? intelligenceSense,
-    int? individualOrganization,
     String? recommendKeyPositions,
     String? portraitUrl,
     List<String>? seedNames,
@@ -233,16 +210,11 @@ class Player {
       technique: technique ?? this.technique,
       shooting: shooting ?? this.shooting,
       passing: passing ?? this.passing,
-      defense: defense ?? this.defense,
       stamina: stamina ?? this.stamina,
-      goalkeeper: goalkeeper ?? this.goalkeeper,
       pkAbility: pkAbility ?? this.pkAbility,
       fkAbility: fkAbility ?? this.fkAbility,
       ckAbility: ckAbility ?? this.ckAbility,
       leadership: leadership ?? this.leadership,
-      intelligenceSense: intelligenceSense ?? this.intelligenceSense,
-      individualOrganization:
-          individualOrganization ?? this.individualOrganization,
       recommendKeyPositions:
           recommendKeyPositions ?? this.recommendKeyPositions,
       portraitUrl: portraitUrl ?? this.portraitUrl,
@@ -252,11 +224,6 @@ class Player {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-
-  int get intelligenceValue => 10 - intelligenceSense;
-  int get senseValue => intelligenceSense;
-  int get individualValue => 10 - individualOrganization;
-  int get organizationValue => individualOrganization;
 
   /// DB에 시드가 없으면 화면 표시용으로 [defaultSeedName]만 사용.
   List<String> get displaySeedNames =>

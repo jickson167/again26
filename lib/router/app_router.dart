@@ -5,6 +5,7 @@ import '../pages/admin/admin_coach_form_page.dart';
 import '../pages/admin/admin_coach_generator_page.dart';
 import '../pages/admin/admin_coach_portrait_generator_page.dart';
 import '../pages/admin/admin_flag_nation_mapper_page.dart';
+import '../pages/admin/admin_formation_layout_page.dart';
 import '../pages/admin/admin_hub_page.dart';
 import '../pages/admin/admin_player_form_page.dart';
 import '../pages/admin/admin_player_generator_page.dart';
@@ -143,6 +144,16 @@ GoRouter createRouter({required AppServices? services}) {
           GoRoute(
             path: 'flag-nation-mapper',
             builder: (context, state) => const AdminFlagNationMapperPage(),
+          ),
+          GoRoute(
+            path: 'formations/:id/layout',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return AdminFormationLayoutPage(
+                services: services,
+                formationId: id,
+              );
+            },
           ),
           GoRoute(
             path: 'coaches/new',

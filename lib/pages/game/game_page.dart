@@ -12,9 +12,11 @@ import '../../models/player.dart';
 import '../../models/player_position.dart';
 import '../../services/app_services.dart';
 import '../../utils/coach_portrait.dart';
-import 'game_user_settings_page.dart';
-import '../../widgets/formation_pitch_diagram.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/formation_pitch_diagram.dart';
+import '../../widgets/game_title_logo.dart';
+import 'game_user_settings_page.dart';
+import 'team_organization_page.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key, required this.services});
@@ -367,6 +369,9 @@ class _GamePageState extends State<GamePage> {
 
     return _GameHomeView(
       club: _club!,
+      services: widget.services,
+      isDevTestMode: _isDevTestMode,
+      onClubUpdated: (club) => setState(() => _club = club),
       onReset: () => setState(() => _club = null),
       onLogout: _signOut,
       onOpenUserSettings: _isDevTestMode
@@ -398,30 +403,27 @@ class _GameLoginView extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F5132), Color(0xFF052E16)],
-          ),
-        ),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Card(
-              elevation: 10,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Icon(
-                      Icons.sports_soccer,
-                      size: 64,
-                      color: theme.colorScheme.primary,
-                    ),
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const _GameBackdrop(),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Card(
+                elevation: 10,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Icon(
+                        Icons.sports_soccer,
+                        size: 64,
+                        color: theme.colorScheme.primary,
+                      ),
                     const SizedBox(height: 12),
                     Text(
                       'Again26',
@@ -502,7 +504,8 @@ class _GameLoginView extends StatelessWidget {
               ),
             ),
           ),
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -683,7 +686,7 @@ class _GameSetupViewState extends State<_GameSetupView> {
     setState(() => _saving = true);
     try {
       await widget.onCreateClub(
-        GameClub(
+        GameClub.fromStartersBench(
           clubName: clubName,
           formation: formation,
           coach: coach,
@@ -713,19 +716,38 @@ class _GameSetupViewState extends State<_GameSetupView> {
     final gks = rankOne
         .where((player) => player.position == PlayerPosition.gk)
         .toList();
-    final outfield = rankOne
-        .where((player) => player.position != PlayerPosition.gk)
+    final dfs = rankOne
+        .where((player) => player.position == PlayerPosition.df)
+        .toList();
+    final mfs = rankOne
+        .where((player) => player.position == PlayerPosition.mf)
+        .toList();
+    final fws = rankOne
+        .where((player) => player.position == PlayerPosition.fw)
         .toList();
     if (gks.isEmpty) {
       return (starters: const <Player>[], bench: const <Player>[]);
     }
 
-    final starters = <Player>[gks.first, ...outfield.take(10)];
+    // 포메이션 라인에 가깝게: GK + DF → MF → FW 순으로 선발 채움
+    final outfieldPool = [...dfs, ...mfs, ...fws];
+    final starters = <Player>[gks.first, ...outfieldPool.take(10)];
     final usedIds = starters.map((player) => player.id).toSet();
-    final bench = rankOne
-        .where((player) => !usedIds.contains(player.id))
-        .take(10)
-        .toList();
+    final benchPool = [
+      ...gks.skip(1),
+      ...outfieldPool.skip(10),
+      ...rankOne.where((p) => !usedIds.contains(p.id) && !outfieldPool.contains(p) && p != gks.first),
+    ];
+    final bench = <Player>[];
+    final benchIds = <String>{};
+    for (final player in [...benchPool, ...rankOne]) {
+      if (usedIds.contains(player.id) || benchIds.contains(player.id)) {
+        continue;
+      }
+      bench.add(player);
+      benchIds.add(player.id);
+      if (bench.length >= 10) break;
+    }
     return (starters: starters, bench: bench);
   }
 
@@ -857,12 +879,18 @@ class _GameSetupViewState extends State<_GameSetupView> {
 class _GameHomeView extends StatefulWidget {
   const _GameHomeView({
     required this.club,
+    required this.services,
+    required this.isDevTestMode,
+    required this.onClubUpdated,
     required this.onReset,
     required this.onLogout,
     required this.onOpenUserSettings,
   });
 
   final GameClub club;
+  final AppServices services;
+  final bool isDevTestMode;
+  final ValueChanged<GameClub> onClubUpdated;
   final VoidCallback onReset;
   final VoidCallback onLogout;
   final VoidCallback onOpenUserSettings;
@@ -872,14 +900,29 @@ class _GameHomeView extends StatefulWidget {
 }
 
 class _GameHomeViewState extends State<_GameHomeView> {
-  String _selectedMenu = '홈';
+  String _selectedMenu = '팀 조직';
   String _selectedNavTab = '팀 조직';
 
   static const _viewportHorizontalPadding = 24.0;
   static const _gameShellMaxWidth = 980.0;
   static const _gameBoardMaxWidth = 860.0;
 
+  bool get _showTeamOrganization {
+    if (_selectedMenu == '홈') return false;
+    return _selectedNavTab == '팀 조직' || _selectedMenu == '팀 조직';
+  }
+
   Widget _buildMainContent(bool compact) {
+    if (_showTeamOrganization) {
+      return TeamOrganizationView(
+        club: widget.club,
+        services: widget.services,
+        isDevTestMode: widget.isDevTestMode,
+        onClubUpdated: widget.onClubUpdated,
+        compact: compact,
+      );
+    }
+
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 12,
@@ -903,85 +946,187 @@ class _GameHomeViewState extends State<_GameHomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF4D7C0F), Color(0xFF166534)],
-          ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 760;
-              final content = Column(
-                children: [
-                  _GameUtilityBar(
-                    compact: compact,
-                    onUserSettings: widget.onOpenUserSettings,
-                  ),
-                  _GameMainNavBar(
-                    compact: compact,
-                    selected: _selectedNavTab,
-                    onSelected: (tab) => setState(() => _selectedNavTab = tab),
-                  ),
-                  _GameClubHeader(club: widget.club, compact: compact),
-                  Expanded(child: _buildMainContent(compact)),
-                ],
-              );
-
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _viewportHorizontalPadding,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: _gameShellMaxWidth,
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const _GameBackdrop(),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 760;
+                final content = Column(
+                  children: [
+                    _GameTopChrome(
+                      compact: compact,
+                      selectedNavTab: _selectedNavTab,
+                      onUserSettings: widget.onOpenUserSettings,
+                      onNavSelected: (tab) => setState(() {
+                        _selectedNavTab = tab;
+                        if (tab == '팀 조직') {
+                          _selectedMenu = '팀 조직';
+                        }
+                      }),
                     ),
-                    child: compact
-                        ? Column(
-                            children: [
-                              _GameSideMenu(
-                                selected: _selectedMenu,
-                                onSelected: (menu) =>
-                                    setState(() => _selectedMenu = menu),
-                                onReset: widget.onReset,
-                                onLogout: widget.onLogout,
-                                horizontal: true,
-                              ),
-                              Expanded(child: content),
-                            ],
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _GameSideMenu(
-                                selected: _selectedMenu,
-                                onSelected: (menu) =>
-                                    setState(() => _selectedMenu = menu),
-                                onReset: widget.onReset,
-                                onLogout: widget.onLogout,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Align(
-                                  alignment: Alignment.topCenter,
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: _gameBoardMaxWidth,
+                    _GameClubHeader(club: widget.club, compact: compact),
+                    Expanded(child: _buildMainContent(compact)),
+                  ],
+                );
+
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: _viewportHorizontalPadding,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: _gameShellMaxWidth,
+                      ),
+                      child: compact
+                          ? Column(
+                              children: [
+                                _GameSideMenu(
+                                  selected: _selectedMenu,
+                                  onSelected: (menu) => setState(() {
+                                    _selectedMenu = menu;
+                                    if (menu == '팀 조직') {
+                                      _selectedNavTab = '팀 조직';
+                                    }
+                                  }),
+                                  onReset: widget.onReset,
+                                  onLogout: widget.onLogout,
+                                  horizontal: true,
+                                ),
+                                Expanded(child: content),
+                              ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _GameSideMenu(
+                                  selected: _selectedMenu,
+                                  onSelected: (menu) => setState(() {
+                                    _selectedMenu = menu;
+                                    if (menu == '팀 조직') {
+                                      _selectedNavTab = '팀 조직';
+                                    }
+                                  }),
+                                  onReset: widget.onReset,
+                                  onLogout: widget.onLogout,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Align(
+                                    // 사이드메뉴 바로 오른쪽에 보드를 붙여
+                                    // 타이틀 로고가 아레나 리그 탭 왼쪽에 보이게 한다.
+                                    alignment: Alignment.topLeft,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: _gameBoardMaxWidth,
+                                      ),
+                                      child: content,
                                     ),
-                                    child: content,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 웹페이지 최뒤 배경 — 전체 화면 cover.
+class _GameBackdrop extends StatelessWidget {
+  const _GameBackdrop();
+
+  static const assetPath = 'assets/images/background.png';
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Image.asset(
+        assetPath,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Game backdrop load failed: $assetPath ($error)');
+          return const ColoredBox(color: Color(0xFF0B1A12));
+        },
+      ),
+    );
+  }
+}
+
+class _GameTopChrome extends StatelessWidget {
+  const _GameTopChrome({
+    required this.compact,
+    required this.selectedNavTab,
+    required this.onUserSettings,
+    required this.onNavSelected,
+  });
+
+  final bool compact;
+  final String selectedNavTab;
+  final VoidCallback onUserSettings;
+  final ValueChanged<String> onNavSelected;
+
+  static const _utilityH = 28.0;
+  static const _navH = 44.0;
+
+  double get _chromeH => _utilityH + _navH;
+
+  @override
+  Widget build(BuildContext context) {
+    // 두 칸 높이에 맞춘 정사각 타이틀 (웹사커처럼)
+    final logoSize = _chromeH;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(compact ? 8 : 0, 4, compact ? 8 : 0, 0),
+      height: _chromeH,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 아레나 리그 탭 왼쪽 — 유틸+내비 높이를 채우는 타이틀 로고
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(6),
+            ),
+            child: SizedBox(
+              width: logoSize,
+              height: logoSize,
+              child: GameTitleLogo(size: logoSize),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: _utilityH,
+                  child: _GameUtilityBar(
+                    compact: compact,
+                    onUserSettings: onUserSettings,
                   ),
                 ),
-              );
-            },
+                SizedBox(
+                  height: _navH,
+                  child: _GameMainNavBar(
+                    compact: compact,
+                    selected: selectedNavTab,
+                    onSelected: onNavSelected,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1006,65 +1151,82 @@ class _GameUtilityBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.fromLTRB(compact ? 8 : 0, 8, compact ? 8 : 0, 0),
-      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-        border: Border.all(color: Colors.black26),
+      width: double.infinity,
+      height: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12),
+      alignment: Alignment.centerRight,
+      decoration: const BoxDecoration(
+        color: Color(0xF2FFFFFF),
+        borderRadius: BorderRadius.only(topRight: Radius.circular(6)),
+        border: Border(
+          top: BorderSide(color: Colors.black26),
+          right: BorderSide(color: Colors.black26),
+          bottom: BorderSide(color: Colors.black26),
+        ),
       ),
       child: Row(
         children: [
+          const Spacer(),
           if (!compact)
-            Expanded(
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                children: [
-                  for (final link in _links)
-                    InkWell(
-                      onTap: link == '사용자 설정' ? onUserSettings : null,
-                      child: Text(
-                        link,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: link == '사용자 설정'
-                              ? const Color(0xFF1D4ED8)
-                              : Colors.grey.shade600,
-                          decoration: link == '사용자 설정'
-                              ? TextDecoration.underline
-                              : TextDecoration.none,
-                        ),
-                      ),
+            for (var i = 0; i < _links.length; i++) ...[
+              if (i > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    '|',
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1.1,
+                      color: Colors.grey.shade400,
                     ),
-                ],
-              ),
-            )
-          else
-            Expanded(
-              child: InkWell(
-                onTap: onUserSettings,
-                child: const Text(
-                  '사용자 설정',
+                  ),
+                ),
+              InkWell(
+                onTap: _links[i] == '사용자 설정' ? onUserSettings : null,
+                child: Text(
+                  _links[i],
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1D4ED8),
-                    decoration: TextDecoration.underline,
+                    fontSize: 10,
+                    height: 1.1,
+                    color: _links[i] == '사용자 설정'
+                        ? const Color(0xFF1D4ED8)
+                        : Colors.grey.shade600,
+                    decoration: _links[i] == '사용자 설정'
+                        ? TextDecoration.underline
+                        : TextDecoration.none,
                   ),
                 ),
               ),
+            ]
+          else
+            InkWell(
+              onTap: onUserSettings,
+              child: const Text(
+                '사용자 설정',
+                style: TextStyle(
+                  fontSize: 10,
+                  height: 1.1,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1D4ED8),
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
+          const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: const Color(0xFFFACC15),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(3),
               border: Border.all(color: Colors.black45),
             ),
             child: const Text(
               'G 구입',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                height: 1.1,
+              ),
             ),
           ),
         ],
@@ -1095,62 +1257,32 @@ class _GameMainNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: compact ? 8 : 0),
-      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 10, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+      width: double.infinity,
+      height: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 6, vertical: 4),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
         ),
-        border: Border.all(color: Colors.black45),
+        border: Border(
+          right: BorderSide(color: Colors.black45),
+          bottom: BorderSide(color: Colors.black45),
+        ),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.black26),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.sports_soccer, size: compact ? 18 : 22, color: const Color(0xFF1D4ED8)),
-                if (!compact) ...[
-                  const SizedBox(width: 6),
-                  const Text(
-                    'AGAIN26',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: Color(0xFF1D4ED8),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final tab in _tabs)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: _MainNavTab(
-                        label: tab.$1,
-                        icon: tab.$2,
-                        selected: selected == tab.$1,
-                        compact: compact,
-                        onTap: () => onSelected(tab.$1),
-                      ),
-                    ),
-                ],
+          for (var i = 0; i < _tabs.length; i++) ...[
+            if (i > 0) SizedBox(width: compact ? 3 : 4),
+            Expanded(
+              child: _MainNavTab(
+                label: _tabs[i].$1,
+                icon: _tabs[i].$2,
+                selected: selected == _tabs[i].$1,
+                compact: compact,
+                onTap: () => onSelected(_tabs[i].$1),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1181,9 +1313,11 @@ class _MainNavTab extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
         child: Container(
+          width: double.infinity,
+          alignment: Alignment.center,
           padding: EdgeInsets.symmetric(
-            horizontal: compact ? 8 : 12,
-            vertical: compact ? 6 : 8,
+            horizontal: compact ? 4 : 8,
+            vertical: compact ? 4 : 5,
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(4),
@@ -1192,16 +1326,20 @@ class _MainNavTab extends StatelessWidget {
             ),
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: Colors.white, size: compact ? 16 : 18),
               const SizedBox(width: 4),
-              Text(
-                compact ? label.split(' ').first : label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+              Flexible(
+                child: Text(
+                  compact ? label.split(' ').first : label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -1220,9 +1358,13 @@ class _GameClubHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final emblemSize = compact ? 22.0 : 26.0;
     return Container(
       margin: EdgeInsets.fromLTRB(compact ? 8 : 0, 0, compact ? 8 : 0, 0),
-      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 14, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 12,
+        vertical: compact ? 4 : 6,
+      ),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
@@ -1232,24 +1374,25 @@ class _GameClubHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: compact ? 36 : 44,
-            height: compact ? 36 : 44,
+            width: emblemSize,
+            height: emblemSize,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.black26, width: 2),
+              border: Border.all(color: Colors.black26, width: 1.5),
             ),
             child: club.clubLogoUrl == null
-                ? const Icon(Icons.shield, color: Color(0xFF0B67C2))
+                ? Icon(Icons.shield, color: const Color(0xFF0B67C2), size: emblemSize * 0.6)
                 : ClipOval(child: Image.network(club.clubLogoUrl!, fit: BoxFit.cover)),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               club.clubName,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: compact ? 18 : 24,
+                fontSize: compact ? 14 : 16,
+                height: 1.1,
                 fontWeight: FontWeight.w900,
                 fontStyle: FontStyle.italic,
               ),
@@ -1257,63 +1400,47 @@ class _GameClubHeader extends StatelessWidget {
             ),
           ),
           if (!compact) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text(
-                  '엔트리 / 엔트리',
-                  style: TextStyle(color: Colors.white70, fontSize: 10),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(top: 2),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.white24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '현재 375 위',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      height: 1.1,
+                    ),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '현재 375 위',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(Icons.north_east, color: Color(0xFFFACC15), size: 16),
-                    ],
-                  ),
-                ),
-              ],
+                  SizedBox(width: 3),
+                  Icon(Icons.north_east, color: Color(0xFFFACC15), size: 12),
+                ],
+              ),
             ),
-            const SizedBox(width: 12),
-            Row(
+            const SizedBox(width: 8),
+            const Row(
               children: [
                 _NotificationIcon(icon: Icons.card_giftcard, count: 2),
-                const SizedBox(width: 6),
+                SizedBox(width: 4),
                 _NotificationIcon(icon: Icons.emoji_events, count: 1),
-                const SizedBox(width: 6),
-                const Icon(Icons.article_outlined, color: Colors.white, size: 22),
-                const SizedBox(width: 6),
-                const Icon(Icons.settings, color: Colors.white, size: 22),
+                SizedBox(width: 4),
+                Icon(Icons.article_outlined, color: Colors.white, size: 16),
+                SizedBox(width: 4),
+                Icon(Icons.settings, color: Colors.white, size: 16),
               ],
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _CurrencyChip(label: '3000 P', color: Color(0xFF22C55E)),
-                SizedBox(height: 4),
-                _CurrencyChip(label: '0 G', color: Color(0xFFEF4444)),
-              ],
-            ),
+            const SizedBox(width: 8),
+            const _HorizontalCurrencyBar(points: 3000, coins: 0),
           ] else
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.45),
                 borderRadius: BorderRadius.circular(4),
@@ -1323,10 +1450,64 @@ class _GameClubHeader extends StatelessWidget {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11,
+                  fontSize: 10,
+                  height: 1.1,
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HorizontalCurrencyBar extends StatelessWidget {
+  const _HorizontalCurrencyBar({required this.points, required this.coins});
+
+  final int points;
+  final int coins;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.monetization_on, color: Color(0xFF22C55E), size: 13),
+          const SizedBox(width: 3),
+          Text(
+            '$points P',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              height: 1.1,
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              '/',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ),
+          const Icon(Icons.circle, color: Color(0xFFFACC15), size: 11),
+          const SizedBox(width: 3),
+          Text(
+            '$coins C',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              height: 1.1,
+            ),
+          ),
         ],
       ),
     );
@@ -1344,13 +1525,13 @@ class _NotificationIcon extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Icon(icon, color: Colors.white, size: 26),
+        Icon(icon, color: Colors.white, size: 16),
         Positioned(
           right: -4,
           top: -4,
           child: Container(
-            width: 16,
-            height: 16,
+            width: 12,
+            height: 12,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: Colors.red,
@@ -1361,51 +1542,13 @@ class _NotificationIcon extends StatelessWidget {
               '$count',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 9,
+                fontSize: 8,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CurrencyChip extends StatelessWidget {
-  const _CurrencyChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

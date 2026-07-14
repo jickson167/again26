@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/club_player.dart';
 import '../models/coach.dart';
 import '../models/formation.dart';
 import '../models/game_club.dart';
@@ -60,6 +61,21 @@ class DevTestUserService {
 
   Future<GameClub> createClub({required GameClub club}) async {
     final clubId = club.id ?? 'dev-club-1';
+    final squad = club.squad.isNotEmpty
+        ? club.squad
+        : ClubPlayer.fromStartersAndBench(
+            starters: club.starters,
+            bench: club.bench,
+          );
+    final withSquad = club.copyWith(id: clubId, userId: devUserId, squad: squad);
+    final data = _serializeClub(withSquad, clubId: clubId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_clubDataKey, jsonEncode(data));
+    return withSquad;
+  }
+
+  Future<GameClub> updateTeamOrganization({required GameClub club}) async {
+    final clubId = club.id ?? 'dev-club-1';
     final data = _serializeClub(club, clubId: clubId);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_clubDataKey, jsonEncode(data));
@@ -67,6 +83,8 @@ class DevTestUserService {
   }
 
   Map<String, dynamic> _serializeClub(GameClub club, {required String clubId}) {
+    final starters = club.starterClubPlayers;
+    final bench = club.benchClubPlayers;
     return {
       'id': clubId,
       'club_name': club.clubName,
@@ -77,8 +95,21 @@ class DevTestUserService {
       'coach_results': club.coachResults,
       'formation_id': club.formation.id,
       'coach_id': club.coach.id,
-      'starter_player_ids': club.starters.map((player) => player.id).toList(),
-      'bench_player_ids': club.bench.map((player) => player.id).toList(),
+      'starter_player_ids': [for (final cp in starters) cp.playerId],
+      'bench_player_ids': [for (final cp in bench) cp.playerId],
+      'pk_player_id': club.pkPlayerId,
+      'fk_player_id': club.fkPlayerId,
+      'ck_player_id': club.ckPlayerId,
+      'captain_player_id': club.captainPlayerId,
+      'squad': [
+        for (final cp in club.squad)
+          {
+            'player_id': cp.playerId,
+            'position_index': cp.positionIndex,
+            'acquired_at': cp.acquiredAt.toUtc().toIso8601String(),
+            'current_stage': cp.currentStage,
+          },
+      ],
     };
   }
 
@@ -90,17 +121,46 @@ class DevTestUserService {
   }) async {
     final formationId = '${data['formation_id']}';
     final coachId = '${data['coach_id']}';
-    final starterIds = [
-      for (final id in (data['starter_player_ids'] as List? ?? const [])) '$id',
-    ];
-    final benchIds = [
-      for (final id in (data['bench_player_ids'] as List? ?? const [])) '$id',
-    ];
+
+    final squadRaw = data['squad'] as List?;
+    final List<String> playerIds;
+    final List<Map<String, dynamic>> cpRows;
+    if (squadRaw != null && squadRaw.isNotEmpty) {
+      cpRows = [
+        for (final row in squadRaw) Map<String, dynamic>.from(row as Map),
+      ];
+      playerIds = [for (final row in cpRows) '${row['player_id']}'];
+    } else {
+      final starterIds = [
+        for (final id in (data['starter_player_ids'] as List? ?? const []))
+          '$id',
+      ];
+      final benchIds = [
+        for (final id in (data['bench_player_ids'] as List? ?? const [])) '$id',
+      ];
+      playerIds = [...starterIds, ...benchIds];
+      cpRows = [
+        for (var i = 0; i < starterIds.length; i++)
+          {
+            'player_id': starterIds[i],
+            'position_index': i + 1,
+            'acquired_at': DateTime.now().toUtc().toIso8601String(),
+            'current_stage': 1,
+          },
+        for (var i = 0; i < benchIds.length; i++)
+          {
+            'player_id': benchIds[i],
+            'position_index': 12 + i,
+            'acquired_at': DateTime.now().toUtc().toIso8601String(),
+            'current_stage': 1,
+          },
+      ];
+    }
 
     final results = await Future.wait([
       formationService.fetchById(formationId),
       coachService.fetchById(coachId),
-      playerService.fetchByIds([...starterIds, ...benchIds]),
+      playerService.fetchByIds(playerIds),
     ]);
 
     final formation = results[0] as Formation?;
@@ -111,13 +171,16 @@ class DevTestUserService {
     }
 
     final playersById = {for (final player in players) player.id: player};
-    final starters = [
-      for (final id in starterIds)
-        if (playersById[id] != null) playersById[id]!,
-    ];
-    final bench = [
-      for (final id in benchIds)
-        if (playersById[id] != null) playersById[id]!,
+    final squad = <ClubPlayer>[
+      for (final row in cpRows)
+        if (playersById['${row['player_id']}'] != null)
+          ClubPlayer(
+            player: playersById['${row['player_id']}']!,
+            positionIndex: _parseInt(row['position_index']) ?? 1,
+            acquiredAt: DateTime.tryParse('${row['acquired_at']}') ??
+                DateTime.now(),
+            currentStage: _parseInt(row['current_stage']) ?? 1,
+          ),
     ];
 
     return GameClub(
@@ -126,8 +189,11 @@ class DevTestUserService {
       clubName: '${data['club_name']}',
       formation: formation,
       coach: coach,
-      starters: starters,
-      bench: bench,
+      squad: squad,
+      pkPlayerId: data['pk_player_id'] as String?,
+      fkPlayerId: data['fk_player_id'] as String?,
+      ckPlayerId: data['ck_player_id'] as String?,
+      captainPlayerId: data['captain_player_id'] as String?,
       leagueTier: _leagueTierFromCode('${data['league_tier']}'),
       clubLogoUrl: data['club_logo_url'] as String?,
       clubStats: Map<String, dynamic>.from(
@@ -135,7 +201,13 @@ class DevTestUserService {
       ),
       playerResults: _parseNestedMap(data['player_results']),
       coachResults: _parseNestedMap(data['coach_results']),
-    );
+    ).withEnsuredPlayerResults();
+  }
+
+  int? _parseInt(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value');
   }
 
   GameLeagueTier _leagueTierFromCode(String code) {

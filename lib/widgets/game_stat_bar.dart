@@ -8,6 +8,8 @@ class GameStatBar extends StatelessWidget {
     required this.color,
     this.max = 10,
     this.compact = false,
+    this.textColor,
+    this.labelWidth,
   });
 
   final String label;
@@ -15,25 +17,32 @@ class GameStatBar extends StatelessWidget {
   final Color color;
   final int max;
   final bool compact;
+  final Color? textColor;
+  final double? labelWidth;
 
   @override
   Widget build(BuildContext context) {
-    final labelWidth = compact ? 44.0 : 72.0;
+    final labelW = labelWidth ?? (compact ? 44.0 : 72.0);
     final valueWidth = compact ? 14.0 : 20.0;
     final fontSize = compact ? 10.0 : 12.0;
     final barHeight = compact ? 9.0 : 12.0;
     final segmentGap = compact ? 1.0 : 2.0;
-    final verticalPadding = compact ? 4.0 : 3.0;
+    final verticalPadding = compact ? 2.0 : 3.0;
+    final fg = textColor;
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: Row(
         children: [
           SizedBox(
-            width: labelWidth,
+            width: labelW,
             child: Text(
               label,
-              style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -64,6 +73,7 @@ class GameStatBar extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: compact ? 10 : null,
+                color: fg,
               ),
             ),
           ),
