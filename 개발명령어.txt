@@ -11,6 +11,15 @@ flutter pub get
 # 로컬 서버 실행 (8080 포트 · Chrome에서 관리자 페이지 자동 열림)
 ./run_local.sh
 
+# 경기 시뮬 엔진 테스트 (Deno · TypeScript · simulation_version 확인 README)
+# Deno 설치 후:
+export PATH="$HOME/.deno/bin:$PATH"
+deno test -A supabase/functions/_shared/match_engine/tests/match_engine_test.ts
+deno test -A supabase/functions/_shared/match_engine/tests/monte_carlo_100k_test.ts
+# 영향력 분석 / 자동 밸런싱
+deno run -A supabase/functions/_shared/match_engine/tests/factor_influence_report.ts
+deno run -A supabase/functions/_shared/match_engine/tests/auto_balance.ts
+
 # 터미널 단축키: r = hot reload · R = hot restart · q = 종료
 
 

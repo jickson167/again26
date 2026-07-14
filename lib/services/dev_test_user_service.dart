@@ -211,11 +211,7 @@ class DevTestUserService {
   }
 
   GameLeagueTier _leagueTierFromCode(String code) {
-    return switch (code) {
-      'first' => GameLeagueTier.first,
-      'pro' => GameLeagueTier.pro,
-      _ => GameLeagueTier.second,
-    };
+    return GameLeagueTier.fromCode(code);
   }
 
   Map<String, Map<String, dynamic>> _parseNestedMap(Object? value) {

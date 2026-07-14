@@ -171,6 +171,42 @@ class GameClubService {
     );
   }
 
+  /// 관리자 시뮬레이션용. 최대 [limit]개 구단을 불러와 티어→등수→이름 순 정렬.
+  Future<List<GameClub>> fetchClubs({
+    int limit = 100,
+    required PlayerService playerService,
+    required CoachService coachService,
+    required FormationService formationService,
+  }) async {
+    final rows = await _client
+        .from(clubsTable)
+        .select()
+        .order('created_at', ascending: false)
+        .limit(limit);
+    final clubs = <GameClub>[];
+    for (final row in rows as List) {
+      final club = await _clubFromRows(
+        clubRow: Map<String, dynamic>.from(row as Map),
+        playerService: playerService,
+        coachService: coachService,
+        formationService: formationService,
+      );
+      if (club != null) {
+        clubs.add(club);
+      }
+    }
+    clubs.sort(_compareClubsForList);
+    return clubs;
+  }
+
+  static int _compareClubsForList(GameClub a, GameClub b) {
+    final tier = a.leagueTier.sortWeight.compareTo(b.leagueTier.sortWeight);
+    if (tier != 0) return tier;
+    final standing = a.leagueStanding.compareTo(b.leagueStanding);
+    if (standing != 0) return standing;
+    return a.clubName.compareTo(b.clubName);
+  }
+
   @Deprecated('Google 로그인(user_id)으로 대체됨')
   Future<GameClub> createGuestClub({
     required GameClub club,
@@ -399,11 +435,7 @@ class GameClubService {
   }
 
   GameLeagueTier _leagueTierFromCode(String code) {
-    return switch (code) {
-      'first' => GameLeagueTier.first,
-      'pro' => GameLeagueTier.pro,
-      _ => GameLeagueTier.second,
-    };
+    return GameLeagueTier.fromCode(code);
   }
 
   Map<String, Map<String, dynamic>> _parseNestedMap(Object? value) {

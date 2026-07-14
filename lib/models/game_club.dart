@@ -7,13 +7,37 @@ import 'player.dart';
 import 'player_match_stats.dart';
 
 enum GameLeagueTier {
-  second('2부 리그'),
-  first('1부 리그'),
-  pro('프로리그');
+  entry('entry', '엔트리 리그', 0),
+  class1('class_1', '클래스 1', 1),
+  class2('class_2', '클래스 2', 2),
+  class3('class_3', '클래스 3', 3),
+  class4('class_4', '클래스 4', 4),
+  class5('class_5', '클래스 5', 5),
+  class6('class_6', '클래스 6', 6),
+  class7('class_7', '클래스 7', 7),
+  class8('class_8', '클래스 8', 8),
+  class9('class_9', '클래스 9', 9),
+  class10('class_10', '클래스 10', 10);
 
-  const GameLeagueTier(this.label);
+  const GameLeagueTier(this.code, this.label, this.sortWeight);
 
+  final String code;
   final String label;
+
+  /// 낮을수록 하위 리그 (목록 정렬용).
+  final int sortWeight;
+
+  /// 승급·강등 전까지 전원 동일 임시 등수.
+  static const temporaryStanding = 1;
+
+  static GameLeagueTier fromCode(String? value) {
+    final code = value ?? 'entry';
+    for (final tier in GameLeagueTier.values) {
+      if (tier.code == code) return tier;
+    }
+    // 레거시 second/first/pro
+    return GameLeagueTier.entry;
+  }
 }
 
 /// 선발 11명 기준 PK/FK/CK/Cap 역할 배정 결과.
@@ -44,7 +68,7 @@ class GameClub {
     this.fkPlayerId,
     this.ckPlayerId,
     this.captainPlayerId,
-    this.leagueTier = GameLeagueTier.second,
+    this.leagueTier = GameLeagueTier.entry,
     this.clubLogoUrl,
     this.clubStats = const {},
     this.playerResults = const {},
@@ -65,7 +89,7 @@ class GameClub {
     String? fkPlayerId,
     String? ckPlayerId,
     String? captainPlayerId,
-    GameLeagueTier leagueTier = GameLeagueTier.second,
+    GameLeagueTier leagueTier = GameLeagueTier.entry,
     String? clubLogoUrl,
     Map<String, dynamic> clubStats = const {},
     Map<String, Map<String, dynamic>> playerResults = const {},
@@ -282,13 +306,9 @@ class GameClub {
     return sum;
   }
 
-  String get leagueTierCode {
-    return switch (leagueTier) {
-      GameLeagueTier.second => 'second',
-      GameLeagueTier.first => 'first',
-      GameLeagueTier.pro => 'pro',
-    };
-  }
+  String get leagueTierCode => leagueTier.code;
+
+  int get leagueStanding => GameLeagueTier.temporaryStanding;
 
   GameClub copyWith({
     String? id,

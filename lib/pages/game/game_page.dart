@@ -725,29 +725,40 @@ class _GameSetupViewState extends State<_GameSetupView> {
     final fws = rankOne
         .where((player) => player.position == PlayerPosition.fw)
         .toList();
-    if (gks.isEmpty) {
+
+    // 선발: GK 1 · DF 3~4 · MF 3~4 · FW = 남는 선발 인원
+    final starterDfCount = 3 + random.nextInt(2); // 3 or 4
+    final starterMfCount = 3 + random.nextInt(2); // 3 or 4
+    final starterFwCount = 10 - starterDfCount - starterMfCount;
+    // 후보: FW 3 · MF 3 · DF 3 · GK 1
+    const benchFwCount = 3;
+    const benchMfCount = 3;
+    const benchDfCount = 3;
+    const benchGkCount = 1;
+
+    if (gks.length < 1 + benchGkCount ||
+        dfs.length < starterDfCount + benchDfCount ||
+        mfs.length < starterMfCount + benchMfCount ||
+        fws.length < starterFwCount + benchFwCount) {
       return (starters: const <Player>[], bench: const <Player>[]);
     }
 
-    // 포메이션 라인에 가깝게: GK + DF → MF → FW 순으로 선발 채움
-    final outfieldPool = [...dfs, ...mfs, ...fws];
-    final starters = <Player>[gks.first, ...outfieldPool.take(10)];
-    final usedIds = starters.map((player) => player.id).toSet();
-    final benchPool = [
-      ...gks.skip(1),
-      ...outfieldPool.skip(10),
-      ...rankOne.where((p) => !usedIds.contains(p.id) && !outfieldPool.contains(p) && p != gks.first),
-    ];
-    final bench = <Player>[];
-    final benchIds = <String>{};
-    for (final player in [...benchPool, ...rankOne]) {
-      if (usedIds.contains(player.id) || benchIds.contains(player.id)) {
-        continue;
-      }
-      bench.add(player);
-      benchIds.add(player.id);
-      if (bench.length >= 10) break;
+    List<Player> take(List<Player> pool, int count, int from) {
+      return pool.sublist(from, from + count);
     }
+
+    final starters = <Player>[
+      ...take(gks, 1, 0),
+      ...take(dfs, starterDfCount, 0),
+      ...take(mfs, starterMfCount, 0),
+      ...take(fws, starterFwCount, 0),
+    ];
+    final bench = <Player>[
+      ...take(fws, benchFwCount, starterFwCount),
+      ...take(mfs, benchMfCount, starterMfCount),
+      ...take(dfs, benchDfCount, starterDfCount),
+      ...take(gks, benchGkCount, 1),
+    ];
     return (starters: starters, bench: bench);
   }
 
@@ -846,7 +857,7 @@ class _GameSetupViewState extends State<_GameSetupView> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    '초기 편성: ${GameLeagueTier.second.label} 배정 · 주전 11명 · 후보 10명 · 1랭크 선수 랜덤 배치',
+                    '초기 편성: ${GameLeagueTier.entry.label} 배정 · 선발 GK1·DF3~4·MF3~4·FW나머지 · 후보 FW3·MF3·DF3·GK1',
                   ),
                 ),
               ),

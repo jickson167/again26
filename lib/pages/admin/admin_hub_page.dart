@@ -27,6 +27,7 @@ import '../../services/nation_flag_service.dart';
 import '../../utils/portrait_data_url.dart';
 import '../../utils/portrait_image_check.dart';
 import '../../widgets/portrait_drop_avatar.dart';
+import 'admin_match_simulation_tab.dart';
 
 class AdminHubPage extends StatefulWidget {
   const AdminHubPage({
@@ -51,8 +52,12 @@ class _AdminHubPageState extends State<AdminHubPage>
   @override
   void initState() {
     super.initState();
-    final initialIndex = widget.initialTab == 'coach' ? 1 : 0;
-    _tabController = TabController(length: 7, vsync: this, initialIndex: initialIndex);
+    final initialIndex = switch (widget.initialTab) {
+      'coach' => 1,
+      'simulation' => 7,
+      _ => 0,
+    };
+    _tabController = TabController(length: 8, vsync: this, initialIndex: initialIndex);
   }
 
   @override
@@ -89,6 +94,7 @@ class _AdminHubPageState extends State<AdminHubPage>
             Tab(icon: Icon(Icons.flag), text: '국기이미지'),
             Tab(icon: Icon(Icons.shield), text: '클럽앰블럼'),
             Tab(icon: Icon(Icons.style), text: '선수스타일'),
+            Tab(icon: Icon(Icons.sports_soccer), text: '경기시뮬레이션'),
           ],
         ),
       ),
@@ -105,6 +111,7 @@ class _AdminHubPageState extends State<AdminHubPage>
           AdminNationFlagsTab(services: widget.services),
           AdminClubEmblemsTab(services: widget.services),
           AdminPlayerStylesTab(services: widget.services),
+          AdminMatchSimulationTab(services: widget.services),
         ],
       ),
     );

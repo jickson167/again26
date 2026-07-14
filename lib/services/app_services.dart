@@ -9,6 +9,7 @@ import 'coach_service.dart';
 import 'formation_service.dart';
 import 'game_club_service.dart';
 import 'key_position_service.dart';
+import 'match_simulation_api.dart';
 import 'nation_flag_image_service.dart';
 import 'player_service.dart';
 
@@ -24,7 +25,8 @@ class AppServices {
       clubEmblemService = ClubEmblemService(client),
       authService = AuthService(client),
       devTestUserService = DevTestUserService(),
-      playerStyleService = PlayerStyleService(client);
+      playerStyleService = PlayerStyleService(client),
+      matchSimulationApi = MatchSimulationApi(client);
 
   final PlayerService playerService;
   final KeyPositionService keyPositionService;
@@ -37,4 +39,5 @@ class AppServices {
   final AuthService authService;
   final DevTestUserService devTestUserService;
   final PlayerStyleService playerStyleService;
+  final MatchSimulationApi matchSimulationApi;
 }
